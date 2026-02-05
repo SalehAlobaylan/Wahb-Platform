@@ -1,14 +1,14 @@
-# Lumen Platform - Phased Implementation Plan
+# Wahb Platform - Phased Implementation Plan
 
 **Version:** 1.0  
 **Created:** January 18, 2026  
-**Platform:** Lumen - Social Media Platform (Audio-First + Magazine-Style News)
+**Platform:** Wahb - Social Media Platform (Audio-First + Magazine-Style News)
 
 ---
 
 ## Executive Summary
 
-This plan outlines the phased development of **Lumen**, a mobile-first social platform featuring dual-mode discovery:
+This plan outlines the phased development of **Wahb**, a mobile-first social platform featuring dual-mode discovery:
 - **"For You" Feed**: TikTok-style vertical scrolling for audio/video content (podcasts, clips)
 - **"News" Feed**: Magazine-style slides with 1 Featured + 3 Related items
 
@@ -16,7 +16,7 @@ This plan outlines the phased development of **Lumen**, a mobile-first social pl
 
 ```mermaid
 graph TB
-    subgraph "Frontend (Lumen Web App)"
+    subgraph "Frontend (Wahb Web App)"
         NEXT[Next.js App Router<br/>Vercel Deployment]
     end
     
@@ -65,8 +65,8 @@ graph TB
 
 ### 1.1 Project Setup & Infrastructure
 
-#### [NEW] Lumen Web App (Next.js)
-> **Location:** `c:\Users\saleh\Desktop\Lumen-Platform\`
+#### [NEW] Wahb Web App (Next.js)
+> **Location:** `c:\Users\saleh\Desktop\Wahb-Platform\`
 
 | Task | Description |
 |------|-------------|
@@ -78,7 +78,7 @@ graph TB
 
 **Directory Structure:**
 ```
-lumen-platform/
+wahb-platform/
 ├── src/
 │   ├── app/                    # App Router pages
 │   │   ├── (feeds)/           # Feed pages group
@@ -105,7 +105,7 @@ lumen-platform/
 ### 1.2 CMS Enhancements (Go Backend)
 
 > [!IMPORTANT]
-> The existing CMS needs significant enhancements to support Lumen's requirements.
+> The existing CMS needs significant enhancements to support Wahb's requirements.
 
 #### Database Schema Updates
 
@@ -465,7 +465,7 @@ ffmpeg -i input.mp4 \
 
 #### Supabase Storage Structure
 ```
-lumen-media/
+wahb-media/
 ├── videos/
 │   ├── {content_id}/
 │   │   ├── original.mp4
@@ -703,7 +703,7 @@ interface PersonalizationResponse {
 ## CMS Enhancement Summary
 
 > [!IMPORTANT]
-> **Tasks for existing CMS to support Lumen:**
+> **Tasks for existing CMS to support Wahb:**
 
 ### Database Additions
 - [ ] Add `content_items` table with pgvector support

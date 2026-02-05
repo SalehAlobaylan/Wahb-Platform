@@ -1381,7 +1381,7 @@ Here are better product-name directions than “ECHO”, tailored to what your P
 
 ## Name ideas (short + brandable)
 
-- Lumen
+- Wahb
 - Pulse
 - Slate
 - Loom
@@ -1411,7 +1411,7 @@ Here are better product-name directions than “ECHO”, tailored to what your P
 
 - **Signal** (discovery + credibility; fits “For You” algorithm + “News” curation).[^11_1]
 - **Current** (news + flow/scroll; matches “two complementary feeds” concept).[^11_1]
-- **Lumen** (premium, “enlightenment” feel; aligns with the mission of mixing entertainment and information).[^11_1]
+- **Wahb** (premium, “enlightenment” feel; aligns with the mission of mixing entertainment and information).[^11_1]
 
 Pick a direction first: do you want the name to feel more like (a) premium journalism, (b) creator/audio-first entertainment, or (c) an even blend of both?
 <span style="display:none">[^11_2][^11_3][^11_4]</span>
@@ -1456,7 +1456,7 @@ Names that evoke “quick feeds” should hint at speed, flow, and scrolling—m
 - Dispatch
 - Brief
 - Slate
-- Lumen
+- Wahb
 
 
 ## My top 5 picks for your product
@@ -1483,18 +1483,18 @@ Do you prefer a 1-word name (Glance/Pulse) or a 2-word name like “Pulse Feed�
 
 ---
 
-# ok we will use Lumen for now,
+# ok we will use Wahb for now,
 
 i want  you to Rebuild the PRD after the results we came out after the  Content Aggregator Service idea
 make another file besides the PRD if needed to explain the project to the LLM agent
 
-Can do—but to actually “rebuild the PRD” and add a second LLM-agent context file, I need to know **where to write them** (repo + path). I also drafted the content changes based on what we decided: rename ECHO → **Lumen** and introduce a clear **Content Aggregator Service** vs Feed Service boundary.[^13_1]
+Can do—but to actually “rebuild the PRD” and add a second LLM-agent context file, I need to know **where to write them** (repo + path). I also drafted the content changes based on what we decided: rename ECHO → **Wahb** and introduce a clear **Content Aggregator Service** vs Feed Service boundary.[^13_1]
 
 ## What will be delivered
 
 1) **Updated PRD** (rewrite, not just find/replace):
 
-- Rename ECHO → Lumen across the doc.[^13_1]
+- Rename ECHO → Wahb across the doc.[^13_1]
 - Add a new section: “Content Aggregation Architecture” describing why the Content Aggregator exists, what it owns (connectors, normalize, dedupe, enrich), and what Feed Service owns (ranking, editions, serving APIs).[^13_1]
 - Keep existing product/UX scope intact: dual feeds, snap scrolling + auto-play, News slide structure, For You algorithm + News curation rules.[^13_1]
 
@@ -1508,7 +1508,7 @@ Can do—but to actually “rebuild the PRD” and add a second LLM-agent contex
 Reply with:
 
 - GitHub `owner` and `repo` (or paste the repo URL).
-- Which branch to commit to (`main` or a feature branch like `docs/lumen-prd`).
+- Which branch to commit to (`main` or a feature branch like `docs/wahb-prd`).
 - Confirm file paths:
     - Update existing: `PRD.md` (or tell me the current path)
     - Create new: `LLM_CONTEXT.md` (or your preferred name)
@@ -1534,14 +1534,14 @@ Once you provide those, I’ll commit:
 
 # just give it to me here
 
-Below are two Markdown files you can copy-paste into your repo: an updated PRD renamed to **Lumen** and a separate agent-focused context file that explains the system boundaries (especially the **Content Aggregator Service** idea) so an LLM doesn’t mix responsibilities.[^14_1]
+Below are two Markdown files you can copy-paste into your repo: an updated PRD renamed to **Wahb** and a separate agent-focused context file that explains the system boundaries (especially the **Content Aggregator Service** idea) so an LLM doesn’t mix responsibilities.[^14_1]
 
 ***
 
 ## `PRD_LUMEN.md`
 
 ```md
-# Product Requirements Document: Lumen
+# Product Requirements Document: Wahb
 
 **Version:** 1.1  
 **Last Updated:** January 17, 2026  
@@ -1568,7 +1568,7 @@ Below are two Markdown files you can copy-paste into your repo: an updated PRD r
 
 ## Executive Summary
 
-**Lumen** is a next-generation social media platform that merges audio-first content consumption with premium news journalism in a TikTok-style vertical scrolling interface. [file:5]  
+**Wahb** is a next-generation social media platform that merges audio-first content consumption with premium news journalism in a TikTok-style vertical scrolling interface. [file:5]  
 The product delivers two complementary feed modes—an algorithmic “For You” experience and a magazine-quality “News” experience—so users can switch between entertainment and information throughout the day. [file:5]
 
 ### Core Value Proposition
@@ -1611,7 +1611,7 @@ To create the ultimate audio and news consumption platform where entertainment m
 
 ### The Audio–News Convergence
 
-Lumen addresses: audio content growth with poor discovery, premium journalism’s struggle to reach younger audiences, and “short-form fatigue” (desire for deeper content with modern UX). [file:5]
+Wahb addresses: audio content growth with poor discovery, premium journalism’s struggle to reach younger audiences, and “short-form fatigue” (desire for deeper content with modern UX). [file:5]
 
 ### The Solution: Two Complementary Feeds
 
@@ -1744,7 +1744,7 @@ Ranking factors include:
 ## Content Aggregation Architecture (New)
 
 ### Why a Content Aggregator Service Exists
-Lumen’s content is inherently multi-source (premium publishers + audio creators), and the platform needs an upstream system that normalizes and de-duplicates content into a consistent internal representation before feeds are computed/served. [file:5]
+Wahb’s content is inherently multi-source (premium publishers + audio creators), and the platform needs an upstream system that normalizes and de-duplicates content into a consistent internal representation before feeds are computed/served. [file:5]
 
 ### High-level Services
 - Content Aggregator Service (**producer**): fetch/import/connect, normalize, dedupe, enrich, and publish content. [file:5]
@@ -1808,7 +1808,7 @@ Lumen’s content is inherently multi-source (premium publishers + audio creator
 ## `LLM_CONTEXT_LUMEN.md`
 
 ```md
-# Lumen – LLM Agent Context (Architecture + Boundaries)
+# Wahb – LLM Agent Context (Architecture + Boundaries)
 
 This file exists to help an LLM agent make correct engineering decisions without mixing service responsibilities, especially around the Content Aggregator Service concept. [file:5]
 
@@ -1816,7 +1816,7 @@ This file exists to help an LLM agent make correct engineering decisions without
 
 ## Product in 2 sentences
 
-Lumen is a mobile-first app with two feed modes: a snap-scrolling, auto-play audio-first “For You” feed and a magazine-quality “News” feed with featured + related article layouts. [file:5]  
+Wahb is a mobile-first app with two feed modes: a snap-scrolling, auto-play audio-first “For You” feed and a magazine-quality “News” feed with featured + related article layouts. [file:5]  
 The backend must support both fast feed serving and reliable ingestion/normalization of multi-source content. [file:5]
 
 ---
@@ -1935,7 +1935,7 @@ Below are **three files** to paste into your repo. The PRD stays product-focused
 ## `PRD_LUMEN.md`
 
 ```md
-# Product Requirements Document: Lumen
+# Product Requirements Document: Wahb
 
 **Version:** 1.2  
 **Last Updated:** January 18, 2026  
@@ -1946,14 +1946,14 @@ Below are **three files** to paste into your repo. The PRD stays product-focused
 
 ## Executive Summary
 
-**Lumen** is a mobile-first social platform that merges an audio-first “For You” feed with a magazine-style “News” feed, both consumed via TikTok-like vertical snap scrolling. [file:5]  
+**Wahb** is a mobile-first social platform that merges an audio-first “For You” feed with a magazine-style “News” feed, both consumed via TikTok-like vertical snap scrolling. [file:5]  
 The key product innovation is that users don’t pick what to listen to or read; they discover content by scrolling, while the platform adapts each scroll unit using interests, trends, and engagement signals. [file:5]
 
 ---
 
 ## Core Concept
 
-Lumen offers two complementary experiences inside one app: [file:5]  
+Wahb offers two complementary experiences inside one app: [file:5]  
 - **For You**: audio-first “video cards” sourced from podcasts, shows/interviews, and audio newsletters. [file:5]  
 - **News**: editorial-style slides where each scroll unit contains 1 featured item + 3 related brief items. [file:5]
 
@@ -2020,7 +2020,7 @@ The platform is intentionally split into: [file:5]
 ## `AGGREGATION_SPEC_LUMEN.md` (new, engineering-focused)
 
 ```md
-# Lumen Aggregation Spec (News + For You)
+# Wahb Aggregation Spec (News + For You)
 
 **Purpose:** Define how the Content Aggregator Service produces “scroll units” for the two feed modes. [file:5]  
 This spec intentionally documents the target-state (multi-type content) and the MVP simplifications (limited types). [file:5]
@@ -2143,15 +2143,15 @@ So Aggregator must:
 ## `LLM_AGENT_CONTEXT_LUMEN.md` (updated agent guide)
 
 ```md
-# Lumen – LLM Agent Context (Updated)
+# Wahb – LLM Agent Context (Updated)
 
-This file tells an LLM agent what Lumen is and how to reason about aggregation without mixing concerns. [file:5]
+This file tells an LLM agent what Wahb is and how to reason about aggregation without mixing concerns. [file:5]
 
 ---
 
-## What Lumen is
+## What Wahb is
 
-Lumen is a dual-feed product consumed via vertical snap scrolling: a News feed (1 featured + 3 related briefs per scroll) and a For You feed (audio-first video cards). [file:5]  
+Wahb is a dual-feed product consumed via vertical snap scrolling: a News feed (1 featured + 3 related briefs per scroll) and a For You feed (audio-first video cards). [file:5]  
 Users discover content by scrolling rather than selecting episodes/articles manually, so freshness + variety + relevance are essential. [file:5]
 
 ---
@@ -2323,7 +2323,7 @@ Here is the detailed **TECHNICAL_SPEC_LUMEN.md**. This file fills in the "I don'
 ### `TECHNICAL_SPEC_LUMEN.md`
 
 ```markdown
-# Technical Specification: Lumen
+# Technical Specification: Wahb
 
 **Version:** 1.0
 **Scope:** MVP (Minimum Viable Product)
@@ -2537,7 +2537,7 @@ You can copy-paste these directly into your repository.
 *The "What" and "Why". Product vision, features, and user flows.*
 
 ```markdown
-# Product Requirements Document: Lumen
+# Product Requirements Document: Wahb
 
 **Version:** 1.3
 **Last Updated:** January 18, 2026
@@ -2547,7 +2547,7 @@ You can copy-paste these directly into your repository.
 ---
 
 ## 1. Executive Summary
-**Lumen** is a mobile-first social platform that merges an audio-first "For You" feed with a magazine-style "News" feed. The key innovation is **dual-mode discovery**: users switch between immersive audio entertainment and premium journalism in a single app, both consumed via TikTok-style vertical snap scrolling.
+**Wahb** is a mobile-first social platform that merges an audio-first "For You" feed with a magazine-style "News" feed. The key innovation is **dual-mode discovery**: users switch between immersive audio entertainment and premium journalism in a single app, both consumed via TikTok-style vertical snap scrolling.
 
 ### Core Value Proposition
 *   **For Consumers:** Discover podcasts and news without "decision fatigue." Scroll to listen, scroll to read.
@@ -2607,7 +2607,7 @@ A vertical feed of **Curated News Slides**.
 *The "How". Architecture, Database Schema, and Aggregation Logic.*
 
 ```markdown
-# Technical Specification: Lumen
+# Technical Specification: Wahb
 
 **Version:** 1.0
 **Scope:** MVP
@@ -2764,14 +2764,14 @@ CREATE TABLE user_interests (
 *The "Map" for the Agent. Rules, boundaries, and definitions.*
 
 ```markdown
-# Lumen: LLM Agent Context
+# Wahb: LLM Agent Context
 
 **Use this file to understand the project boundaries and terminology.**
 
 ---
 
 ## 1. System Definitions
-*   **Lumen:** A social app with a "For You" feed (Audio/Video) and a "News" feed (Read/View).
+*   **Wahb:** A social app with a "For You" feed (Audio/Video) and a "News" feed (Read/View).
 *   **Scroll Unit:** The atomic unit of content.
     *   For **News**, a unit is a **Slide** (1 Featured + 3 Related).
     *   For **For You**, a unit is a **Card** (1 Full-screen MP4).
@@ -2827,7 +2827,7 @@ Here are the three finalized Markdown files. You can copy each block and save it
 *Use this for Product definition.*
 
 ```markdown
-# Product Requirements Document: Lumen
+# Product Requirements Document: Wahb
 
 **Version:** 1.3
 **Last Updated:** January 18, 2026
@@ -2837,7 +2837,7 @@ Here are the three finalized Markdown files. You can copy each block and save it
 ---
 
 ## 1. Executive Summary
-**Lumen** is a mobile-first social platform that merges an audio-first "For You" feed with a magazine-style "News" feed. The key innovation is **dual-mode discovery**: users switch between immersive audio entertainment and premium journalism in a single app, both consumed via TikTok-style vertical snap scrolling.
+**Wahb** is a mobile-first social platform that merges an audio-first "For You" feed with a magazine-style "News" feed. The key innovation is **dual-mode discovery**: users switch between immersive audio entertainment and premium journalism in a single app, both consumed via TikTok-style vertical snap scrolling.
 
 ### Core Value Proposition
 *   **For Consumers:** Discover podcasts and news without "decision fatigue." Scroll to listen, scroll to read.
@@ -2897,7 +2897,7 @@ A vertical feed of **Curated News Slides**.
 *Use this for Engineering definition.*
 
 ```markdown
-# Technical Specification: Lumen
+# Technical Specification: Wahb
 
 **Version:** 1.0
 **Scope:** MVP
@@ -3054,14 +3054,14 @@ CREATE TABLE user_interests (
 *Use this for instructing future AI Agents.*
 
 ```markdown
-# Lumen: LLM Agent Context
+# Wahb: LLM Agent Context
 
 **Use this file to understand the project boundaries and terminology.**
 
 ---
 
 ## 1. System Definitions
-*   **Lumen:** A social app with a "For You" feed (Audio/Video) and a "News" feed (Read/View).
+*   **Wahb:** A social app with a "For You" feed (Audio/Video) and a "News" feed (Read/View).
 *   **Scroll Unit:** The atomic unit of content.
     *   For **News**, a unit is a **Slide** (1 Featured + 3 Related).
     *   For **For You**, a unit is a **Card** (1 Full-screen MP4).
