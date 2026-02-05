@@ -115,7 +115,7 @@ export default function ForYouPage() {
                 <div className="flex justify-between items-center p-4 pt-6">
                     <div className="pointer-events-auto">
                         <span className="text-xl font-black tracking-tighter italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                            LUMEN
+                            WAHB
                         </span>
                     </div>
 

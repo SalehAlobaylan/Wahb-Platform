@@ -1,6 +1,6 @@
 # CMS Backend Requirements (Go Monolith)
 
-This document outlines the requirements for the **Lumen CMS Backend**, typically a Go monolith. It functions as the primary API gateway, content store, and orchestration layer for the user-facing application.
+This document outlines the requirements for the **Wahb CMS Backend**, typically a Go monolith. It functions as the primary API gateway, content store, and orchestration layer for the user-facing application.
 
 ## 1. Core Responsibilities
 - **API Serving**: Expose REST/gRPC endpoints for the frontend (Feeds, Interactions, Auth).

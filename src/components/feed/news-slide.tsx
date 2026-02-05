@@ -40,7 +40,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                     {formatDate(new Date().toISOString())}
                 </p>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
-                    Lumen News
+                    Wahb News
                 </span>
             </header>
 

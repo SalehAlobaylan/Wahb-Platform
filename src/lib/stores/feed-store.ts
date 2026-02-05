@@ -29,10 +29,10 @@ interface FeedState {
 // Generate a session ID for anonymous tracking
 const generateSessionId = () => {
   if (typeof window === 'undefined') return 'server';
-  const stored = sessionStorage.getItem('lumen_session_id');
+  const stored = sessionStorage.getItem('wahb_session_id');
   if (stored) return stored;
   const newId = crypto.randomUUID();
-  sessionStorage.setItem('lumen_session_id', newId);
+  sessionStorage.setItem('wahb_session_id', newId);
   return newId;
 };
 
@@ -82,7 +82,7 @@ export const useFeedStore = create<FeedState>()(
       resetProgress: () => set({ progress: 0, isPlaying: true }),
     }),
     {
-      name: 'lumen-feed-storage',
+      name: 'wahb-feed-storage',
       partialize: (state) => ({
         bookmarkedIds: Array.from(state.bookmarkedIds),
         likedIds: Array.from(state.likedIds),

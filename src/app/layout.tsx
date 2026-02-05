@@ -17,10 +17,10 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Lumen - Discover Audio & News",
+  title: "Wahb - Discover Audio & News",
   description: "Mobile-first social platform with audio-first For You feed and magazine-style News feed",
   keywords: ["podcast", "news", "audio", "social media", "discovery"],
-  authors: [{ name: "Lumen Team" }],
+  authors: [{ name: "Wahb Team" }],
 };
 
 export const viewport: Viewport = {
