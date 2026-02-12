@@ -7,14 +7,18 @@ interface FeedState {
   isPlaying: boolean;
   playbackSpeed: number;
   progress: number;
-  
+
+  // Scroll optimization
+  isFastSwiping: boolean;
+  backoffUntil: number;
+
   // User preferences
   bookmarkedIds: Set<string>;
   likedIds: Set<string>;
-  
+
   // Session state
   sessionId: string;
-  
+
   // Actions
   setActiveIndex: (index: number) => void;
   togglePlay: () => void;
@@ -24,6 +28,8 @@ interface FeedState {
   toggleBookmark: (id: string) => void;
   toggleLike: (id: string) => void;
   resetProgress: () => void;
+  setFastSwiping: (fast: boolean) => void;
+  setBackoffUntil: (until: number) => void;
 }
 
 // Generate a session ID for anonymous tracking
@@ -44,21 +50,27 @@ export const useFeedStore = create<FeedState>()(
       isPlaying: false,
       playbackSpeed: 1.0,
       progress: 0,
+      isFastSwiping: false,
+      backoffUntil: 0,
       bookmarkedIds: new Set<string>(),
       likedIds: new Set<string>(),
       sessionId: '',
-      
+
       // Actions
       setActiveIndex: (index) => set({ activeIndex: index }),
-      
+
       togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-      
+
       setPlaying: (playing) => set({ isPlaying: playing }),
-      
+
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
-      
+
       setProgress: (progress) => set({ progress }),
-      
+
+      setFastSwiping: (fast) => set({ isFastSwiping: fast }),
+
+      setBackoffUntil: (until) => set({ backoffUntil: until }),
+
       toggleBookmark: (id) => set((state) => {
         const newSet = new Set(state.bookmarkedIds);
         if (newSet.has(id)) {
@@ -68,7 +80,7 @@ export const useFeedStore = create<FeedState>()(
         }
         return { bookmarkedIds: newSet };
       }),
-      
+
       toggleLike: (id) => set((state) => {
         const newSet = new Set(state.likedIds);
         if (newSet.has(id)) {
@@ -78,7 +90,7 @@ export const useFeedStore = create<FeedState>()(
         }
         return { likedIds: newSet };
       }),
-      
+
       resetProgress: () => set({ progress: 0, isPlaying: true }),
     }),
     {

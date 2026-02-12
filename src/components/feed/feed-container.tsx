@@ -18,7 +18,8 @@ export const FeedContainer = forwardRef<HTMLDivElement, FeedContainerProps>(
             <div
                 ref={ref}
                 className={cn(
-                    'h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth',
+                    'h-full w-full overflow-y-scroll snap-y snap-mandatory',
+                    'overscroll-y-contain touch-pan-y',
                     'scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]',
                     className
                 )}
