@@ -33,13 +33,13 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     };
 
     return (
-        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-[#f8f5f2] text-[#1a1a1a]">
+        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-secondary text-foreground">
             {/* Header */}
-            <header className="px-6 pt-14 pb-3 border-b-2 border-[#1a1a1a] flex justify-between items-center shrink-0">
+            <header className="px-6 pt-14 pb-3 border-b-2 border-foreground flex justify-between items-center shrink-0">
                 <p className="text-xs font-bold tracking-widest uppercase">
                     {formatDate(new Date().toISOString())}
                 </p>
-                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-bronze">
                     Wahb News
                 </span>
             </header>
@@ -48,12 +48,12 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
             <main className="px-6 py-4 flex flex-col flex-grow overflow-hidden">
                 {/* Featured Article */}
                 <motion.article
-                    className="mb-4 group cursor-pointer border-b-2 border-[#1a1a1a] pb-4 shrink-0"
+                    className="mb-4 group cursor-pointer border-b-2 border-foreground pb-4 shrink-0"
                     onClick={() => onOpenArticle(featured)}
                     whileTap={{ scale: 0.98 }}
                 >
                     {/* Featured Image */}
-                    <div className="h-40 w-full bg-[#eae7e3] relative overflow-hidden group-hover:grayscale transition-all duration-500 mb-4 rounded-sm border border-[#1a1a1a]">
+                    <div className="h-40 w-full bg-muted relative overflow-hidden group-hover:grayscale transition-all duration-500 mb-4 rounded-sm border border-foreground">
                         {featured.thumbnail_url ? (
                             <div
                                 className="absolute inset-0 bg-cover bg-center"
@@ -64,7 +64,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                                 <Radio className="w-16 h-16 opacity-20" />
                             </div>
                         )}
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-[#1a1a1a] text-[#f8f5f2] text-[9px] font-bold uppercase tracking-wider">
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-bronze text-white text-[9px] font-bold uppercase tracking-wider">
                             Featured
                         </div>
                     </div>
@@ -80,7 +80,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             </span>
                         </div>
 
-                        <h2 className="text-2xl font-bold font-serif leading-tight mb-2 group-hover:text-[#e63946] transition-colors line-clamp-2">
+                        <h2 className="text-2xl font-bold font-serif leading-tight mb-2 group-hover:text-bronze transition-colors line-clamp-2">
                             {featured.title}
                         </h2>
 
@@ -89,16 +89,16 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                         </p>
 
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-widest border-b border-[#1a1a1a] pb-0.5">
+                            <span className="text-[10px] font-bold uppercase tracking-widest border-b border-foreground pb-0.5">
                                 By {featured.author || featured.source_name}
                             </span>
-                            <ArrowRight className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            <ArrowRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:text-bronze transition-all" />
                         </div>
                     </div>
                 </motion.article>
 
                 {/* Related Section Header */}
-                <div className="flex justify-between items-end border-b border-[#1a1a1a] mb-2 pb-1 shrink-0">
+                <div className="flex justify-between items-end border-b border-foreground mb-2 pb-1 shrink-0">
                     <h3 className="text-lg font-bold font-serif italic">Related Stories</h3>
                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
                         {related.length} items
@@ -110,15 +110,15 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                     {related.slice(0, 3).map((item, idx) => (
                         <motion.article
                             key={item.id}
-                            className="group cursor-pointer py-3 border-b border-[#1a1a1a]/20 flex flex-col hover:bg-[#eae7e3] transition-colors px-2 rounded-sm"
+                            className="group cursor-pointer py-3 border-b border-foreground/20 flex flex-col hover:bg-muted transition-colors px-2 rounded-sm"
                             onClick={() => onOpenArticle(item)}
                             whileTap={{ scale: 0.98 }}
                         >
                             <div className="flex justify-between items-baseline mb-0.5">
                                 <span className={cn(
                                     "text-[9px] font-bold uppercase tracking-widest",
-                                    item.type === 'TWEET' ? 'text-blue-500' :
-                                        item.type === 'COMMENT' ? 'text-green-600' : 'text-[#e63946]'
+                                    item.type === 'TWEET' ? 'text-bronze' :
+                                        item.type === 'COMMENT' ? 'text-muted-foreground' : 'text-bronze'
                                 )}>
                                     {item.type === 'TWEET' ? '𝕏 Post' :
                                         item.type === 'COMMENT' ? 'Comment' : 'Article'}
@@ -129,7 +129,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             </div>
 
                             {item.title ? (
-                                <h3 className="text-base font-bold font-serif leading-tight group-hover:text-[#e63946] transition-colors line-clamp-1">
+                                <h3 className="text-base font-bold font-serif leading-tight group-hover:text-bronze transition-colors line-clamp-1">
                                     {item.title}
                                 </h3>
                             ) : (
@@ -149,7 +149,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
 
                 {/* Footer decoration */}
                 <div className="mt-auto pt-4 text-center opacity-30 shrink-0">
-                    <div className="w-8 h-1 bg-current mx-auto rounded-full" />
+                    <div className="w-8 h-1 bg-bronze mx-auto rounded-full" />
                 </div>
             </main>
         </div>

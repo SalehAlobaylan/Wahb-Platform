@@ -35,10 +35,10 @@ export function FeedSwitcher({ value, onChange, variant = 'dark' }: FeedSwitcher
                     activeFeed === 'foryou'
                         ? isDark
                             ? 'text-white border-b-2 border-white'
-                            : 'text-[#1a1a1a] border-b-2 border-[#1a1a1a]'
+                            : 'text-foreground border-b-2 border-foreground'
                         : isDark
-                            ? 'text-gray-400 hover:text-white'
-                            : 'text-gray-500 hover:text-[#1a1a1a]'
+                            ? 'text-white/50 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'
                 )}
             >
                 For You
@@ -50,11 +50,11 @@ export function FeedSwitcher({ value, onChange, variant = 'dark' }: FeedSwitcher
                     'transition-colors pb-1',
                     activeFeed === 'news'
                         ? isDark
-                            ? 'text-white border-b-2 border-red-500'
-                            : 'text-[#e63946] border-b-2 border-[#e63946]'
+                            ? 'text-white border-b-2 border-bronze'
+                            : 'text-bronze border-b-2 border-bronze'
                         : isDark
-                            ? 'text-gray-400 hover:text-white'
-                            : 'text-gray-500 hover:text-[#1a1a1a]'
+                            ? 'text-white/50 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'
                 )}
             >
                 News

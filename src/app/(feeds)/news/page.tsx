@@ -74,7 +74,7 @@ export default function NewsPage() {
     // Show error state
     if (isError) {
         return (
-            <div className="h-full w-full bg-[#f8f5f2]">
+            <div className="h-full w-full bg-secondary">
                 <FeedErrorFallback
                     onRetry={() => refetch()}
                     message={error?.message || 'Failed to load news feed'}
@@ -89,8 +89,8 @@ export default function NewsPage() {
             <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
                 <div className="flex justify-between items-center p-4 pt-6">
                     <div className="pointer-events-auto">
-                        <span className="text-xl font-black tracking-tighter italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                            WAHB
+                        <span className="text-xl font-black tracking-tighter font-serif text-bronze">
+                            WAHB.
                         </span>
                     </div>
 
@@ -125,8 +125,8 @@ export default function NewsPage() {
 
                 {/* Loading more indicator */}
                 {isFetchingNextPage && (
-                    <div className="h-20 flex items-center justify-center bg-[#f8f5f2]">
-                        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    <div className="h-20 flex items-center justify-center bg-secondary">
+                        <div className="w-8 h-8 border-2 border-bronze/30 border-t-bronze rounded-full animate-spin" />
                     </div>
                 )}
             </FeedContainer>

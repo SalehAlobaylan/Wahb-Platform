@@ -2,43 +2,23 @@
 
 import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-    Play,
-    Pause,
-    Heart,
-    Bookmark,
-    Share2,
-    MessageCircle,
-    RotateCcw,
-    Headphones
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Play, Headphones } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
 import type { ContentItem } from '@/types';
 
 interface ForYouCardProps {
     item: ContentItem;
     isActive: boolean;
-    onLike: () => void;
-    onBookmark: () => void;
-    onShare: () => void;
 }
 
 /**
- * Full-screen video/audio card for For You feed
+ * Full-screen video/audio card for For You feed.
+ * Only handles media playback and content display.
+ * Action buttons and bottom sheet are rendered at the page level.
  */
-export function ForYouCard({
-    item,
-    isActive,
-    onLike,
-    onBookmark,
-    onShare
-}: ForYouCardProps) {
+export function ForYouCard({ item, isActive }: ForYouCardProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const { isPlaying, setPlaying, togglePlay, progress, setProgress, playbackSpeed, likedIds, bookmarkedIds } = useFeedStore();
-
-    const isLiked = likedIds.has(item.id);
-    const isBookmarked = bookmarkedIds.has(item.id);
+    const { isPlaying, setPlaying, togglePlay, progress, setProgress, playbackSpeed } = useFeedStore();
 
     // Handle autoplay based on active state
     useEffect(() => {
@@ -46,7 +26,6 @@ export function ForYouCard({
 
         if (isActive) {
             videoRef.current.play().catch(() => {
-                // Autoplay blocked - show play button
                 setPlaying(false);
             });
             setPlaying(true);
@@ -74,12 +53,6 @@ export function ForYouCard({
         }
     }, [isPlaying, isActive, setPlaying]);
 
-    const handleRewind = () => {
-        if (videoRef.current) {
-            videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 15);
-        }
-    };
-
     const handleTimeUpdate = () => {
         if (videoRef.current) {
             const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
@@ -88,7 +61,7 @@ export function ForYouCard({
     };
 
     return (
-        <div className="relative w-full h-full snap-start shrink-0 overflow-hidden bg-black">
+        <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-background">
             {/* Background/Video */}
             {item.media_url ? (
                 <video
@@ -112,11 +85,11 @@ export function ForYouCard({
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90" />
 
-            {/* Content info */}
-            <div className="absolute bottom-20 left-0 right-16 p-4 space-y-3">
+            {/* Content info — positioned above the fixed bottom sheet */}
+            <div className="absolute bottom-[100px] left-0 right-0 p-4 space-y-3">
                 {/* Type badge */}
                 <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-600/90 text-white backdrop-blur-md flex items-center gap-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-bronze/90 text-white backdrop-blur-md flex items-center gap-1">
                         <Headphones className="w-3 h-3" />
                         {item.type === 'PODCAST' ? 'Podcast' : 'Audio'}
                     </span>
@@ -134,7 +107,7 @@ export function ForYouCard({
 
                 {/* Author */}
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-xs overflow-hidden border border-white/20">
+                    <div className="w-8 h-8 rounded-full bg-bronze/40 flex items-center justify-center text-xs overflow-hidden border border-white/20">
                         <img
                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.author}`}
                             alt={item.author || 'Author'}
@@ -146,88 +119,10 @@ export function ForYouCard({
 
                 {/* Duration */}
                 {item.duration_sec && (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-white/60">
                         {Math.floor(item.duration_sec / 60)}:{(item.duration_sec % 60).toString().padStart(2, '0')}
                     </span>
                 )}
-            </div>
-
-            {/* Action buttons (right side) */}
-            <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5">
-                {/* Like */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onLike();
-                    }}
-                    className="flex flex-col items-center gap-1"
-                    aria-label="Like"
-                >
-                    <div className={cn(
-                        "w-11 h-11 rounded-full flex items-center justify-center transition-all",
-                        isLiked ? "bg-red-500" : "bg-white/10 backdrop-blur-sm hover:bg-white/20"
-                    )}>
-                        <Heart className={cn("w-6 h-6", isLiked ? "text-white fill-white" : "text-white")} />
-                    </div>
-                    <span className="text-xs text-white font-medium">{item.like_count}</span>
-                </button>
-
-                {/* Comment */}
-                <button
-                    className="flex flex-col items-center gap-1"
-                    aria-label="Comment"
-                >
-                    <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
-                        <MessageCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <span className="text-xs text-white font-medium">{item.comment_count}</span>
-                </button>
-
-                {/* Bookmark */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onBookmark();
-                    }}
-                    className="flex flex-col items-center gap-1"
-                    aria-label="Bookmark"
-                >
-                    <div className={cn(
-                        "w-11 h-11 rounded-full flex items-center justify-center transition-all",
-                        isBookmarked ? "bg-yellow-500" : "bg-white/10 backdrop-blur-sm hover:bg-white/20"
-                    )}>
-                        <Bookmark className={cn("w-6 h-6", isBookmarked ? "text-white fill-white" : "text-white")} />
-                    </div>
-                </button>
-
-                {/* Share */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onShare();
-                    }}
-                    className="flex flex-col items-center gap-1"
-                    aria-label="Share"
-                >
-                    <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
-                        <Share2 className="w-6 h-6 text-white" />
-                    </div>
-                </button>
-
-                {/* Rewind */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleRewind();
-                    }}
-                    className="flex flex-col items-center gap-1"
-                    aria-label="Rewind"
-                >
-                    <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
-                        <RotateCcw className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-[10px] text-white/70">15s</span>
-                </button>
             </div>
 
             {/* Play/Pause overlay */}
@@ -244,14 +139,6 @@ export function ForYouCard({
                     </div>
                 </motion.div>
             )}
-
-            {/* Progress bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800/50">
-                <div
-                    className="h-full bg-white transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
         </div>
     );
 }

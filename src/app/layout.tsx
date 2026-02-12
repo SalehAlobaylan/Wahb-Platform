@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { BottomNav } from "@/components/layout";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
@@ -28,7 +27,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#000000",
+  themeColor: "#A88669",
 };
 
 export default function RootLayout({
@@ -39,14 +38,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${dmSans.variable} ${playfair.variable} font-sans antialiased bg-black text-white`}
+        className={`${dmSans.variable} ${playfair.variable} font-sans antialiased bg-background text-foreground`}
       >
         <Providers>
-          <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-gray-800 relative">
-            <main className="flex-1 pb-16">
+          <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-border relative">
+            <main className="flex-1">
               {children}
             </main>
-            <BottomNav />
           </div>
         </Providers>
       </body>

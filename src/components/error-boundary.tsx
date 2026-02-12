@@ -44,28 +44,27 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             }
 
             return (
-                <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-black text-white">
+                <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-background text-foreground">
                     <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-                        <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
-                            <AlertTriangle className="w-8 h-8 text-red-500" />
+                        <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
+                            <AlertTriangle className="w-8 h-8 text-destructive" />
                         </div>
 
                         <h2 className="text-xl font-bold">Something went wrong</h2>
 
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-muted-foreground text-sm">
                             We encountered an unexpected error. Please try again.
                         </p>
 
                         {process.env.NODE_ENV === 'development' && this.state.error && (
-                            <pre className="text-xs text-red-400 bg-red-900/20 p-3 rounded-lg overflow-auto max-w-full">
+                            <pre className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg overflow-auto max-w-full">
                                 {this.state.error.message}
                             </pre>
                         )}
 
                         <Button
                             onClick={this.handleRetry}
-                            className="gap-2 mt-2"
-                            variant="outline"
+                            className="gap-2 mt-2 bg-bronze text-white hover:bg-bronze/90"
                         >
                             <RefreshCw className="w-4 h-4" />
                             Try Again
@@ -92,17 +91,16 @@ export function FeedErrorFallback({
     return (
         <div className="flex flex-col items-center justify-center h-full w-full p-6">
             <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-                <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <AlertTriangle className="w-8 h-8 text-red-500" />
+                <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
+                    <AlertTriangle className="w-8 h-8 text-destructive" />
                 </div>
 
                 <h2 className="text-xl font-bold">Oops!</h2>
-                <p className="text-gray-400 text-sm">{message}</p>
+                <p className="text-muted-foreground text-sm">{message}</p>
 
                 <Button
                     onClick={onRetry}
-                    className="gap-2 mt-2"
-                    variant="outline"
+                    className="gap-2 mt-2 bg-bronze text-white hover:bg-bronze/90"
                 >
                     <RefreshCw className="w-4 h-4" />
                     Retry
