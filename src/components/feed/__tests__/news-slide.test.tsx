@@ -68,7 +68,7 @@ describe('NewsSlide', () => {
         jest.clearAllMocks();
     });
 
-    it('renders featured article correctly', () => {
+    it('renders featured article title', () => {
         render(
             <NewsSlide
                 slide={mockSlide}
@@ -78,12 +78,21 @@ describe('NewsSlide', () => {
         );
 
         expect(screen.getByText('Featured Article Title')).toBeInTheDocument();
-        expect(screen.getByText('Detailed excerpt of the featured article.')).toBeInTheDocument();
-        // Expect author as that is what is rendered
+    });
+
+    it('renders author info', () => {
+        render(
+            <NewsSlide
+                slide={mockSlide}
+                isActive={true}
+                onOpenArticle={mockOnOpenArticle}
+            />
+        );
+
         expect(screen.getByText(/Main Author/)).toBeInTheDocument();
     });
 
-    it('renders related items correctly', () => {
+    it('renders related tab and items', () => {
         render(
             <NewsSlide
                 slide={mockSlide}
@@ -92,12 +101,15 @@ describe('NewsSlide', () => {
             />
         );
 
-        expect(screen.getByText('Related Tweet Body')).toBeInTheDocument();
-        expect(screen.getByText('Related Comment Body')).toBeInTheDocument();
+        // Tab should be visible
+        expect(screen.getByText('Related')).toBeInTheDocument();
+        expect(screen.getByText('Discussion')).toBeInTheDocument();
+
+        // Related article title should be visible
         expect(screen.getByText('Related Article Title')).toBeInTheDocument();
     });
 
-    it('calls onOpenArticle when clicking featured item', () => {
+    it('calls onOpenArticle when clicking a related item', () => {
         render(
             <NewsSlide
                 slide={mockSlide}
@@ -106,9 +118,9 @@ describe('NewsSlide', () => {
             />
         );
 
-        const featuredTitle = screen.getByText('Featured Article Title');
-        fireEvent.click(featuredTitle);
+        const relatedTitle = screen.getByText('Related Article Title');
+        fireEvent.click(relatedTitle);
 
-        expect(mockOnOpenArticle).toHaveBeenCalledWith(mockSlide.featured);
+        expect(mockOnOpenArticle).toHaveBeenCalledWith(mockSlide.related[2]);
     });
 });

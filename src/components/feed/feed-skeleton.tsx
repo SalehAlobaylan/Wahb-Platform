@@ -55,71 +55,76 @@ export function ForYouSkeleton() {
 }
 
 /**
- * Loading skeleton for News slide
+ * Loading skeleton for cinematic News slide
  */
 export function NewsSlideSkeleton() {
     return (
-        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-secondary">
-            {/* Header skeleton */}
-            <header className="px-6 pt-14 pb-3 border-b-2 border-foreground flex justify-between items-center shrink-0">
-                <Skeleton className="h-3 w-24 bg-muted-foreground/20" />
-                <Skeleton className="h-3 w-16 bg-muted-foreground/20" />
-            </header>
-
-            {/* Main Content skeleton */}
-            <main className="px-6 py-4 flex flex-col flex-grow overflow-hidden">
-                {/* Featured Article skeleton */}
-                <article className="mb-4 border-b-2 border-foreground pb-4 shrink-0">
-                    {/* Featured Image */}
-                    <Skeleton className="h-40 w-full bg-muted mb-4 rounded-sm" />
-
-                    {/* Meta info */}
-                    <div className="flex items-center gap-2 mb-2">
-                        <Skeleton className="h-3 w-20 bg-muted-foreground/20" />
-                        <Skeleton className="h-3 w-2 bg-muted-foreground/20 rounded-full" />
-                        <Skeleton className="h-3 w-14 bg-muted-foreground/20" />
+        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-[#0a0a0a] relative">
+            {/* ═══════ TOP HALF: Hero Skeleton ═══════ */}
+            <div className="h-[50%] w-full flex flex-col px-4 pt-10 pb-4">
+                {/* Category & Date */}
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col gap-1">
+                        <Skeleton className="h-2.5 w-24 bg-zinc-800 rounded" />
+                        <Skeleton className="h-2 w-20 bg-zinc-800/60 rounded" />
                     </div>
-
-                    {/* Title */}
-                    <Skeleton className="h-8 w-full bg-muted-foreground/20 mb-2" />
-                    <Skeleton className="h-8 w-3/4 bg-muted-foreground/20 mb-2" />
-
-                    {/* Excerpt */}
-                    <Skeleton className="h-4 w-full bg-muted-foreground/15 mb-1" />
-                    <Skeleton className="h-4 w-4/5 bg-muted-foreground/15 mb-3" />
-
-                    {/* Author */}
-                    <div className="flex items-center justify-between">
-                        <Skeleton className="h-3 w-24 bg-muted-foreground/20" />
-                        <Skeleton className="h-5 w-5 bg-muted-foreground/20" />
+                    <div className="flex gap-3">
+                        <Skeleton className="w-5 h-5 bg-zinc-800 rounded" />
+                        <Skeleton className="w-5 h-5 bg-zinc-800 rounded" />
                     </div>
-                </article>
-
-                {/* Related Section Header skeleton */}
-                <div className="flex justify-between items-end border-b border-foreground mb-2 pb-1 shrink-0">
-                    <Skeleton className="h-6 w-32 bg-muted-foreground/20" />
-                    <Skeleton className="h-3 w-12 bg-muted-foreground/20" />
                 </div>
 
-                {/* Related Items skeleton */}
-                <div className="flex flex-col space-y-1 overflow-hidden flex-1">
-                    {[1, 2, 3].map((i) => (
-                        <article key={i} className="py-3 border-b border-foreground/20 flex flex-col px-2">
-                            <div className="flex justify-between items-baseline mb-0.5">
-                                <Skeleton className="h-2 w-12 bg-muted-foreground/20" />
-                                <Skeleton className="h-2 w-16 bg-muted-foreground/20" />
+                {/* Hero Image */}
+                <Skeleton className="w-full h-[65%] rounded-lg bg-zinc-800/80 mb-5" />
+
+                {/* Title */}
+                <div className="space-y-2">
+                    <Skeleton className="h-8 w-full bg-zinc-800 rounded" />
+                    <Skeleton className="h-8 w-3/4 bg-zinc-800 rounded" />
+                </div>
+
+                {/* Author */}
+                <div className="flex items-center gap-2 mt-3">
+                    <Skeleton className="w-5 h-5 rounded-full bg-zinc-800" />
+                    <Skeleton className="h-3 w-28 bg-zinc-800/60 rounded" />
+                </div>
+            </div>
+
+            {/* ═══════ BOTTOM HALF: Sheet Skeleton ═══════ */}
+            <div className="absolute bottom-0 left-0 w-full h-[50%] bg-[#141414] rounded-t-[2rem] border-t border-white/5">
+                {/* Drag handle */}
+                <div className="w-full pt-4 pb-2 flex justify-center">
+                    <Skeleton className="w-10 h-1 rounded-full bg-bronze/20" />
+                </div>
+
+                <div className="px-6 pt-2">
+                    {/* Tab bar */}
+                    <div className="flex gap-6 mb-5 border-b border-white/5 pb-3">
+                        <Skeleton className="h-3 w-16 bg-zinc-800 rounded" />
+                        <Skeleton className="h-3 w-20 bg-zinc-800/50 rounded" />
+                    </div>
+
+                    {/* Related cards */}
+                    <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                            <div
+                                key={i}
+                                className="bg-[#1c1c1c] rounded-xl p-2.5 flex gap-3 items-center border border-white/5"
+                            >
+                                <Skeleton className="w-14 h-14 shrink-0 rounded-md bg-zinc-800" />
+                                <div className="flex-1 space-y-1.5">
+                                    <div className="flex justify-between">
+                                        <Skeleton className="h-2 w-10 bg-zinc-700 rounded" />
+                                        <Skeleton className="h-2 w-8 bg-zinc-800 rounded" />
+                                    </div>
+                                    <Skeleton className="h-4 w-full bg-zinc-800 rounded" />
+                                    <Skeleton className="h-4 w-2/3 bg-zinc-800/60 rounded" />
+                                </div>
                             </div>
-                            <Skeleton className="h-5 w-full bg-muted-foreground/20 mb-1" />
-                            <Skeleton className="h-3 w-16 bg-muted-foreground/10" />
-                        </article>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-
-                {/* Footer decoration skeleton */}
-                <div className="mt-auto pt-4 text-center shrink-0">
-                    <Skeleton className="w-8 h-1 mx-auto rounded-full bg-bronze/20" />
-                </div>
-            </main>
+            </div>
         </div>
     );
 }
