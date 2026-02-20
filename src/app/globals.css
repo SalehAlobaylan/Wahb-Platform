@@ -54,24 +54,31 @@
   --radius: 0.625rem;
 
   /* Wahb — Gilded Heritage (Light Mode) */
-  --background: #F2F2F2;          /* Page canvas */
-  --foreground: #2A2F33;          /* Charcoal */
-  --card: #FFFFFF;                /* Paper surface */
+  --background: #F2F2F2;
+  /* Page canvas */
+  --foreground: #2A2F33;
+  /* Charcoal */
+  --card: #FFFFFF;
+  /* Paper surface */
   --card-foreground: #2A2F33;
   --popover: #FFFFFF;
   --popover-foreground: #2A2F33;
-  --primary: #A88669;             /* Metallic Bronze — constant */
+  --primary: #A88669;
+  /* Metallic Bronze — constant */
   --primary-foreground: #FFFFFF;
-  --secondary: #FAF8F6;           /* Bronze wash */
+  --secondary: #FAF8F6;
+  /* Bronze wash */
   --secondary-foreground: #2A2F33;
   --muted: #FAF8F6;
-  --muted-foreground: #545B61;    /* Charcoal light */
+  --muted-foreground: #545B61;
+  /* Charcoal light */
   --accent: #FAF8F6;
   --accent-foreground: #2A2F33;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #D4D4D4;
   --input: #D4D4D4;
-  --ring: #A88669;                /* Bronze ring */
+  --ring: #A88669;
+  /* Bronze ring */
   --chart-1: #A88669;
   --chart-2: #8C6B50;
   --chart-3: #545B61;
@@ -89,22 +96,29 @@
 
 .dark {
   /* Wahb — Midnight Heritage (Dark Mode) */
-  --background: #0c0a09;          /* Stone 950 */
-  --foreground: #e7e5e4;          /* Stone 200 */
-  --card: #1c1917;                /* Stone 900 */
+  --background: #0c0a09;
+  /* Stone 950 */
+  --foreground: #e7e5e4;
+  /* Stone 200 */
+  --card: #1c1917;
+  /* Stone 900 */
   --card-foreground: #e7e5e4;
   --popover: #1c1917;
   --popover-foreground: #e7e5e4;
-  --primary: #A88669;             /* Bronze — constant */
+  --primary: #A88669;
+  /* Bronze — constant */
   --primary-foreground: #FFFFFF;
-  --secondary: #292524;           /* Stone 800 */
+  --secondary: #292524;
+  /* Stone 800 */
   --secondary-foreground: #e7e5e4;
   --muted: #292524;
-  --muted-foreground: #a8a29e;    /* Stone 400 */
+  --muted-foreground: #a8a29e;
+  /* Stone 400 */
   --accent: #292524;
   --accent-foreground: #e7e5e4;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #44403c;              /* Stone 700 */
+  --border: #44403c;
+  /* Stone 700 */
   --input: #44403c;
   --ring: #A88669;
   --chart-1: #A88669;
@@ -126,13 +140,24 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
 
 /* Smooth theme transitions */
-body, div, span, h1, h2, h3, p, button, nav, header, footer {
+body,
+div,
+span,
+h1,
+h2,
+h3,
+p,
+button,
+nav,
+header,
+footer {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
@@ -140,14 +165,17 @@ body, div, span, h1, h2, h3, p, button, nav, header, footer {
 ::-webkit-scrollbar {
   width: 10px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--background);
 }
+
 ::-webkit-scrollbar-thumb {
   background: #A88669;
   border-radius: 5px;
   border: 2px solid var(--background);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #8C6B50;
 }
@@ -162,7 +190,23 @@ body, div, span, h1, h2, h3, p, button, nav, header, footer {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Float animation for interest chips */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
