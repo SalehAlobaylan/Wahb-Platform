@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useCallback, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { useNewsFeed } from '@/lib/hooks';
 import { useFeedStore } from '@/lib/stores';
 import { FeedContainer, NewsSlide, NewsSlideSkeleton, ViewTracker } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
+import { User, Search } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 
 export default function NewsPage() {
@@ -74,7 +76,7 @@ export default function NewsPage() {
     // Show error state
     if (isError) {
         return (
-            <div className="h-full w-full bg-secondary">
+            <div className="h-full w-full bg-[#0a0a0a]">
                 <FeedErrorFallback
                     onRetry={() => refetch()}
                     message={error?.message || 'Failed to load news feed'}
@@ -84,21 +86,31 @@ export default function NewsPage() {
     }
 
     return (
-        <div className="h-full w-full overflow-hidden relative">
-            {/* Header with feed switcher */}
-            <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+        <div className="h-full w-full overflow-hidden relative bg-[#0a0a0a]">
+            {/* Header — cinematic style */}
+            <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-b from-black/70 to-transparent">
                 <div className="flex justify-between items-center p-4 pt-6">
+                    {/* Profile avatar */}
+                    <Link href="/profile" className="pointer-events-auto">
+                        <div className="w-9 h-9 rounded-full bg-bronze/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
+                            <User className="w-4.5 h-4.5 text-white" />
+                        </div>
+                    </Link>
+
+                    {/* Feed switcher (center) */}
                     <div className="pointer-events-auto">
-                        <span className="text-xl font-black tracking-tighter font-serif text-bronze">
-                            WAHB.
-                        </span>
+                        <FeedSwitcher variant="dark" />
                     </div>
 
+                    {/* Search */}
                     <div className="pointer-events-auto">
-                        <FeedSwitcher variant="light" />
+                        <button
+                            className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+                            aria-label="Search"
+                        >
+                            <Search className="w-4.5 h-4.5 text-white" />
+                        </button>
                     </div>
-
-                    <div className="w-16" /> {/* Spacer for balance */}
                 </div>
             </header>
 
@@ -125,7 +137,7 @@ export default function NewsPage() {
 
                 {/* Loading more indicator */}
                 {isFetchingNextPage && (
-                    <div className="h-20 flex items-center justify-center bg-secondary">
+                    <div className="h-20 flex items-center justify-center bg-[#0a0a0a]">
                         <div className="w-8 h-8 border-2 border-bronze/30 border-t-bronze rounded-full animate-spin" />
                     </div>
                 )}

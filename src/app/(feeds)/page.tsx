@@ -3,7 +3,7 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
-import { useFeedStore } from '@/lib/stores';
+import { useFeedStore, useNowPlayingStore } from '@/lib/stores';
 import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
@@ -55,6 +55,7 @@ export default function ForYouPage() {
 
     // Current active item — drives the fixed bottom sheet
     const activeItem = forYouItems[activeIndex] ?? null;
+    const nowPlaying = useNowPlayingStore();
     const isLiked = activeItem ? likedIds.has(activeItem.id) : false;
     const isBookmarked = activeItem ? bookmarkedIds.has(activeItem.id) : false;
 
@@ -132,6 +133,14 @@ export default function ForYouPage() {
             resetProgress();
         }
     }, [setActiveIndex, resetProgress]);
+
+    // Register active item with the global Now Playing store
+    useEffect(() => {
+        if (activeItem && activeItem.media_url) {
+            nowPlaying.play(activeItem);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeItem?.id]);
 
     const handleLike = () => {
         if (!activeItem) return;

@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { NowPlayingBar } from '@/components/now-playing-bar';
+import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
 
 interface DraggableBottomSheetProps {
     /** Content shown in the collapsed state (e.g. horizontal action buttons) */
@@ -39,6 +41,14 @@ export function DraggableBottomSheet({
     const lastTapTime = useRef(0);
 
     const isExpanded = height > minHeight + 20;
+    const nowPlayingItem = useNowPlayingStore((s) => s.currentItem);
+    const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
+
+    // Tell the global store a bottom sheet is mounted (so root layout bar hides)
+    useEffect(() => {
+        setBottomSheetMounted(true);
+        return () => setBottomSheetMounted(false);
+    }, [setBottomSheetMounted]);
 
     // ── Snap logic ──────────────────────────────────────────
     const snapToNearest = useCallback(
@@ -129,60 +139,64 @@ export function DraggableBottomSheet({
     }, [minHeight, maxHeight]);
 
     return (
-        <div
-            ref={sheetRef}
-            className={cn(
-                'absolute left-0 right-0 bottom-0 z-30',
-                'bg-card/95 backdrop-blur-xl',
-                'border-t border-border/50',
-                'shadow-[0px_-8px_30px_0px_rgba(0,0,0,0.4)]',
-                'overflow-hidden',
-                'max-w-md mx-auto rounded-t-2xl',
-                className
-            )}
-            style={{
-                height: `${height}px`,
-                transition: isDragging ? 'none' : 'height 0.3s ease-out',
-            }}
-        >
-            {/* Drag handle */}
+        <div className="absolute left-0 right-0 bottom-0 z-30 max-w-md mx-auto">
+            {/* Now Playing bar sits above the sheet */}
+            <NowPlayingBar inline />
+
             <div
+                ref={sheetRef}
                 className={cn(
-                    'w-full pt-[10px] pb-[8px] flex items-center justify-center',
-                    'cursor-grab active:cursor-grabbing',
-                    'select-none touch-none'
+                    'bg-card/95 backdrop-blur-xl',
+                    'border-t border-border/50',
+                    'shadow-[0px_-8px_30px_0px_rgba(0,0,0,0.4)]',
+                    'overflow-hidden',
+                    'rounded-t-2xl',
+                    className
                 )}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onMouseDown={handleMouseDown}
-                onClick={handleDoubleTap}
-                role="slider"
-                aria-label="Drag to expand"
-                aria-valuenow={height}
-                aria-valuemin={minHeight}
-                aria-valuemax={maxHeight}
-                tabIndex={0}
+                style={{
+                    height: `${height}px`,
+                    transition: isDragging ? 'none' : 'height 0.3s ease-out',
+                }}
             >
-                <div className="w-9 h-[4px] rounded-full bg-muted-foreground/40" />
-            </div>
-
-            {/* Collapsed content (action buttons row) */}
-            <div className="px-4">
-                {children}
-            </div>
-
-            {/* Expanded content (tabs) — only rendered when expanded */}
-            {isExpanded && expandedContent && (
+                {/* Drag handle */}
                 <div
-                    className="flex-1 overflow-y-auto px-4 pt-2 pb-4"
-                    style={{
-                        height: `${height - minHeight - 10}px`,
-                    }}
+                    className={cn(
+                        'w-full pt-[10px] pb-[8px] flex items-center justify-center',
+                        'cursor-grab active:cursor-grabbing',
+                        'select-none touch-none'
+                    )}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={handleMouseDown}
+                    onClick={handleDoubleTap}
+                    role="slider"
+                    aria-label="Drag to expand"
+                    aria-valuenow={height}
+                    aria-valuemin={minHeight}
+                    aria-valuemax={maxHeight}
+                    tabIndex={0}
                 >
-                    {expandedContent}
+                    <div className="w-9 h-[4px] rounded-full bg-muted-foreground/40" />
                 </div>
-            )}
+
+                {/* Collapsed content (action buttons row) */}
+                <div className="px-4">
+                    {children}
+                </div>
+
+                {/* Expanded content (tabs) — only rendered when expanded */}
+                {isExpanded && expandedContent && (
+                    <div
+                        className="flex-1 overflow-y-auto px-4 pt-2 pb-4"
+                        style={{
+                            height: `${height - minHeight - 10}px`,
+                        }}
+                    >
+                        {expandedContent}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

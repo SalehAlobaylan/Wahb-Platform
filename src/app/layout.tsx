@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { NowPlayingProvider } from "@/components/now-playing-provider";
+import { GlobalNowPlayingBar } from "@/components/global-now-playing-bar";
 
 const dmSans = DM_Sans({
   variable: "--font-sans",
@@ -46,8 +48,11 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+          <NowPlayingProvider />
+          <GlobalNowPlayingBar />
         </Providers>
       </body>
     </html>
   );
 }
+

@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ArrowRight, Clock, Radio } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, TrendingUp, Quote, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
 
@@ -11,147 +11,216 @@ interface NewsSlideProps {
     onOpenArticle: (item: ContentItem) => void;
 }
 
+type TabKey = 'related' | 'discussion';
+
 /**
- * Magazine-style news slide with 1 Featured + 3 Related items
+ * Cinematic news slide with a top-half hero area and
+ * a bottom-half draggable sheet showing related articles.
  */
 export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
+    const [activeTab, setActiveTab] = useState<TabKey>('related');
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-        });
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+        }).toUpperCase();
     };
 
     const getReadTime = (content?: string) => {
-        if (!content) return '3 min';
+        if (!content) return '3m';
         const words = content.split(' ').length;
         const minutes = Math.ceil(words / 200);
-        return `${minutes} min`;
+        return `${minutes}m`;
+    };
+
+    const getCategoryLabel = (item: ContentItem) => {
+        switch (item.type) {
+            case 'TWEET': return 'Social';
+            case 'COMMENT': return 'Reaction';
+            case 'PODCAST': return 'Podcast';
+            case 'VIDEO': return 'Video';
+            default: return 'Culture & Society';
+        }
+    };
+
+    const getRelatedBadge = (item: ContentItem) => {
+        switch (item.type) {
+            case 'TWEET': return 'Opinion';
+            case 'COMMENT': return 'Reaction';
+            case 'VIDEO': return 'Video';
+            case 'PODCAST': return 'Audio';
+            default: return 'Market';
+        }
+    };
+
+    const getRelatedMeta = (item: ContentItem) => {
+        switch (item.type) {
+            case 'TWEET': return getReadTime(item.body_text);
+            case 'COMMENT': return '2h ago';
+            default: return 'Business';
+        }
     };
 
     return (
-        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-secondary text-foreground">
-            {/* Header */}
-            <header className="px-6 pt-14 pb-3 border-b-2 border-foreground flex justify-between items-center shrink-0">
-                <p className="text-xs font-bold tracking-widest uppercase">
-                    {formatDate(new Date().toISOString())}
-                </p>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-bronze">
-                    Wahb News
-                </span>
-            </header>
+        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-[#0a0a0a] text-[#e5e5e5] relative">
+            {/* ═══════════════ TOP HALF: Hero ═══════════════ */}
+            <div className="h-[50%] w-full flex flex-col px-4 pt-14 pb-4 relative z-10">
+                {/* Hero Image */}
+                <div className="w-full h-[65%] rounded-lg overflow-hidden mb-5 shadow-2xl border border-white/5 relative group">
+                    {featured.thumbnail_url ? (
+                        <div
+                            className="w-full h-full bg-cover bg-center transform group-hover:scale-105 transition-transform duration-700"
+                            style={{ backgroundImage: `url(${featured.thumbnail_url})` }}
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-[#1c1c1c] flex items-center justify-center">
+                            <span className="text-4xl opacity-20">📰</span>
+                        </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                </div>
 
-            {/* Main Content */}
-            <main className="px-6 py-4 flex flex-col flex-grow overflow-hidden">
-                {/* Featured Article */}
-                <motion.article
-                    className="mb-4 group cursor-pointer border-b-2 border-foreground pb-4 shrink-0"
-                    onClick={() => onOpenArticle(featured)}
-                    whileTap={{ scale: 0.98 }}
-                >
-                    {/* Featured Image */}
-                    <div className="h-40 w-full bg-muted relative overflow-hidden group-hover:grayscale transition-all duration-500 mb-4 rounded-sm border border-foreground">
-                        {featured.thumbnail_url ? (
-                            <div
-                                className="absolute inset-0 bg-cover bg-center"
-                                style={{ backgroundImage: `url(${featured.thumbnail_url})` }}
-                            />
+                {/* Title & Author */}
+                <div>
+                    <h1 className="font-serif text-3xl leading-tight font-bold mb-3 text-white line-clamp-2">
+                        {featured.title || 'Untitled Article'}
+                    </h1>
+                    <div className="flex items-center gap-2">
+                        <img
+                            alt="Author"
+                            className="w-5 h-5 rounded-full border border-bronze object-cover"
+                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
+                        />
+                        <span className="text-xs text-[#a3a3a3] font-light italic">
+                            By {featured.author || featured.source_name || 'Unknown'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ═══════════════ BOTTOM HALF: Related Sheet ═══════════════ */}
+            <div className="absolute bottom-0 left-0 w-full h-[50%] z-20 flex flex-col bg-[#141414] rounded-t-[2rem] shadow-[0_-15px_50px_rgba(0,0,0,0.8)] border-t border-white/5">
+                {/* Drag handle */}
+                <div className="w-full pt-4 pb-2 flex justify-center">
+                    <div className="w-10 h-1 rounded-full bg-bronze opacity-30" />
+                </div>
+
+                {/* Tabs & content */}
+                <div className="flex flex-col h-full overflow-hidden px-6 pb-8 pt-2">
+                    {/* Tab bar */}
+                    <div className="flex items-center justify-between mb-5 border-b border-white/5">
+                        <div className="flex gap-6">
+                            <button
+                                onClick={() => setActiveTab('related')}
+                                className={cn(
+                                    'font-serif text-xs tracking-widest pb-3 transition-colors uppercase',
+                                    activeTab === 'related'
+                                        ? 'text-bronze font-bold border-b-2 border-bronze'
+                                        : 'text-[#a3a3a3] hover:text-bronze'
+                                )}
+                            >
+                                Related
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('discussion')}
+                                className={cn(
+                                    'font-serif text-xs tracking-widest pb-3 transition-colors uppercase',
+                                    activeTab === 'discussion'
+                                        ? 'text-bronze font-bold border-b-2 border-bronze'
+                                        : 'text-[#a3a3a3] hover:text-bronze'
+                                )}
+                            >
+                                Discussion
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Scrollable content area */}
+                    <div className="flex-1 overflow-y-auto hide-scrollbar space-y-3">
+                        {activeTab === 'related' ? (
+                            /* ── Related articles ── */
+                            related.length > 0 ? (
+                                related.slice(0, 4).map((item) => (
+                                    <article
+                                        key={item.id}
+                                        className="bg-[#1c1c1c] rounded-xl p-2.5 flex gap-3 hover:bg-white/5 transition-colors cursor-pointer group border border-white/5 items-center"
+                                        onClick={() => onOpenArticle(item)}
+                                    >
+                                        {/* Thumbnail or icon */}
+                                        <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-zinc-800">
+                                            {item.thumbnail_url ? (
+                                                <div
+                                                    className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
+                                                    style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+                                                />
+                                            ) : item.type === 'COMMENT' ? (
+                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
+                                                    <Quote className="w-5 h-5 text-bronze/60" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
+                                                    <span className="text-lg opacity-30">📄</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
+                                            <div className="flex justify-between items-baseline mb-0.5">
+                                                <span className="text-[8px] text-bronze uppercase tracking-wider font-bold">
+                                                    {getRelatedBadge(item)}
+                                                </span>
+                                                <div className="flex items-center gap-1 text-[9px] text-zinc-500">
+                                                    {item.type === 'ARTICLE' ? (
+                                                        <>
+                                                            <TrendingUp className="w-[10px] h-[10px]" />
+                                                            {getRelatedMeta(item)}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Clock className="w-[10px] h-[10px]" />
+                                                            {getRelatedMeta(item)}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {item.title ? (
+                                                <h4 className="font-serif text-[14px] leading-snug text-zinc-100 group-hover:text-white line-clamp-2">
+                                                    {item.title}
+                                                </h4>
+                                            ) : (
+                                                <p className="text-[13px] leading-snug text-zinc-300 italic line-clamp-2">
+                                                    &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    </article>
+                                ))
+                            ) : (
+                                <div className="flex items-center justify-center h-24 text-zinc-500 text-sm">
+                                    No related stories available
+                                </div>
+                            )
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Radio className="w-16 h-16 opacity-20" />
+                            /* ── Discussion tab ── */
+                            <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
+                                <p className="text-sm mb-1">Discussion coming soon</p>
+                                <p className="text-xs opacity-60">Join the conversation</p>
                             </div>
                         )}
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-bronze text-white text-[9px] font-bold uppercase tracking-wider">
-                            Featured
-                        </div>
                     </div>
-
-                    {/* Featured Content */}
-                    <div>
-                        <div className="flex items-center gap-2 mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
-                            <span>{formatDate(featured.published_at)}</span>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {getReadTime(featured.body_text)}
-                            </span>
-                        </div>
-
-                        <h2 className="text-2xl font-bold font-serif leading-tight mb-2 group-hover:text-bronze transition-colors line-clamp-2">
-                            {featured.title}
-                        </h2>
-
-                        <p className="text-sm opacity-80 mb-3 leading-relaxed line-clamp-2">
-                            {featured.excerpt || featured.body_text?.slice(0, 150)}
-                        </p>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-widest border-b border-foreground pb-0.5">
-                                By {featured.author || featured.source_name}
-                            </span>
-                            <ArrowRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:text-bronze transition-all" />
-                        </div>
-                    </div>
-                </motion.article>
-
-                {/* Related Section Header */}
-                <div className="flex justify-between items-end border-b border-foreground mb-2 pb-1 shrink-0">
-                    <h3 className="text-lg font-bold font-serif italic">Related Stories</h3>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
-                        {related.length} items
-                    </span>
                 </div>
+            </div>
 
-                {/* Related Items */}
-                <div className="flex flex-col space-y-1 overflow-hidden flex-1">
-                    {related.slice(0, 3).map((item, idx) => (
-                        <motion.article
-                            key={item.id}
-                            className="group cursor-pointer py-3 border-b border-foreground/20 flex flex-col hover:bg-muted transition-colors px-2 rounded-sm"
-                            onClick={() => onOpenArticle(item)}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            <div className="flex justify-between items-baseline mb-0.5">
-                                <span className={cn(
-                                    "text-[9px] font-bold uppercase tracking-widest",
-                                    item.type === 'TWEET' ? 'text-bronze' :
-                                        item.type === 'COMMENT' ? 'text-muted-foreground' : 'text-bronze'
-                                )}>
-                                    {item.type === 'TWEET' ? '𝕏 Post' :
-                                        item.type === 'COMMENT' ? 'Comment' : 'Article'}
-                                </span>
-                                <span className="text-[9px] font-bold opacity-50">
-                                    {formatDate(item.published_at)}
-                                </span>
-                            </div>
-
-                            {item.title ? (
-                                <h3 className="text-base font-bold font-serif leading-tight group-hover:text-bronze transition-colors line-clamp-1">
-                                    {item.title}
-                                </h3>
-                            ) : (
-                                <p className="text-sm leading-snug opacity-80 line-clamp-2">
-                                    {item.body_text}
-                                </p>
-                            )}
-
-                            {item.author && (
-                                <span className="text-[10px] opacity-50 mt-1">
-                                    — {item.author}
-                                </span>
-                            )}
-                        </motion.article>
-                    ))}
-                </div>
-
-                {/* Footer decoration */}
-                <div className="mt-auto pt-4 text-center opacity-30 shrink-0">
-                    <div className="w-8 h-1 bg-bronze mx-auto rounded-full" />
-                </div>
-            </main>
+            {/* ═══════════════ FAB Button ═══════════════ */}
+            <div className="absolute bottom-6 right-6 z-30">
+                <button className="w-14 h-14 rounded-full bg-bronze text-[#0a0a0a] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+                    <Plus className="w-7 h-7" strokeWidth={2.5} />
+                </button>
+            </div>
         </div>
     );
 }
