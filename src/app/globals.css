@@ -157,3 +157,12 @@ body, div, span, h1, h2, h3, p, button, nav, header, footer {
   background: #A88669;
   color: #FFFFFF;
 }
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
