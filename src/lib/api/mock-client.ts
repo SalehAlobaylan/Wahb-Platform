@@ -71,3 +71,39 @@ export async function mockFetchBookmarks(cursor?: string): Promise<ForYouRespons
         items: [], // Empty for now
     };
 }
+
+export async function mockSearchContent(query: string): Promise<ContentItem[]> {
+    await delay(SIMULATED_DELAY_MS);
+
+    if (!query.trim()) return [];
+
+    const q = query.toLowerCase();
+
+    // Collect all content items from both feeds
+    const allItems: ContentItem[] = [
+        ...MOCK_FORYOU_ITEMS,
+        ...MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...s.related]),
+    ];
+
+    // De-duplicate by id
+    const seen = new Set<string>();
+    const unique = allItems.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+    });
+
+    // Fuzzy search by title, author, source, tags, body
+    return unique.filter(item => {
+        const fields = [
+            item.title,
+            item.author,
+            item.source_name,
+            item.body_text,
+            item.excerpt,
+            ...(item.topic_tags || []),
+        ].filter(Boolean).map(f => f!.toLowerCase());
+
+        return fields.some(f => f.includes(q));
+    });
+}

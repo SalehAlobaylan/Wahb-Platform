@@ -201,17 +201,14 @@ export default function ForYouPage() {
                         <FeedSwitcher variant="dark" />
                     </div>
 
-                    {/* Search + Bookmark */}
-                    <div className="pointer-events-auto flex items-center gap-3">
-                        <button
-                            className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
-                            aria-label="Search"
-                        >
-                            <Search className="w-4.5 h-4.5 text-white" />
-                        </button>
-                        <Link href="/saved">
-                            <div className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all">
-                                <Bookmark className="w-4.5 h-4.5 text-white" />
+                    {/* Search */}
+                    <div className="pointer-events-auto">
+                        <Link href="/search">
+                            <div
+                                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+                                aria-label="Search"
+                            >
+                                <Search className="w-4.5 h-4.5 text-white" />
                             </div>
                         </Link>
                     </div>

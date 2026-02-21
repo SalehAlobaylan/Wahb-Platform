@@ -1,18 +1,36 @@
 'use client';
 
-import { useRef, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useNewsFeed } from '@/lib/hooks';
 import { useFeedStore } from '@/lib/stores';
-import { FeedContainer, NewsSlide, NewsSlideSkeleton, ViewTracker } from '@/components/feed';
+import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
+import {
+    FeedContainer,
+    NewsSlide,
+    NewsSlideSkeleton,
+    ViewTracker,
+    DraggableBottomSheet,
+    NewsBottomSheetContent,
+} from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { User, Search } from 'lucide-react';
+import { User, Search, Bookmark, Share2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 
 export default function NewsPage() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { activeIndex, setActiveIndex, resetProgress } = useFeedStore();
+    const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
+
+    const [isBookmarked, setIsBookmarked] = useState(false);
+
+    // Tell global store a bottom-sheet lives here
+    useEffect(() => {
+        setBottomSheetMounted(true);
+        return () => setBottomSheetMounted(false);
+    }, [setBottomSheetMounted]);
 
     // API hooks
     const {
@@ -31,6 +49,10 @@ export default function NewsPage() {
         if (!data?.pages) return [];
         return data.pages.flatMap((page) => page.slides);
     }, [data]);
+
+    // Active slide data
+    const activeSlide = newsSlides[activeIndex];
+    const activeFeatured = activeSlide?.featured;
 
     // Handle scroll to detect active item and load more
     const handleScroll = useCallback(() => {
@@ -70,6 +92,13 @@ export default function NewsPage() {
         console.log('Open article:', item);
     };
 
+    const handleBookmark = () => setIsBookmarked((p) => !p);
+    const handleShare = () => {
+        if (navigator.share && activeFeatured) {
+            navigator.share({ title: activeFeatured.title, url: window.location.href }).catch(() => { });
+        }
+    };
+
     // Show loading state
     const showLoading = isLoading;
 
@@ -104,12 +133,14 @@ export default function NewsPage() {
 
                     {/* Search */}
                     <div className="pointer-events-auto">
-                        <button
-                            className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
-                            aria-label="Search"
-                        >
-                            <Search className="w-4.5 h-4.5 text-white" />
-                        </button>
+                        <Link href="/search">
+                            <div
+                                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+                                aria-label="Search"
+                            >
+                                <Search className="w-4.5 h-4.5 text-white" />
+                            </div>
+                        </Link>
                     </div>
                 </div>
             </header>
@@ -142,6 +173,47 @@ export default function NewsPage() {
                     </div>
                 )}
             </FeedContainer>
+
+            {/* ── News Draggable Bottom Sheet ─────────────────── */}
+            {activeFeatured && (
+                <DraggableBottomSheet
+                    minHeight={80}
+                    maxHeight={550}
+                    defaultHeight={80}
+                    className="bg-[#141414]/95 border-t-white/5 rounded-t-[2rem] shadow-[0_-15px_50px_rgba(0,0,0,0.8)]"
+                    expandedContent={
+                        <NewsBottomSheetContent />
+                    }
+                >
+                    {/* Collapsed content — action buttons */}
+                    <div className="flex items-center justify-around w-full">
+                        {/* Bookmark */}
+                        <button
+                            onClick={handleBookmark}
+                            className="flex flex-col items-center gap-1"
+                            aria-label="Bookmark"
+                        >
+                            <div className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                                isBookmarked ? "bg-bronze" : "bg-white/10 hover:bg-white/15"
+                            )}>
+                                <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-white")} />
+                            </div>
+                        </button>
+
+                        {/* Share */}
+                        <button
+                            onClick={handleShare}
+                            className="flex flex-col items-center gap-1"
+                            aria-label="Share"
+                        >
+                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-all">
+                                <Share2 className="w-5 h-5 text-white" />
+                            </div>
+                        </button>
+                    </div>
+                </DraggableBottomSheet>
+            )}
         </div>
     );
 }

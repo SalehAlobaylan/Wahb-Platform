@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Clock, TrendingUp, Quote, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
@@ -11,15 +10,12 @@ interface NewsSlideProps {
     onOpenArticle: (item: ContentItem) => void;
 }
 
-type TabKey = 'related' | 'discussion';
-
 /**
  * Cinematic news slide with a top-half hero area and
- * a bottom-half draggable sheet showing related articles.
+ * a bottom-half section showing related articles.
  */
 export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
-    const [activeTab, setActiveTab] = useState<TabKey>('related');
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -101,114 +97,75 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                 </div>
             </div>
 
-            {/* ═══════════════ BOTTOM HALF: Related Sheet ═══════════════ */}
+            {/* ═══════════════ BOTTOM HALF: Related Articles ═══════════════ */}
             <div className="absolute bottom-0 left-0 w-full h-[50%] z-20 flex flex-col bg-[#141414] rounded-t-[2rem] shadow-[0_-15px_50px_rgba(0,0,0,0.8)] border-t border-white/5">
-                {/* Drag handle */}
-                <div className="w-full pt-4 pb-2 flex justify-center">
-                    <div className="w-10 h-1 rounded-full bg-bronze opacity-30" />
-                </div>
+                {/* Related section */}
+                <div className="flex flex-col h-full overflow-hidden px-6 pb-8 pt-5">
+                    {/* Section heading */}
+                    <h3 className="font-serif text-[10px] text-[#a3a3a3] uppercase tracking-widest font-bold mb-4">Related Stories</h3>
 
-                {/* Tabs & content */}
-                <div className="flex flex-col h-full overflow-hidden px-6 pb-8 pt-2">
-                    {/* Tab bar */}
-                    <div className="flex items-center justify-between mb-5 border-b border-white/5">
-                        <div className="flex gap-6">
-                            <button
-                                onClick={() => setActiveTab('related')}
-                                className={cn(
-                                    'font-serif text-xs tracking-widest pb-3 transition-colors uppercase',
-                                    activeTab === 'related'
-                                        ? 'text-bronze font-bold border-b-2 border-bronze'
-                                        : 'text-[#a3a3a3] hover:text-bronze'
-                                )}
-                            >
-                                Related
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('discussion')}
-                                className={cn(
-                                    'font-serif text-xs tracking-widest pb-3 transition-colors uppercase',
-                                    activeTab === 'discussion'
-                                        ? 'text-bronze font-bold border-b-2 border-bronze'
-                                        : 'text-[#a3a3a3] hover:text-bronze'
-                                )}
-                            >
-                                Discussion
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Scrollable content area */}
+                    {/* Scrollable content */}
                     <div className="flex-1 overflow-y-auto hide-scrollbar space-y-3">
-                        {activeTab === 'related' ? (
-                            /* ── Related articles ── */
-                            related.length > 0 ? (
-                                related.slice(0, 4).map((item) => (
-                                    <article
-                                        key={item.id}
-                                        className="bg-[#1c1c1c] rounded-xl p-2.5 flex gap-3 hover:bg-white/5 transition-colors cursor-pointer group border border-white/5 items-center"
-                                        onClick={() => onOpenArticle(item)}
-                                    >
-                                        {/* Thumbnail or icon */}
-                                        <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-zinc-800">
-                                            {item.thumbnail_url ? (
-                                                <div
-                                                    className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
-                                                    style={{ backgroundImage: `url(${item.thumbnail_url})` }}
-                                                />
-                                            ) : item.type === 'COMMENT' ? (
-                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
-                                                    <Quote className="w-5 h-5 text-bronze/60" />
-                                                </div>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
-                                                    <span className="text-lg opacity-30">📄</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
-                                            <div className="flex justify-between items-baseline mb-0.5">
-                                                <span className="text-[8px] text-bronze uppercase tracking-wider font-bold">
-                                                    {getRelatedBadge(item)}
-                                                </span>
-                                                <div className="flex items-center gap-1 text-[9px] text-zinc-500">
-                                                    {item.type === 'ARTICLE' ? (
-                                                        <>
-                                                            <TrendingUp className="w-[10px] h-[10px]" />
-                                                            {getRelatedMeta(item)}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Clock className="w-[10px] h-[10px]" />
-                                                            {getRelatedMeta(item)}
-                                                        </>
-                                                    )}
-                                                </div>
+                        {related.length > 0 ? (
+                            related.slice(0, 4).map((item) => (
+                                <article
+                                    key={item.id}
+                                    className="bg-[#1c1c1c] rounded-xl p-2.5 flex gap-3 hover:bg-white/5 transition-colors cursor-pointer group border border-white/5 items-center"
+                                    onClick={() => onOpenArticle(item)}
+                                >
+                                    {/* Thumbnail or icon */}
+                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-zinc-800">
+                                        {item.thumbnail_url ? (
+                                            <div
+                                                className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
+                                                style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+                                            />
+                                        ) : item.type === 'COMMENT' ? (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
+                                                <Quote className="w-5 h-5 text-bronze/60" />
                                             </div>
-                                            {item.title ? (
-                                                <h4 className="font-serif text-[14px] leading-snug text-zinc-100 group-hover:text-white line-clamp-2">
-                                                    {item.title}
-                                                </h4>
-                                            ) : (
-                                                <p className="text-[13px] leading-snug text-zinc-300 italic line-clamp-2">
-                                                    &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
-                                                </p>
-                                            )}
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
+                                                <span className="text-lg opacity-30">📄</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
+                                        <div className="flex justify-between items-baseline mb-0.5">
+                                            <span className="text-[8px] text-bronze uppercase tracking-wider font-bold">
+                                                {getRelatedBadge(item)}
+                                            </span>
+                                            <div className="flex items-center gap-1 text-[9px] text-zinc-500">
+                                                {item.type === 'ARTICLE' ? (
+                                                    <>
+                                                        <TrendingUp className="w-[10px] h-[10px]" />
+                                                        {getRelatedMeta(item)}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Clock className="w-[10px] h-[10px]" />
+                                                        {getRelatedMeta(item)}
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    </article>
-                                ))
-                            ) : (
-                                <div className="flex items-center justify-center h-24 text-zinc-500 text-sm">
-                                    No related stories available
-                                </div>
-                            )
+                                        {item.title ? (
+                                            <h4 className="font-serif text-[14px] leading-snug text-zinc-100 group-hover:text-white line-clamp-2">
+                                                {item.title}
+                                            </h4>
+                                        ) : (
+                                            <p className="text-[13px] leading-snug text-zinc-300 italic line-clamp-2">
+                                                &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
+                                            </p>
+                                        )}
+                                    </div>
+                                </article>
+                            ))
                         ) : (
-                            /* ── Discussion tab ── */
-                            <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
-                                <p className="text-sm mb-1">Discussion coming soon</p>
-                                <p className="text-xs opacity-60">Join the conversation</p>
+                            <div className="flex items-center justify-center h-24 text-zinc-500 text-sm">
+                                No related stories available
                             </div>
                         )}
                     </div>

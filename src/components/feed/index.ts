@@ -6,4 +6,5 @@ export { PullToRefresh } from './pull-to-refresh';
 export { ViewTracker, useViewTracking } from './view-tracker';
 export { DraggableBottomSheet } from './draggable-bottom-sheet';
 export { BottomSheetTabs } from './bottom-sheet-tabs';
+export { NewsBottomSheetContent } from './news-bottom-sheet-content';
 
