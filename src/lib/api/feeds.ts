@@ -6,7 +6,8 @@ import {
   mockFetchContentItem,
   mockRecordInteraction,
   mockRemoveInteraction,
-  mockFetchBookmarks
+  mockFetchBookmarks,
+  mockSearchContent,
 } from './mock-client';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -144,4 +145,26 @@ export async function fetchBookmarks(cursor?: string): Promise<ForYouResponse> {
 
   const data = await response.json();
   return data.data || data;
+}
+
+/**
+ * Search content items
+ */
+export async function searchContent(query: string): Promise<ContentItem[]> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    return mockSearchContent(query);
+  }
+
+  const params = new URLSearchParams();
+  params.set('q', query);
+  params.set('limit', '30');
+
+  const response = await fetch(`${API_BASE}/content/search?${params}`);
+
+  if (!response.ok) {
+    throw new Error(`Search failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data?.items || data.items || data;
 }
