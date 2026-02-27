@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
     GripVertical, Mic, Sparkles, PlayCircle, Clock,
-    AudioLines, Lock,
+    AudioLines, Lock, Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NowPlayingBar } from '@/components/now-playing-bar';
@@ -74,29 +74,50 @@ export function NewsBottomSheetContent() {
             <NowPlayingBar expanded />
 
             {/* ── Tab bar ───────────────────────────────────── */}
-            <div className="flex border-b border-white/10 mb-4">
+            <div className="flex items-center justify-between border-b border-white/10 mb-4 h-[35px]">
+                <div className="flex h-full flex-1">
+                    <button
+                        onClick={() => setActiveTab('upnext')}
+                        className={cn(
+                            'flex-1 h-full text-xs font-bold uppercase tracking-widest transition-colors font-serif border-b-[2px]',
+                            activeTab === 'upnext'
+                                ? 'text-bronze border-bronze'
+                                : 'text-[#a3a3a3] border-transparent hover:text-zinc-300'
+                        )}
+                    >
+                        Up Next
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tts')}
+                        className={cn(
+                            'flex-1 h-full text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 font-serif border-b-[2px]',
+                            activeTab === 'tts'
+                                ? 'text-bronze border-bronze'
+                                : 'text-[#a3a3a3] border-transparent hover:text-zinc-300'
+                        )}
+                    >
+                        TTS
+                        {!TTS_ENABLED && <Lock className="w-3 h-3 opacity-50" />}
+                    </button>
+                </div>
+                {/* Share Button relocated here */}
                 <button
-                    onClick={() => setActiveTab('upnext')}
-                    className={cn(
-                        'flex-1 pb-3 text-xs font-bold uppercase tracking-widest transition-colors font-serif',
-                        activeTab === 'upnext'
-                            ? 'text-bronze border-b-2 border-bronze'
-                            : 'text-[#a3a3a3] hover:text-zinc-300'
-                    )}
+                    onClick={() => {
+                        if (navigator.share) {
+                            navigator.share({
+                                title: 'News Post',
+                                text: 'Check out this news report on Wahb',
+                                url: window.location.href,
+                            }).catch(() => { });
+                        } else {
+                            navigator.clipboard.writeText(window.location.href);
+                        }
+                    }}
+                    className="flex items-center gap-1.5 px-3 h-full mb-1 text-muted-foreground hover:text-foreground transition-all shrink-0"
+                    aria-label="Share"
                 >
-                    Up Next
-                </button>
-                <button
-                    onClick={() => setActiveTab('tts')}
-                    className={cn(
-                        'flex-1 pb-3 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 font-serif',
-                        activeTab === 'tts'
-                            ? 'text-bronze border-b-2 border-bronze'
-                            : 'text-[#a3a3a3] hover:text-zinc-300'
-                    )}
-                >
-                    TTS
-                    {!TTS_ENABLED && <Lock className="w-3 h-3 opacity-50" />}
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Share</span>
                 </button>
             </div>
 

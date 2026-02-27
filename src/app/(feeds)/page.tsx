@@ -308,17 +308,6 @@ export default function ForYouPage() {
                             </div>
                         </button>
 
-                        {/* Share */}
-                        <button
-                            onClick={handleShare}
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Share"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
-                                <Share2 className="w-5 h-5 text-foreground" />
-                            </div>
-                        </button>
-
                         {/* Rewind */}
                         <button
                             className="flex flex-col items-center gap-1"
@@ -329,19 +318,19 @@ export default function ForYouPage() {
                             </div>
                             <span className="text-[10px] text-muted-foreground">15s</span>
                         </button>
-
-                        {/* Create / Upload */}
-                        <button
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Create"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-bronze/80 flex items-center justify-center hover:bg-bronze transition-all shadow-lg shadow-bronze/30">
-                                <Plus className="w-5 h-5 text-white" />
-                            </div>
-                        </button>
                     </div>
                 </DraggableBottomSheet>
             )}
+
+            {/* ── Floating Action Button (Create/Plus) ───────────── */}
+            <div className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
+                <button
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-bronze hover:bg-bronze/90 transition-all shadow-lg shadow-black/50 active:scale-95"
+                    aria-label="Create Post"
+                >
+                    <Plus className="w-6 h-6 text-white" />
+                </button>
+            </div>
         </div>
     );
 }

@@ -15,7 +15,7 @@ import {
 } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { User, Search, Bookmark, Share2 } from 'lucide-react';
+import { User, Search, Bookmark, Share2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 
@@ -200,20 +200,19 @@ export default function NewsPage() {
                                 <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-white")} />
                             </div>
                         </button>
-
-                        {/* Share */}
-                        <button
-                            onClick={handleShare}
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Share"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15 transition-all">
-                                <Share2 className="w-5 h-5 text-white" />
-                            </div>
-                        </button>
                     </div>
                 </DraggableBottomSheet>
             )}
+
+            {/* ── Floating Action Button (Create/Plus) ───────────── */}
+            <div className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
+                <button
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-bronze hover:bg-bronze/90 transition-all shadow-lg shadow-black/50 active:scale-95"
+                    aria-label="Create Post"
+                >
+                    <Plus className="w-6 h-6 text-white" />
+                </button>
+            </div>
         </div>
     );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageCircle, FileText, Info } from 'lucide-react';
+import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TabKey = 'comments' | 'transcript' | 'about';
@@ -44,27 +44,49 @@ export function BottomSheetTabs({
     return (
         <div className="flex flex-col h-full">
             {/* Tab bar */}
-            <div className="flex border-b border-border/40 mb-3 gap-1">
-                {TABS.map((tab) => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key)}
-                        className={cn(
-                            'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all',
-                            activeTab === tab.key
-                                ? 'text-bronze border-b-2 border-bronze bg-bronze/5'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                        )}
-                    >
-                        <tab.icon className="w-3.5 h-3.5" />
-                        {tab.label}
-                        {tab.key === 'comments' && commentCount > 0 && (
-                            <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-bronze/20 text-bronze">
-                                {commentCount}
-                            </span>
-                        )}
-                    </button>
-                ))}
+            <div className="flex items-center border-b border-border/40 mb-3 pr-2">
+                <div className="flex gap-1 flex-1">
+                    {TABS.map((tab) => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all',
+                                activeTab === tab.key
+                                    ? 'text-bronze border-b-2 border-bronze bg-bronze/5'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                            )}
+                        >
+                            <tab.icon className="w-3.5 h-3.5" />
+                            {tab.label}
+                            {tab.key === 'comments' && commentCount > 0 && (
+                                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-bronze/20 text-bronze">
+                                    {commentCount}
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Relocated Share Button */}
+                <button
+                    onClick={() => {
+                        if (navigator.share) {
+                            navigator.share({
+                                title: title || 'Wahb Post',
+                                text: description || 'Check out this post on Wahb',
+                                url: window.location.href,
+                            }).catch(() => { });
+                        } else {
+                            navigator.clipboard.writeText(window.location.href);
+                        }
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-muted/30 rounded-lg text-muted-foreground hover:text-foreground transition-all"
+                    aria-label="Share Post"
+                >
+                    <Share2 className="w-4 h-4" />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Share</span>
+                </button>
             </div>
 
             {/* Tab content */}
