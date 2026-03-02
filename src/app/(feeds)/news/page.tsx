@@ -15,7 +15,8 @@ import {
 } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { User, Search, Bookmark, Share2, Plus } from 'lucide-react';
+import { NowPlayingBar } from '@/components/now-playing-bar';
+import { User, Search, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 
@@ -23,8 +24,6 @@ export default function NewsPage() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { activeIndex, setActiveIndex, resetProgress } = useFeedStore();
     const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
-
-    const [isBookmarked, setIsBookmarked] = useState(false);
 
     // Tell global store a bottom-sheet lives here
     useEffect(() => {
@@ -90,13 +89,6 @@ export default function NewsPage() {
     const handleOpenArticle = (item: ContentItem) => {
         // TODO: Open article modal or navigate to article page
         console.log('Open article:', item);
-    };
-
-    const handleBookmark = () => setIsBookmarked((p) => !p);
-    const handleShare = () => {
-        if (navigator.share && activeFeatured) {
-            navigator.share({ title: activeFeatured.title, url: window.location.href }).catch(() => { });
-        }
     };
 
     // Show loading state
@@ -185,21 +177,9 @@ export default function NewsPage() {
                         <NewsBottomSheetContent />
                     }
                 >
-                    {/* Collapsed content — action buttons */}
-                    <div className="flex items-center justify-around w-full">
-                        {/* Bookmark */}
-                        <button
-                            onClick={handleBookmark}
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Bookmark"
-                        >
-                            <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                                isBookmarked ? "bg-bronze" : "bg-white/10 hover:bg-white/15"
-                            )}>
-                                <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-white")} />
-                            </div>
-                        </button>
+                    {/* Collapsed content — preview of now playing */}
+                    <div className="w-full">
+                        <NowPlayingBar inline />
                     </div>
                 </DraggableBottomSheet>
             )}

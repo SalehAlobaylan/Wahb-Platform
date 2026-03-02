@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, TrendingUp, Quote, Plus } from 'lucide-react';
+import { Clock, TrendingUp, Quote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
 
@@ -170,13 +170,6 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                         )}
                     </div>
                 </div>
-            </div>
-
-            {/* ═══════════════ FAB Button ═══════════════ */}
-            <div className="absolute bottom-6 right-6 z-30">
-                <button className="w-14 h-14 rounded-full bg-bronze text-[#0a0a0a] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
-                    <Plus className="w-7 h-7" strokeWidth={2.5} />
-                </button>
             </div>
         </div>
     );
