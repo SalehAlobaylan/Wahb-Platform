@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, type MutableRefObject } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Headphones } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
@@ -9,6 +9,8 @@ import type { ContentItem } from '@/types';
 interface ForYouCardProps {
     item: ContentItem;
     isActive: boolean;
+    /** Ref to report current playback time (seconds) to the parent for handoff */
+    videoTimeRef?: MutableRefObject<number>;
 }
 
 /**
@@ -16,7 +18,7 @@ interface ForYouCardProps {
  * Only handles media playback and content display.
  * Action buttons and bottom sheet are rendered at the page level.
  */
-export function ForYouCard({ item, isActive }: ForYouCardProps) {
+export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const { isPlaying, setPlaying, togglePlay, progress, setProgress, playbackSpeed } = useFeedStore();
 
@@ -28,7 +30,6 @@ export function ForYouCard({ item, isActive }: ForYouCardProps) {
             videoRef.current.play().catch(() => {
                 setPlaying(false);
             });
-            setPlaying(true);
         } else {
             videoRef.current.pause();
             setPlaying(false);
@@ -57,6 +58,10 @@ export function ForYouCard({ item, isActive }: ForYouCardProps) {
         if (videoRef.current) {
             const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
             setProgress(percent);
+            // Report current time to parent for now-playing handoff
+            if (videoTimeRef) {
+                videoTimeRef.current = videoRef.current.currentTime;
+            }
         }
     };
 

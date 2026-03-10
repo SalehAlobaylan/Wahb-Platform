@@ -55,9 +55,13 @@ export default function ForYouPage() {
 
     // Current active item — drives the fixed bottom sheet
     const activeItem = forYouItems[activeIndex] ?? null;
-    const nowPlaying = useNowPlayingStore();
     const isLiked = activeItem ? likedIds.has(activeItem.id) : false;
     const isBookmarked = activeItem ? bookmarkedIds.has(activeItem.id) : false;
+
+    // Now Playing — register metadata so the bar shows on other pages
+    const setCurrentFromVideo = useNowPlayingStore((s) => s.setCurrentFromVideo);
+    const handoffToAudio = useNowPlayingStore((s) => s.handoffToAudio);
+    const videoTimeRef = useRef(0);
 
     // ── Scroll optimization refs (stable across renders) ─────────────────
     const swipeDetectorRef = useRef<SwipeSpeedDetector | null>(null);
@@ -134,13 +138,24 @@ export default function ForYouPage() {
         }
     }, [setActiveIndex, resetProgress]);
 
-    // Register active item with the global Now Playing store
+    // Register active item with the now-playing store (metadata only, no <audio> playback)
     useEffect(() => {
         if (activeItem && activeItem.media_url) {
-            nowPlaying.play(activeItem);
+            setCurrentFromVideo(activeItem);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeItem?.id]);
+
+    // On unmount (user leaves For You page): hand off playback to <audio> provider
+    useEffect(() => {
+        return () => {
+            const { currentItem } = useNowPlayingStore.getState();
+            if (currentItem) {
+                handoffToAudio(videoTimeRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleLike = () => {
         if (!activeItem) return;
@@ -228,6 +243,7 @@ export default function ForYouPage() {
                             <ForYouCard
                                 item={item}
                                 isActive={index === activeIndex}
+                                videoTimeRef={index === activeIndex ? videoTimeRef : undefined}
                             />
                         </ViewTracker>
                     ))
