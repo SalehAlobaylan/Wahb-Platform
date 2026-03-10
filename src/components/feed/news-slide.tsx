@@ -33,32 +33,48 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     };
 
     const getCategoryLabel = (item: ContentItem) => {
-        switch (item.type) {
-            case 'TWEET': return 'Social';
-            case 'COMMENT': return 'Reaction';
-            case 'PODCAST': return 'Podcast';
-            case 'VIDEO': return 'Video';
-            default: return 'Culture & Society';
+        if (item.type === 'TWEET') return 'Social';
+        if (item.type === 'COMMENT') return 'Reaction';
+        if (item.type === 'PODCAST') return 'Podcast';
+        if (item.type === 'VIDEO') return 'Video';
+        // For ARTICLEs, derive category from topic_tags if available
+        if (item.topic_tags && item.topic_tags.length > 0) {
+            const newsTag = item.topic_tags.find(t => t.startsWith('news-'));
+            if (newsTag) {
+                const cat = newsTag.replace('news-', '');
+                return cat.charAt(0).toUpperCase() + cat.slice(1);
+            }
+            if (item.topic_tags.includes('news')) return 'News';
         }
+        return item.source_name || 'News';
     };
 
     const getRelatedBadge = (item: ContentItem) => {
-        switch (item.type) {
-            case 'TWEET': return 'Opinion';
-            case 'COMMENT': return 'Reaction';
-            case 'VIDEO': return 'Video';
-            case 'PODCAST': return 'Audio';
-            default: return 'Market';
+        if (item.type === 'TWEET') return 'Opinion';
+        if (item.type === 'COMMENT') return 'Reaction';
+        if (item.type === 'VIDEO') return 'Video';
+        if (item.type === 'PODCAST') return 'Audio';
+        // ARTICLE: use topic_tags-derived category
+        if (item.topic_tags) {
+            if (item.topic_tags.includes('news-politics')) return 'Politics';
+            if (item.topic_tags.includes('news-economy')) return 'Economy';
+            if (item.topic_tags.includes('news-conflict')) return 'Conflict';
+            if (item.topic_tags.includes('news-disaster')) return 'Disaster';
+            if (item.topic_tags.includes('news')) return 'News';
         }
+        return 'Article';
     };
 
     const getRelatedMeta = (item: ContentItem) => {
-        switch (item.type) {
-            case 'TWEET': return getReadTime(item.body_text);
-            case 'COMMENT': return '2h ago';
-            default: return 'Business';
-        }
+        if (item.type === 'TWEET') return getReadTime(item.body_text);
+        if (item.type === 'COMMENT') return '2h ago';
+        // For articles, show estimated read time from body_text or excerpt
+        if (item.type === 'ARTICLE') return getReadTime(item.body_text || item.excerpt);
+        return '';
     };
+
+    const getFeaturedTitle = (item: ContentItem) =>
+        item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
 
     return (
         <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-[#0a0a0a] text-[#e5e5e5] relative">
@@ -81,9 +97,15 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
 
                 {/* Title & Author */}
                 <div>
-                    <h1 className="font-serif text-3xl leading-tight font-bold mb-3 text-white line-clamp-2">
-                        {featured.title || 'Untitled Article'}
+                    <h1 className="font-serif text-3xl leading-tight font-bold mb-2 text-white line-clamp-2">
+                        {getFeaturedTitle(featured)}
                     </h1>
+                    {/* Excerpt or first line of body for text-only articles */}
+                    {!featured.thumbnail_url && (featured.excerpt || featured.body_text) && (
+                        <p className="text-sm text-[#a3a3a3] line-clamp-2 mb-2 leading-relaxed">
+                            {featured.excerpt || featured.body_text?.slice(0, 160)}
+                        </p>
+                    )}
                     <div className="flex items-center gap-2">
                         <img
                             alt="Author"
@@ -91,7 +113,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
                         />
                         <span className="text-xs text-[#a3a3a3] font-light italic">
-                            By {featured.author || featured.source_name || 'Unknown'}
+                            {featured.source_name || featured.author || 'Unknown'}
                         </span>
                     </div>
                 </div>
