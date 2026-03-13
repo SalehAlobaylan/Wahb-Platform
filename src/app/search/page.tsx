@@ -52,13 +52,13 @@ function formatRelativeDate(dateStr: string) {
 
 function getTypeBadge(type: ContentType) {
     const map: Record<ContentType, { label: string; color: string }> = {
-        ARTICLE: { label: 'Article', color: 'bg-bronze/20 text-bronze border-bronze/30' },
+        ARTICLE: { label: 'Article', color: 'bg-gold/20 text-gold border-gold/30' },
         PODCAST: { label: 'Podcast', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
         VIDEO: { label: 'Video', color: 'bg-sky-500/15 text-sky-400 border-sky-500/25' },
         TWEET: { label: 'Tweet', color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
         COMMENT: { label: 'Comment', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };
-    return map[type] || { label: type, color: 'bg-white/10 text-zinc-400 border-white/10' };
+    return map[type] || { label: type, color: 'bg-muted text-muted-foreground border-border' };
 }
 
 function formatDuration(sec?: number) {
@@ -182,22 +182,22 @@ export default function SearchPage() {
     const showSuggestions = !hasSearched && !query.trim();
 
     return (
-        <div className="h-full w-full overflow-hidden relative bg-[#0a0a0a]">
+        <div className="h-full w-full overflow-hidden relative bg-background">
             {/* ═══════════ SEARCH HEADER ═══════════ */}
-            <header className="sticky top-0 z-20 bg-[#0a0a0a] border-b border-white/5">
+            <header className="sticky top-0 z-20 bg-background border-b border-border">
                 <div className="flex items-center gap-3 p-4 pt-6">
                     {/* Back button */}
                     <button
                         onClick={() => router.back()}
-                        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all shrink-0"
+                        className="w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-all shrink-0"
                         aria-label="Go back"
                     >
-                        <ArrowLeft className="w-4.5 h-4.5 text-white" />
+                        <ArrowLeft className="w-4.5 h-4.5 text-foreground" />
                     </button>
 
                     {/* Search input */}
                     <div className="flex-1 relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                             <Search className="w-4 h-4" />
                         </div>
                         <input
@@ -213,19 +213,19 @@ export default function SearchPage() {
                             }}
                             placeholder="Search content..."
                             className={cn(
-                                'w-full h-10 pl-9 pr-9 rounded-xl text-sm text-white placeholder:text-zinc-500',
-                                'bg-white/5 border border-white/10',
-                                'focus:outline-none focus:border-bronze/50 focus:ring-1 focus:ring-bronze/30',
+                                'w-full h-10 pl-9 pr-9 rounded-xl text-sm text-foreground placeholder:text-muted-foreground',
+                                'bg-muted border border-border',
+                                'focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30',
                                 'transition-all'
                             )}
                         />
                         {query && (
                             <button
                                 onClick={handleClear}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-zinc-700 flex items-center justify-center hover:bg-zinc-600 transition-colors"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted-foreground/20 flex items-center justify-center hover:bg-muted-foreground/30 transition-colors"
                                 aria-label="Clear search"
                             >
-                                <X className="w-3 h-3 text-zinc-300" />
+                                <X className="w-3 h-3 text-foreground" />
                             </button>
                         )}
                     </div>
@@ -247,15 +247,15 @@ export default function SearchPage() {
                                     className={cn(
                                         'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border',
                                         isActive
-                                            ? 'bg-bronze text-[#0a0a0a] border-bronze shadow-lg shadow-bronze/20'
-                                            : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10 hover:text-zinc-200'
+                                            ? 'bg-gold text-white border-gold shadow-lg shadow-gold/20'
+                                            : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground'
                                     )}
                                 >
                                     {filter.icon}
                                     {filter.label}
                                     <span className={cn(
                                         'text-[10px] min-w-[16px] h-[16px] rounded-full flex items-center justify-center font-bold',
-                                        isActive ? 'bg-[#0a0a0a]/20 text-[#0a0a0a]' : 'bg-white/10 text-zinc-500'
+                                        isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
                                     )}>
                                         {count}
                                     </span>
@@ -274,15 +274,15 @@ export default function SearchPage() {
                         {/* Trending Topics */}
                         <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp className="w-4 h-4 text-bronze" />
-                                <h2 className="text-sm font-bold text-white uppercase tracking-widest font-serif">Trending</h2>
+                                <TrendingUp className="w-4 h-4 text-gold" />
+                                <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">Trending</h2>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {TRENDING_TOPICS.map((topic) => (
                                     <button
                                         key={topic}
                                         onClick={() => handleTrendingClick(topic)}
-                                        className="px-3.5 py-2 rounded-full text-xs font-medium bg-white/5 text-zinc-300 border border-white/10 hover:bg-bronze/20 hover:text-bronze hover:border-bronze/30 transition-all"
+                                        className="px-3.5 py-2 rounded-full text-xs font-medium bg-muted text-foreground border border-border hover:bg-gold/20 hover:text-gold hover:border-gold/30 transition-all"
                                     >
                                         {topic}
                                     </button>
@@ -295,12 +295,12 @@ export default function SearchPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-zinc-500" />
-                                        <h2 className="text-sm font-bold text-white uppercase tracking-widest font-serif">Recent</h2>
+                                        <Clock className="w-4 h-4 text-muted-foreground" />
+                                        <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">Recent</h2>
                                     </div>
                                     <button
                                         onClick={handleClearAllRecent}
-                                        className="text-[11px] text-bronze hover:text-bronze/70 transition-colors font-semibold uppercase tracking-wider"
+                                        className="text-[11px] text-gold hover:text-gold/70 transition-colors font-semibold uppercase tracking-wider"
                                     >
                                         Clear All
                                     </button>
@@ -309,17 +309,17 @@ export default function SearchPage() {
                                     {recentSearches.map((term) => (
                                         <div
                                             key={term}
-                                            className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer"
+                                            className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                                             onClick={() => handleRecentClick(term)}
                                         >
-                                            <Clock className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
-                                            <span className="flex-1 text-sm text-zinc-300 group-hover:text-white transition-colors truncate">{term}</span>
+                                            <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                            <span className="flex-1 text-sm text-foreground/80 group-hover:text-foreground transition-colors truncate">{term}</span>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleRemoveRecent(term);
                                                 }}
-                                                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100"
+                                                className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all opacity-0 group-hover:opacity-100"
                                                 aria-label={`Remove ${term}`}
                                             >
                                                 <X className="w-3 h-3" />
@@ -334,12 +334,12 @@ export default function SearchPage() {
                     /* ── Loading Skeletons ── */
                     <div className="px-5 pt-4 space-y-3">
                         {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="bg-[#1c1c1c] rounded-xl p-3 flex gap-3 items-center border border-white/5 animate-pulse">
-                                <div className="w-14 h-14 rounded-lg bg-zinc-800 shrink-0" />
+                            <div key={i} className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border animate-pulse">
+                                <div className="w-14 h-14 rounded-lg bg-muted shrink-0" />
                                 <div className="flex-1 space-y-2">
-                                    <div className="h-2.5 bg-zinc-800 rounded w-16" />
-                                    <div className="h-3.5 bg-zinc-800 rounded w-3/4" />
-                                    <div className="h-2.5 bg-zinc-800 rounded w-1/2" />
+                                    <div className="h-2.5 bg-muted rounded w-16" />
+                                    <div className="h-3.5 bg-muted rounded w-3/4" />
+                                    <div className="h-2.5 bg-muted rounded w-1/2" />
                                 </div>
                             </div>
                         ))}
@@ -348,18 +348,18 @@ export default function SearchPage() {
                     /* ── No Results ── */
                     <div className="flex flex-col items-center justify-center px-8 pt-20">
                         <div className="relative mb-6">
-                            <div className="absolute inset-0 bg-bronze/10 rounded-full blur-2xl scale-150" />
-                            <div className="relative w-20 h-20 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center">
-                                <Search className="w-8 h-8 text-zinc-600" />
+                            <div className="absolute inset-0 bg-gold/10 rounded-full blur-2xl scale-150" />
+                            <div className="relative w-20 h-20 rounded-full bg-card border border-border flex items-center justify-center">
+                                <Search className="w-8 h-8 text-muted-foreground" />
                             </div>
                         </div>
-                        <h2 className="text-xl font-serif text-white mb-2 font-medium">No results found</h2>
-                        <p className="text-sm text-zinc-500 text-center leading-relaxed max-w-[260px]">
+                        <h2 className="text-xl font-serif text-foreground mb-2 font-medium">No results found</h2>
+                        <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-[260px]">
                             Try a different search term or browse the trending topics.
                         </p>
                         <button
                             onClick={handleClear}
-                            className="mt-4 px-4 py-2 rounded-full bg-bronze/20 text-bronze text-xs font-bold uppercase tracking-wider border border-bronze/30 hover:bg-bronze/30 transition-colors"
+                            className="mt-4 px-4 py-2 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30 hover:bg-gold/30 transition-colors"
                         >
                             Clear Search
                         </button>
@@ -367,7 +367,7 @@ export default function SearchPage() {
                 ) : (
                     /* ── Results List ── */
                     <div className="px-5 pt-4 space-y-3 pb-4">
-                        <p className="text-xs text-zinc-500 font-mono mb-2">
+                        <p className="text-xs text-muted-foreground font-mono mb-2">
                             {filteredResults.length} {filteredResults.length === 1 ? 'result' : 'results'}
                         </p>
                         {filteredResults.map((item) => {
@@ -377,25 +377,25 @@ export default function SearchPage() {
                                 <article
                                     key={item.id}
                                     onClick={() => play(item)}
-                                    className="bg-[#1c1c1c] rounded-xl p-3 flex gap-3 items-center border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all cursor-pointer group"
+                                    className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border hover:bg-muted/50 hover:border-border transition-all cursor-pointer group"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-zinc-800 relative">
+                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-muted relative">
                                         {item.thumbnail_url ? (
                                             <div
                                                 className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform"
                                                 style={{ backgroundImage: `url(${item.thumbnail_url})` }}
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
                                                 {item.type === 'PODCAST' ? (
-                                                    <Mic className="w-5 h-5 text-zinc-600" />
+                                                    <Mic className="w-5 h-5 text-muted-foreground" />
                                                 ) : item.type === 'VIDEO' ? (
-                                                    <Video className="w-5 h-5 text-zinc-600" />
+                                                    <Video className="w-5 h-5 text-muted-foreground" />
                                                 ) : item.type === 'TWEET' ? (
-                                                    <MessageCircle className="w-5 h-5 text-zinc-600" />
+                                                    <MessageCircle className="w-5 h-5 text-muted-foreground" />
                                                 ) : (
-                                                    <FileText className="w-5 h-5 text-zinc-600" />
+                                                    <FileText className="w-5 h-5 text-muted-foreground" />
                                                 )}
                                             </div>
                                         )}
@@ -416,22 +416,22 @@ export default function SearchPage() {
                                                 {badge.label}
                                             </span>
                                             {item.source_name && (
-                                                <span className="text-[9px] text-zinc-600 flex items-center gap-1">
+                                                <span className="text-[9px] text-muted-foreground flex items-center gap-1">
                                                     <Rss className="w-2.5 h-2.5" />
                                                     {item.source_name}
                                                 </span>
                                             )}
                                         </div>
-                                        <h3 className="text-sm font-serif text-zinc-100 leading-snug line-clamp-2 group-hover:text-white transition-colors">
+                                        <h3 className="text-sm font-serif text-foreground leading-snug line-clamp-2 group-hover:text-foreground transition-colors">
                                             {item.title || item.body_text?.slice(0, 80) || 'Untitled'}
                                         </h3>
                                         <div className="flex items-center gap-2 mt-1">
                                             {item.author && (
-                                                <span className="text-[11px] text-zinc-500 truncate max-w-[120px]">
+                                                <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
                                                     {item.author}
                                                 </span>
                                             )}
-                                            <span className="text-[11px] text-zinc-600">
+                                            <span className="text-[11px] text-muted-foreground">
                                                 {formatRelativeDate(item.published_at)}
                                             </span>
                                         </div>
@@ -443,12 +443,12 @@ export default function SearchPage() {
                                         className={cn(
                                             "shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all",
                                             bookmarkedIds.has(item.id)
-                                                ? "text-bronze bg-bronze/10"
-                                                : "text-zinc-600 hover:text-bronze hover:bg-bronze/10"
+                                                ? "text-gold bg-gold/10"
+                                                : "text-muted-foreground hover:text-gold hover:bg-gold/10"
                                         )}
                                         aria-label="Bookmark"
                                     >
-                                        <Bookmark className={cn("w-4 h-4", bookmarkedIds.has(item.id) && "fill-bronze")} />
+                                        <Bookmark className={cn("w-4 h-4", bookmarkedIds.has(item.id) && "fill-gold")} />
                                     </button>
                                 </article>
                             );

@@ -146,7 +146,7 @@ export function DraggableBottomSheet({
                 'bottom-0',
                 'bg-card/95 backdrop-blur-xl',
                 'border-t border-border/50',
-                'shadow-[0px_-8px_30px_0px_rgba(0,0,0,0.4)]',
+                'shadow-[0_-2px_12px_rgba(0,0,0,0.08)]',
                 'overflow-hidden',
                 'max-w-md mx-auto rounded-t-2xl',
                 'pb-[calc(env(safe-area-inset-bottom)+4rem)] md:pb-[env(safe-area-inset-bottom)]',

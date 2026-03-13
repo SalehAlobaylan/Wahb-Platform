@@ -87,14 +87,17 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                 />
             )}
 
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90" />
+            {/* Gradient overlay (Clickable to pause/play) */}
+            <div 
+                className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90 cursor-pointer" 
+                onClick={togglePlay}
+            />
 
             {/* Content info — positioned above the fixed bottom sheet */}
             <div className="absolute bottom-[100px] left-0 right-0 p-4 space-y-3">
                 {/* Type badge */}
                 <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-bronze/90 text-white backdrop-blur-md flex items-center gap-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-gold/90 text-white backdrop-blur-md flex items-center gap-1">
                         <Headphones className="w-3 h-3" />
                         {item.type === 'PODCAST' ? 'Podcast' : 'Audio'}
                     </span>
@@ -112,7 +115,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
 
                 {/* Author */}
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-bronze/40 flex items-center justify-center text-xs overflow-hidden border border-white/20">
+                    <div className="w-8 h-8 rounded-full bg-gold/40 flex items-center justify-center text-xs overflow-hidden border border-white/20">
                         <img
                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.author}`}
                             alt={item.author || 'Author'}
@@ -132,17 +135,19 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
 
             {/* Play/Pause overlay */}
             {isActive && !isPlaying && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    onClick={togglePlay}
-                    className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer z-10"
+                <div
+                    className="absolute inset-0 flex items-center justify-center cursor-pointer z-10 pointer-events-none"
                 >
-                    <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-2xl">
-                        <Play className="w-10 h-10 text-white ml-1 fill-white" />
-                    </div>
-                </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="flex items-center justify-center pointer-events-auto drop-shadow-2xl"
+                        onClick={togglePlay}
+                    >
+                        <Play className="w-16 h-16 text-white/90 fill-white/90" />
+                    </motion.div>
+                </div>
             )}
         </div>
     );

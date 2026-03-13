@@ -51,13 +51,13 @@ function formatRelativeDate(dateStr: string) {
    ══════════════════════════════════════════════════════════ */
 function getTypeBadge(type: ContentType) {
     const map: Record<ContentType, { label: string; color: string }> = {
-        ARTICLE: { label: 'Article', color: 'bg-bronze/20 text-bronze border-bronze/30' },
+        ARTICLE: { label: 'Article', color: 'bg-gold/20 text-gold border-gold/30' },
         PODCAST: { label: 'Podcast', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
         VIDEO: { label: 'Video', color: 'bg-sky-500/15 text-sky-400 border-sky-500/25' },
         TWEET: { label: 'Tweet', color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
         COMMENT: { label: 'Comment', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };
-    return map[type] || { label: type, color: 'bg-white/10 text-zinc-400 border-white/10' };
+    return map[type] || { label: type, color: 'bg-muted text-muted-foreground border-border' };
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -110,7 +110,7 @@ export default function SavedPage() {
     // Error state
     if (isError) {
         return (
-            <div className="h-full w-full bg-[#0a0a0a]">
+            <div className="h-full w-full bg-background">
                 <FeedErrorFallback
                     onRetry={() => refetch()}
                     message={error?.message || 'Failed to load saved items'}
@@ -120,27 +120,27 @@ export default function SavedPage() {
     }
 
     return (
-        <div className="h-full w-full overflow-hidden relative bg-[#0a0a0a]">
+        <div className="h-full w-full overflow-hidden relative bg-background">
             {/* ═══════════ HEADER ═══════════ */}
-            <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-b from-black/80 via-black/50 to-transparent pb-4">
+            <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-b from-background via-background/80 to-transparent pb-4">
                 <div className="flex justify-between items-center p-4 pt-6">
                     <Link href="/profile" className="pointer-events-auto">
-                        <div className="w-9 h-9 rounded-full bg-bronze/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
-                            <User className="w-4.5 h-4.5 text-white" />
+                        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border hover:border-primary/40 transition-all">
+                            <User className="w-4.5 h-4.5 text-foreground" />
                         </div>
                     </Link>
 
                     <div className="pointer-events-auto">
-                        <FeedSwitcher variant="dark" />
+                        <FeedSwitcher />
                     </div>
 
                     <div className="pointer-events-auto">
                         <Link href="/search">
                             <div
-                                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
+                                className="w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-all"
                                 aria-label="Search"
                             >
-                                <Search className="w-4.5 h-4.5 text-white" />
+                                <Search className="w-4.5 h-4.5 text-foreground" />
                             </div>
                         </Link>
                     </div>
@@ -152,10 +152,10 @@ export default function SavedPage() {
                 {/* ── Page Title ── */}
                 <div className="px-5 mb-5">
                     <div className="flex items-center gap-3 mb-1">
-                        <Bookmark className="w-5 h-5 text-bronze" />
-                        <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Saved</h1>
+                        <Bookmark className="w-5 h-5 text-gold" />
+                        <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">Saved</h1>
                     </div>
-                    <p className="text-xs text-zinc-500 pl-8">Your bookmarked content, all in one place.</p>
+                    <p className="text-xs text-muted-foreground pl-8">Your bookmarked content, all in one place.</p>
                 </div>
 
                 {/* ── Filter Chips ── */}
@@ -172,8 +172,8 @@ export default function SavedPage() {
                                 className={cn(
                                     'flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border',
                                     isActive
-                                        ? 'bg-bronze text-[#0a0a0a] border-bronze shadow-lg shadow-bronze/20'
-                                        : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10 hover:text-zinc-200'
+                                        ? 'bg-gold text-white border-gold shadow-lg shadow-gold/20'
+                                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground'
                                 )}
                             >
                                 {filter.icon}
@@ -181,7 +181,7 @@ export default function SavedPage() {
                                 {count > 0 && (
                                     <span className={cn(
                                         'text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center font-bold',
-                                        isActive ? 'bg-[#0a0a0a]/20 text-[#0a0a0a]' : 'bg-white/10 text-zinc-500'
+                                        isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
                                     )}>
                                         {count}
                                     </span>
@@ -193,12 +193,12 @@ export default function SavedPage() {
 
                 {/* ── Stats Bar ── */}
                 <div className="flex items-center justify-between px-5 mb-4">
-                    <span className="text-xs text-zinc-500 font-mono">
+                    <span className="text-xs text-muted-foreground font-mono">
                         {sortedItems.length} {sortedItems.length === 1 ? 'item' : 'items'}
                     </span>
                     <button
                         onClick={() => setSortOrder((s) => s === 'newest' ? 'oldest' : 'newest')}
-                        className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-bronze transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold transition-colors"
                     >
                         <ArrowUpDown className="w-3.5 h-3.5" />
                         {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
@@ -210,12 +210,12 @@ export default function SavedPage() {
                     /* Loading Skeletons */
                     <div className="px-5 space-y-3">
                         {Array.from({ length: 6 }).map((_, i) => (
-                            <div key={i} className="bg-[#1c1c1c] rounded-xl p-3 flex gap-3 items-center border border-white/5 animate-pulse">
-                                <div className="w-14 h-14 rounded-lg bg-zinc-800 shrink-0" />
+                            <div key={i} className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border animate-pulse">
+                                <div className="w-14 h-14 rounded-lg bg-muted shrink-0" />
                                 <div className="flex-1 space-y-2">
-                                    <div className="h-2.5 bg-zinc-800 rounded w-16" />
-                                    <div className="h-3.5 bg-zinc-800 rounded w-3/4" />
-                                    <div className="h-2.5 bg-zinc-800 rounded w-1/2" />
+                                    <div className="h-2.5 bg-muted rounded w-16" />
+                                    <div className="h-3.5 bg-muted rounded w-3/4" />
+                                    <div className="h-2.5 bg-muted rounded w-1/2" />
                                 </div>
                             </div>
                         ))}
@@ -225,15 +225,15 @@ export default function SavedPage() {
                     <div className="flex flex-col items-center justify-center px-8 pt-16">
                         <div className="relative mb-6">
                             {/* Glow */}
-                            <div className="absolute inset-0 bg-bronze/10 rounded-full blur-2xl scale-150" />
-                            <div className="relative w-20 h-20 rounded-full bg-[#1c1c1c] border border-white/10 flex items-center justify-center">
-                                <Bookmark className="w-8 h-8 text-bronze/60" />
+                            <div className="absolute inset-0 bg-gold/10 rounded-full blur-2xl scale-150" />
+                            <div className="relative w-20 h-20 rounded-full bg-card border border-border flex items-center justify-center">
+                                <Bookmark className="w-8 h-8 text-gold/60" />
                             </div>
                         </div>
-                        <h2 className="text-xl font-serif text-white mb-2 font-medium">
+                        <h2 className="text-xl font-serif text-foreground mb-2 font-medium">
                             {activeFilter === 'ALL' ? 'No saved items yet' : `No saved ${FILTERS.find(f => f.key === activeFilter)?.label.toLowerCase()}`}
                         </h2>
-                        <p className="text-sm text-zinc-500 text-center leading-relaxed max-w-[260px]">
+                        <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-[260px]">
                             {activeFilter === 'ALL'
                                 ? 'Tap the bookmark icon on any content to save it here for later.'
                                 : 'Try switching to a different filter or bookmark more content.'}
@@ -241,7 +241,7 @@ export default function SavedPage() {
                         {activeFilter !== 'ALL' && (
                             <button
                                 onClick={() => setActiveFilter('ALL')}
-                                className="mt-4 px-4 py-2 rounded-full bg-bronze/20 text-bronze text-xs font-bold uppercase tracking-wider border border-bronze/30 hover:bg-bronze/30 transition-colors"
+                                className="mt-4 px-4 py-2 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30 hover:bg-gold/30 transition-colors"
                             >
                                 View All
                             </button>
@@ -257,23 +257,23 @@ export default function SavedPage() {
                                 <article
                                     key={item.id}
                                     onClick={() => play(item)}
-                                    className="bg-[#1c1c1c] rounded-xl p-3 flex gap-3 items-center border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all cursor-pointer group"
+                                    className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border hover:bg-muted/50 hover:border-border transition-all cursor-pointer group"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-zinc-800 relative">
+                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-muted relative">
                                         {item.thumbnail_url ? (
                                             <div
                                                 className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform"
                                                 style={{ backgroundImage: `url(${item.thumbnail_url})` }}
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
                                                 {item.type === 'PODCAST' ? (
-                                                    <Mic className="w-5 h-5 text-zinc-600" />
+                                                    <Mic className="w-5 h-5 text-muted-foreground" />
                                                 ) : item.type === 'VIDEO' ? (
-                                                    <Video className="w-5 h-5 text-zinc-600" />
+                                                    <Video className="w-5 h-5 text-muted-foreground" />
                                                 ) : (
-                                                    <FileText className="w-5 h-5 text-zinc-600" />
+                                                    <FileText className="w-5 h-5 text-muted-foreground" />
                                                 )}
                                             </div>
                                         )}
@@ -295,22 +295,22 @@ export default function SavedPage() {
                                                 {badge.label}
                                             </span>
                                             {item.source_name && (
-                                                <span className="text-[9px] text-zinc-600 flex items-center gap-1">
+                                                <span className="text-[9px] text-muted-foreground flex items-center gap-1">
                                                     <Rss className="w-2.5 h-2.5" />
                                                     {item.source_name}
                                                 </span>
                                             )}
                                         </div>
-                                        <h3 className="text-sm font-serif text-zinc-100 leading-snug line-clamp-2 group-hover:text-white transition-colors">
+                                        <h3 className="text-sm font-serif text-foreground leading-snug line-clamp-2 group-hover:text-foreground transition-colors">
                                             {item.title || 'Untitled'}
                                         </h3>
                                         <div className="flex items-center gap-2 mt-1">
                                             {item.author && (
-                                                <span className="text-[11px] text-zinc-500 truncate max-w-[120px]">
+                                                <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">
                                                     {item.author}
                                                 </span>
                                             )}
-                                            <span className="text-[11px] text-zinc-600">
+                                            <span className="text-[11px] text-muted-foreground">
                                                 {formatRelativeDate(item.published_at)}
                                             </span>
                                         </div>
@@ -319,10 +319,10 @@ export default function SavedPage() {
                                     {/* Bookmark icon */}
                                     <button
                                         onClick={(e) => handleRemoveBookmark(e, item.id)}
-                                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-bronze hover:bg-bronze/10 transition-all"
+                                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-gold hover:bg-gold/10 transition-all"
                                         aria-label="Remove bookmark"
                                     >
-                                        <Bookmark className="w-4 h-4 fill-bronze" />
+                                        <Bookmark className="w-4 h-4 fill-gold" />
                                     </button>
                                 </article>
                             );

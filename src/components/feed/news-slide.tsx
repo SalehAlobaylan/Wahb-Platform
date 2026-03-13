@@ -76,19 +76,36 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const getFeaturedTitle = (item: ContentItem) =>
         item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
 
+    const hasEnoughContent = (item: ContentItem) => {
+        const textLength = (item.body_text?.length || 0) + (item.excerpt?.length || 0);
+        return textLength > 150 || item.type === 'VIDEO' || item.type === 'PODCAST';
+    };
+
     return (
-        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-[#0a0a0a] text-[#e5e5e5] relative">
-            {/* ═══════════════ TOP HALF: Hero ═══════════════ */}
-            <div className="h-[50%] w-full flex flex-col px-4 pt-14 pb-4 relative z-10">
+        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-background text-foreground">
+            {/* ═══════════════ TOP: Featured Hero ═══════════════ */}
+            <div 
+                className={cn(
+                    "shrink-0 w-full flex flex-col px-4 pt-14 pb-3 relative group/hero",
+                    hasEnoughContent(featured) && "cursor-pointer"
+                )}
+                onClick={() => hasEnoughContent(featured) ? onOpenArticle(featured) : undefined}
+            >
                 {/* Hero Image */}
-                <div className="w-full h-[65%] rounded-lg overflow-hidden mb-5 shadow-2xl border border-white/5 relative group">
+                <div className="w-full aspect-[2/1] rounded-lg overflow-hidden mb-3 shadow-md border border-border relative group">
                     {featured.thumbnail_url ? (
                         <div
-                            className="w-full h-full bg-cover bg-center transform group-hover:scale-105 transition-transform duration-700"
+                            className={cn(
+                                "w-full h-full bg-cover bg-center transition-transform duration-500",
+                                hasEnoughContent(featured) && "group-hover/hero:scale-[1.02]"
+                            )}
                             style={{ backgroundImage: `url(${featured.thumbnail_url})` }}
                         />
                     ) : (
-                        <div className="w-full h-full bg-[#1c1c1c] flex items-center justify-center">
+                        <div className={cn(
+                            "w-full h-full bg-card flex items-center justify-center transition-transform duration-500",
+                            hasEnoughContent(featured) && "group-hover/hero:scale-[1.02]"
+                        )}>
                             <span className="text-4xl opacity-20">📰</span>
                         </div>
                     )}
@@ -96,101 +113,106 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                 </div>
 
                 {/* Title & Author */}
-                <div>
-                    <h1 className="font-serif text-3xl leading-tight font-bold mb-2 text-white line-clamp-2">
+                <div className="relative">
+                    <h1 className={cn(
+                        "font-serif text-xl leading-tight font-bold mb-1.5 text-foreground line-clamp-2 transition-colors duration-300",
+                        hasEnoughContent(featured) && "group-hover/hero:text-gold"
+                    )}>
                         {getFeaturedTitle(featured)}
                     </h1>
-                    {/* Excerpt or first line of body for text-only articles */}
-                    {!featured.thumbnail_url && (featured.excerpt || featured.body_text) && (
-                        <p className="text-sm text-[#a3a3a3] line-clamp-2 mb-2 leading-relaxed">
+                    {(featured.excerpt || featured.body_text) && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
                             {featured.excerpt || featured.body_text?.slice(0, 160)}
                         </p>
                     )}
                     <div className="flex items-center gap-2">
                         <img
                             alt="Author"
-                            className="w-5 h-5 rounded-full border border-bronze object-cover"
+                            className="w-5 h-5 rounded-full border border-gold object-cover"
                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
                         />
-                        <span className="text-xs text-[#a3a3a3] font-light italic">
+                        <span className="text-xs text-muted-foreground font-light italic">
                             {featured.source_name || featured.author || 'Unknown'}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* ═══════════════ BOTTOM HALF: Related Articles ═══════════════ */}
-            <div className="absolute bottom-0 left-0 w-full h-[50%] z-20 flex flex-col bg-[#141414] rounded-t-[2rem] shadow-[0_-15px_50px_rgba(0,0,0,0.8)] border-t border-white/5">
-                {/* Related section */}
-                <div className="flex flex-col h-full overflow-hidden px-6 pb-8 pt-5">
-                    {/* Section heading */}
-                    <h3 className="font-serif text-[10px] text-[#a3a3a3] uppercase tracking-widest font-bold mb-4">Related Stories</h3>
+            {/* ═══════════════ Divider ═══════════════ */}
+            <div className="shrink-0 mx-4">
+                <div className="h-px bg-border" />
+            </div>
 
-                    {/* Scrollable content */}
-                    <div className="flex-1 overflow-y-auto hide-scrollbar space-y-3">
-                        {related.length > 0 ? (
-                            related.slice(0, 4).map((item) => (
-                                <article
-                                    key={item.id}
-                                    className="bg-[#1c1c1c] rounded-xl p-2.5 flex gap-3 hover:bg-white/5 transition-colors cursor-pointer group border border-white/5 items-center"
-                                    onClick={() => onOpenArticle(item)}
-                                >
-                                    {/* Thumbnail or icon */}
-                                    <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-zinc-800">
-                                        {item.thumbnail_url ? (
-                                            <div
-                                                className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
-                                                style={{ backgroundImage: `url(${item.thumbnail_url})` }}
-                                            />
-                                        ) : item.type === 'COMMENT' ? (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
-                                                <Quote className="w-5 h-5 text-bronze/60" />
-                                            </div>
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-700">
-                                                <span className="text-lg opacity-30">📄</span>
-                                            </div>
-                                        )}
-                                    </div>
+            {/* ═══════════════ BOTTOM: Related ═══════════════ */}
+            <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-24">
+                <h3 className="shrink-0 font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">Related</h3>
 
-                                    {/* Content */}
-                                    <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                            <span className="text-[8px] text-bronze uppercase tracking-wider font-bold">
-                                                {getRelatedBadge(item)}
-                                            </span>
-                                            <div className="flex items-center gap-1 text-[9px] text-zinc-500">
-                                                {item.type === 'ARTICLE' ? (
-                                                    <>
-                                                        <TrendingUp className="w-[10px] h-[10px]" />
-                                                        {getRelatedMeta(item)}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Clock className="w-[10px] h-[10px]" />
-                                                        {getRelatedMeta(item)}
-                                                    </>
-                                                )}
-                                            </div>
+                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-2">
+                    {related.length > 0 ? (
+                        related.slice(0, 4).map((item) => (
+                            <article
+                                key={item.id}
+                                className={cn(
+                                    "bg-muted/50 rounded-xl p-2.5 flex gap-3 transition-colors border border-border items-center",
+                                    hasEnoughContent(item) ? "hover:bg-muted cursor-pointer group" : "opacity-90"
+                                )}
+                                onClick={() => hasEnoughContent(item) ? onOpenArticle(item) : undefined}
+                            >
+                                {/* Thumbnail or icon */}
+                                <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-muted">
+                                    {item.thumbnail_url ? (
+                                        <div
+                                            className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
+                                            style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+                                        />
+                                    ) : item.type === 'COMMENT' ? (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
+                                            <Quote className="w-5 h-5 text-gold/60" />
                                         </div>
-                                        {item.title ? (
-                                            <h4 className="font-serif text-[14px] leading-snug text-zinc-100 group-hover:text-white line-clamp-2">
-                                                {item.title}
-                                            </h4>
-                                        ) : (
-                                            <p className="text-[13px] leading-snug text-zinc-300 italic line-clamp-2">
-                                                &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
-                                            </p>
-                                        )}
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
+                                            <span className="text-lg opacity-30">📄</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
+                                    <div className="flex justify-between items-baseline mb-0.5">
+                                        <span className="text-[8px] text-gold uppercase tracking-wider font-bold">
+                                            {getRelatedBadge(item)}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                                            {item.type === 'ARTICLE' ? (
+                                                <>
+                                                    <TrendingUp className="w-[10px] h-[10px]" />
+                                                    {getRelatedMeta(item)}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Clock className="w-[10px] h-[10px]" />
+                                                    {getRelatedMeta(item)}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                </article>
-                            ))
-                        ) : (
-                            <div className="flex items-center justify-center h-24 text-zinc-500 text-sm">
-                                No related stories available
-                            </div>
-                        )}
-                    </div>
+                                    {item.title ? (
+                                        <h4 className="font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground line-clamp-2">
+                                            {item.title}
+                                        </h4>
+                                    ) : (
+                                        <p className="text-[13px] leading-snug text-muted-foreground italic line-clamp-2">
+                                            &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
+                                        </p>
+                                    )}
+                                </div>
+                            </article>
+                        ))
+                    ) : (
+                        <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                            No related available
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -45,19 +45,19 @@ export function InterestsModal({ isOpen, onClose, selected, onSave }: InterestsM
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-md bg-[#261e16] border-t border-[#5c4d3c] rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom duration-300">
+            <div className="relative w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 animate-in slide-in-from-bottom duration-300">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-serif font-bold text-white">Your Interests</h2>
+                    <h2 className="text-xl font-serif font-bold text-foreground">Your Interests</h2>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                        className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <p className="text-xs text-[#bcaaa4] mb-5 tracking-wide">
+                <p className="text-xs text-muted-foreground mb-5 tracking-wide">
                     Select topics you&apos;re interested in. We&apos;ll personalize your feed accordingly.
                 </p>
 
@@ -72,8 +72,8 @@ export function InterestsModal({ isOpen, onClose, selected, onSave }: InterestsM
                                 className={cn(
                                     'px-3.5 py-2 rounded-full text-sm font-medium transition-all border',
                                     isSelected
-                                        ? 'bg-[#f2930d]/20 text-[#f2930d] border-[#f2930d]/40 shadow-[0_0_10px_rgba(242,147,13,0.15)]'
-                                        : 'bg-white/5 text-[#bcaaa4] border-white/10 hover:border-white/20 hover:text-white'
+                                        ? 'bg-gold/20 text-gold border-gold/40 shadow-[0_0_10px_rgba(218,164,40,0.15)]'
+                                        : 'bg-muted text-muted-foreground border-border hover:border-foreground/20 hover:text-foreground'
                                 )}
                             >
                                 <span className="flex items-center gap-1.5">
@@ -92,7 +92,7 @@ export function InterestsModal({ isOpen, onClose, selected, onSave }: InterestsM
                 {/* Save button */}
                 <button
                     onClick={handleSave}
-                    className="w-full py-3 rounded-xl bg-[#f2930d] text-[#1a140e] font-bold text-sm tracking-wide hover:bg-[#f2930d]/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(242,147,13,0.3)]"
+                    className="w-full py-3 rounded-xl bg-gold text-white font-bold text-sm tracking-wide hover:bg-gold/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(218,164,40,0.3)]"
                 >
                     Save Interests ({localSelected.length})
                 </button>

@@ -206,7 +206,7 @@ export default function ForYouPage() {
                 <div className="flex justify-between items-center p-4 pt-6">
                     {/* Profile avatar */}
                     <Link href="/profile" className="pointer-events-auto">
-                        <div className="w-9 h-9 rounded-full bg-bronze/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
+                        <div className="w-9 h-9 rounded-full bg-gold/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
                             <User className="w-4.5 h-4.5 text-white" />
                         </div>
                     </Link>
@@ -252,7 +252,7 @@ export default function ForYouPage() {
                 {/* Loading more indicator */}
                 {isFetchingNextPage && (
                     <div className="h-20 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-bronze/30 border-t-bronze rounded-full animate-spin" />
+                        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
                     </div>
                 )}
             </FeedContainer>
@@ -260,7 +260,7 @@ export default function ForYouPage() {
             {/* ── Fixed Progress Bar ─────────────────────────────── */}
             <div className="absolute bottom-[80px] left-0 right-0 h-1 bg-white/10 z-30">
                 <div
-                    className="h-full bg-bronze transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(168,134,105,0.5)]"
+                    className="h-full bg-gold transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(218,164,40,0.5)]"
                     style={{ width: `${progress}%` }}
                 />
             </div>
@@ -292,7 +292,7 @@ export default function ForYouPage() {
                         >
                             <div className={cn(
                                 "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                                isLiked ? "bg-bronze" : "bg-muted/50 hover:bg-muted"
+                                isLiked ? "bg-gold" : "bg-muted/50 hover:bg-muted"
                             )}>
                                 <Heart className={cn("w-5 h-5", isLiked ? "text-white fill-white" : "text-foreground")} />
                             </div>
@@ -318,7 +318,7 @@ export default function ForYouPage() {
                         >
                             <div className={cn(
                                 "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                                isBookmarked ? "bg-bronze" : "bg-muted/50 hover:bg-muted"
+                                isBookmarked ? "bg-gold" : "bg-muted/50 hover:bg-muted"
                             )}>
                                 <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-foreground")} />
                             </div>
@@ -340,12 +340,13 @@ export default function ForYouPage() {
 
             {/* ── Floating Action Button (Create/Plus) ───────────── */}
             <div className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
-                <button
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-bronze hover:bg-bronze/90 transition-all shadow-lg shadow-black/50 active:scale-95"
+                <Link
+                    href="/create"
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-gold hover:bg-gold/90 transition-all shadow-lg shadow-black/50 active:scale-95"
                     aria-label="Create Post"
                 >
                     <Plus className="w-6 h-6 text-white" />
-                </button>
+                </Link>
             </div>
         </div>
     );

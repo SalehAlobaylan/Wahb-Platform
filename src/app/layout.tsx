@@ -1,20 +1,32 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { NowPlayingProvider } from "@/components/now-playing-provider";
 import { GlobalNowPlayingBar } from "@/components/global-now-playing-bar";
 
 const dmSans = DM_Sans({
-  variable: "--font-sans",
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
 });
 
 const playfair = Playfair_Display({
-  variable: "--font-serif",
+  variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "600", "700", "900"],
+});
+
+const arabicFont = localFont({
+  src: [
+    { path: "../../public/OTF/TheYearofHandicrafts-Regular.otf", weight: "400", style: "normal" },
+    { path: "../../public/OTF/TheYearofHandicrafts-Medium.otf", weight: "500", style: "normal" },
+    { path: "../../public/OTF/TheYearofHandicrafts-SemiBold.otf", weight: "600", style: "normal" },
+    { path: "../../public/OTF/TheYearofHandicrafts-Bold.otf", weight: "700", style: "normal" },
+    { path: "../../public/OTF/TheYearofHandicrafts-Black.otf", weight: "900", style: "normal" },
+  ],
+  variable: "--font-arabic",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +41,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#A88669",
+  themeColor: "#DAA428",
 };
 
 export default function RootLayout({
@@ -38,12 +50,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${dmSans.variable} ${playfair.variable} font-sans antialiased bg-background text-foreground`}
+        className={`${arabicFont.variable} ${dmSans.variable} ${playfair.variable} font-sans antialiased bg-black text-foreground`}
       >
         <Providers>
-          <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-border relative">
+          <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-border relative bg-background shadow-2xl">
             <main className="flex-1">
               {children}
             </main>
