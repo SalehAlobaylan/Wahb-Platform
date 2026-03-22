@@ -2,14 +2,18 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, ChevronRight, User, CreditCard, AudioLines,
     Download, Volume2, Bell, Palette, LogOut, Shield, Globe,
     Moon, Sun, Monitor, Check, Eye, BellRing, BellOff,
-    Wifi, WifiOff, HardDrive, Trash2, Languages,
+    Wifi, WifiOff, HardDrive, Trash2, Languages, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
+import { useAuthStore } from '@/lib/stores';
+import { useLogout } from '@/lib/hooks/use-auth';
+import { useTheme } from 'next-themes';
 
 /* ═══════════════════════════════════════════════════════
    Sub-panel type & registry
@@ -163,6 +167,11 @@ function RadioOption({
    ═══════════════════════════════════════════════════════ */
 
 function ProfilePanel({ onBack }: { onBack: () => void }) {
+    const { user } = useAuthStore();
+    const displayName = user?.username || 'Guest';
+    const displayEmail = user?.email || '—';
+    const initials = displayName.slice(0, 2).toUpperCase();
+
     return (
         <div className="flex flex-col h-full bg-background">
             <PanelHeader title="Profile & Subscription" onBack={onBack} />
@@ -170,27 +179,20 @@ function ProfilePanel({ onBack }: { onBack: () => void }) {
                 {/* Avatar & Name */}
                 <div className="flex flex-col items-center pt-2 pb-4">
                     <div className="relative mb-3">
-                        <img
-                            alt="Profile"
-                            className="w-20 h-20 rounded-full object-cover border-2 border-gold"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWifIO0mY4d7zfoU55ltGA6oiYG1wc_ceQz9O-IiH7KeMn9_1kADzxojHjKIe2nCx-ObvDuZqBROCPmCD79Thbf3meKVEUnLakIXdEfneyDp78sa1kPzcJFsqcg6kggR6f8xqJW6rYbVsCPZ2nFXgjPcOP8HyrenU1qv9ei0YCKF-7LvxHqWaSuKRJ06j4hz2NKs_aSGWsIYKX3bu_Y8-mFUIk-SweXiCOZEB-GLgb_F7-b1zHeeJwtqGZWD46uF779L2VWoV_ewE"
-                        />
-                        <button className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-gold flex items-center justify-center text-background shadow">
-                            <Eye className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="w-20 h-20 rounded-full border-2 border-gold bg-gold/10 flex items-center justify-center">
+                            <span className="font-serif text-2xl font-bold text-gold">{initials}</span>
+                        </div>
                     </div>
-                    <h2 className="font-serif text-lg font-bold text-foreground">Julian Sterling</h2>
-                    <p className="text-xs text-gold font-medium tracking-wide uppercase mt-0.5">Patron Member</p>
+                    <h2 className="font-serif text-lg font-bold text-foreground">{displayName}</h2>
+                    <p className="text-xs text-gold font-medium tracking-wide uppercase mt-0.5">Member</p>
                 </div>
 
                 <div>
                     <SectionTitle>Personal Info</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<User className="w-4 h-4" />} label="Full Name" value="Julian Sterling" />
+                        <SettingsRow icon={<User className="w-4 h-4" />} label="Username" value={displayName} />
                         <Divider />
-                        <SettingsRow icon={<Globe className="w-4 h-4" />} label="Username" value="@julian_s" />
-                        <Divider />
-                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Email" value="j.sterling@mail.com" />
+                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Email" value={displayEmail} />
                     </SettingsCard>
                 </div>
 
@@ -432,7 +434,7 @@ function NotificationsPanel({ onBack }: { onBack: () => void }) {
 }
 
 function ThemePanel({ onBack }: { onBack: () => void }) {
-    const [theme, setTheme] = useState('dark');
+    const { theme, setTheme: setAppTheme } = useTheme();
     const [fontSize, setFontSize] = useState('medium');
 
     return (
@@ -449,7 +451,7 @@ function ThemePanel({ onBack }: { onBack: () => void }) {
                         ].map((t) => (
                             <button
                                 key={t.key}
-                                onClick={() => setTheme(t.key)}
+                                onClick={() => setAppTheme(t.key)}
                                 className={cn(
                                     'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all',
                                     theme === t.key
@@ -584,8 +586,16 @@ function SecurityPanel({ onBack }: { onBack: () => void }) {
    ═══════════════════════════════════════════════════════ */
 export default function SettingsPage() {
     const [activePanel, setActivePanel] = useState<PanelId>('main');
+    const { user, isAuthenticated } = useAuthStore();
+    const logout = useLogout();
+    const router = useRouter();
 
     const goBack = () => setActivePanel('main');
+
+    async function handleLogout() {
+        await logout.mutateAsync();
+        router.push('/');
+    }
 
     if (activePanel === 'profile') return <ProfilePanel onBack={goBack} />;
     if (activePanel === 'payment') return <PaymentPanel onBack={goBack} />;
@@ -613,24 +623,39 @@ export default function SettingsPage() {
 
             <main className="px-5 py-6 space-y-8">
                 {/* ── Profile Teaser ── */}
-                <button
-                    onClick={() => setActivePanel('profile')}
-                    className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-border hover:border-gold/30 transition-colors group"
-                >
-                    <div className="relative shrink-0">
-                        <img
-                            alt="Profile"
-                            className="w-14 h-14 rounded-full object-cover border-2 border-gold"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWifIO0mY4d7zfoU55ltGA6oiYG1wc_ceQz9O-IiH7KeMn9_1kADzxojHjKIe2nCx-ObvDuZqBROCPmCD79Thbf3meKVEUnLakIXdEfneyDp78sa1kPzcJFsqcg6kggR6f8xqJW6rYbVsCPZ2nFXgjPcOP8HyrenU1qv9ei0YCKF-7LvxHqWaSuKRJ06j4hz2NKs_aSGWsIYKX3bu_Y8-mFUIk-SweXiCOZEB-GLgb_F7-b1zHeeJwtqGZWD46uF779L2VWoV_ewE"
-                        />
-                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-gold rounded-full border-2 border-background" />
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                        <h2 className="font-serif text-base font-semibold text-foreground">Julian Sterling</h2>
-                        <p className="text-xs text-gold font-medium tracking-wide uppercase">Patron Member</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
-                </button>
+                {isAuthenticated && user ? (
+                    <button
+                        onClick={() => setActivePanel('profile')}
+                        className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-border hover:border-gold/30 transition-colors group"
+                    >
+                        <div className="relative shrink-0">
+                            <div className="w-14 h-14 rounded-full border-2 border-gold bg-gold/10 flex items-center justify-center">
+                                <span className="font-serif text-lg font-bold text-gold">
+                                    {user.username.slice(0, 2).toUpperCase()}
+                                </span>
+                            </div>
+                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-gold rounded-full border-2 border-background" />
+                        </div>
+                        <div className="flex-1 text-left min-w-0">
+                            <h2 className="font-serif text-base font-semibold text-foreground">{user.username}</h2>
+                            <p className="text-xs text-gold font-medium tracking-wide uppercase">Member</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </button>
+                ) : (
+                    <Link href="/login" className="block">
+                        <div className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-dashed border-gold/30 hover:border-gold/50 transition-colors group">
+                            <div className="w-14 h-14 rounded-full border-2 border-border bg-muted/30 flex items-center justify-center shrink-0">
+                                <User className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                                <h2 className="font-serif text-base font-semibold text-foreground">Sign In</h2>
+                                <p className="text-xs text-muted-foreground">Personalize your experience</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </div>
+                    </Link>
+                )}
 
                 {/* ── Account ── */}
                 <div>
@@ -668,10 +693,27 @@ export default function SettingsPage() {
 
                 {/* ── Logout ── */}
                 <div className="pb-8 space-y-3">
-                    <button className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group">
-                        <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                        <span>Log Out</span>
-                    </button>
+                    {isAuthenticated ? (
+                        <button
+                            onClick={handleLogout}
+                            disabled={logout.isPending}
+                            className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                        >
+                            {logout.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                            )}
+                            <span>Log Out</span>
+                        </button>
+                    ) : (
+                        <Link href="/login">
+                            <button className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <User className="w-4 h-4" />
+                                <span>Sign In</span>
+                            </button>
+                        </Link>
+                    )}
                     <p className="text-center text-[10px] text-muted-foreground">Version 2.4.0 (Build 1082)</p>
                 </div>
             </main>

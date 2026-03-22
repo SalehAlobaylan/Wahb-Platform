@@ -47,7 +47,7 @@ export function FeedSwitcher({ value, onChange, variant = 'dark' }: FeedSwitcher
                         activeFeed === tab.key
                             ? isDark
                                 ? 'text-white border-b-2 border-gold'
-                                : 'text-gold border-b-2 border-gold'
+                                : 'text-news-accent border-b-2 border-news-accent'
                             : isDark
                                 ? 'text-white/50 hover:text-white'
                                 : 'text-muted-foreground hover:text-foreground'

@@ -1,8 +1,13 @@
 'use client';
 
-import { X, Clock, CalendarDays, Share2, Bookmark } from 'lucide-react';
+import { useState } from 'react';
+
+import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { useFeedStore } from '@/lib/stores';
+import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
+import { cn } from '@/lib/utils';
 import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
@@ -10,8 +15,138 @@ interface ArticleReaderProps {
     onClose: () => void;
 }
 
+/** Detect if text contains HTML tags */
+const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
+
+/** Strip dangerous tags and attributes, keep safe markup */
+function sanitizeHtml(html: string): string {
+    return html
+        // Remove script, iframe, object, embed, form tags entirely
+        .replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
+        // Remove on* event handlers
+        .replace(/\s+on\w+="[^"]*"/gi, '')
+        .replace(/\s+on\w+='[^']*'/gi, '')
+        // Remove style attributes (prevents injected styles)
+        .replace(/\s+style="[^"]*"/gi, '')
+        .replace(/\s+style='[^']*'/gi, '');
+}
+
+function BodyContent({ text }: { text: string }) {
+    if (isHtml(text)) {
+        return (
+            <div
+                dir="auto"
+                className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-p:text-foreground/90 prose-img:rounded-sm prose-img:my-4 prose-a:text-news-accent max-w-none font-sans text-base [&_img]:w-full [&_img]:h-auto"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }}
+            />
+        );
+    }
+
+    // Plain text: split by newlines into paragraphs
+    return (
+        <div dir="auto" className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-p:text-foreground/90 max-w-none font-sans text-base">
+            {text.split('\n').map((paragraph, i) => {
+                if (!paragraph.trim()) return null;
+                return (
+                    <p key={i} className="mb-5 last:mb-0">
+                        {paragraph}
+                    </p>
+                );
+            })}
+        </div>
+    );
+}
+
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     if (!article) return null;
+
+    return <ArticleReaderInner article={article} onClose={onClose} />;
+}
+
+function CommentsSection({ article }: { article: ContentItem }) {
+    const [commentText, setCommentText] = useState('');
+    const { likedIds, bookmarkedIds } = useFeedStore();
+    const likeMutation = useLikeMutation();
+    const bookmarkMutation = useBookmarkMutation();
+    const isLiked = likedIds.has(article.id);
+    const isBookmarked = bookmarkedIds.has(article.id);
+
+    return (
+        <div className="px-6 pb-20">
+            {/* Action bar */}
+            <div className="flex items-center justify-between py-4 border-t border-foreground/10">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => likeMutation.mutate({ contentId: article.id, isLiked })}
+                        className="flex items-center gap-1.5 text-muted-foreground hover:text-news-accent transition-colors"
+                    >
+                        <Heart className={cn('w-5 h-5', isLiked && 'text-news-accent fill-news-accent')} />
+                        <span className="text-xs font-medium">{article.like_count || 0}</span>
+                    </button>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <MessageCircle className="w-5 h-5" />
+                        <span className="text-xs font-medium">{article.comment_count || 0}</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => bookmarkMutation.mutate({ contentId: article.id, isBookmarked })}
+                        className="text-muted-foreground hover:text-news-accent transition-colors"
+                    >
+                        <Bookmark className={cn('w-5 h-5', isBookmarked && 'text-news-accent fill-news-accent')} />
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (navigator.share) {
+                                navigator.share({ title: article.title, url: window.location.href }).catch(() => {});
+                            } else {
+                                navigator.clipboard.writeText(window.location.href);
+                            }
+                        }}
+                        className="text-muted-foreground hover:text-news-accent transition-colors"
+                    >
+                        <Share2 className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Comments heading */}
+            <h3 className="text-sm font-bold text-foreground mb-4">Comments</h3>
+
+            {/* Comment input */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-news-accent/20 flex items-center justify-center shrink-0 border border-foreground/10">
+                    <span className="text-xs font-bold text-news-accent">Y</span>
+                </div>
+                <div className="flex-1 relative">
+                    <input
+                        type="text"
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="w-full bg-muted/50 border border-foreground/10 rounded-full px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-news-accent/50 transition-colors"
+                    />
+                    {commentText.trim() && (
+                        <button
+                            className="absolute end-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-news-accent flex items-center justify-center"
+                            aria-label="Send comment"
+                        >
+                            <Send className="w-3.5 h-3.5 text-white" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Placeholder comments */}
+            <div className="space-y-4">
+                <p className="text-xs text-muted-foreground text-center py-6">No comments yet. Be the first to share your thoughts!</p>
+            </div>
+        </div>
+    );
+}
+
+function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClose: () => void }) {
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -52,7 +187,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                 className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden w-full h-full sm:max-w-md sm:mx-auto"
             >
                 {/* Header Navbar */}
-                <div className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
+                <div className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background border-b border-foreground/20">
                     <button
                         onClick={onClose}
                         className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground transition-colors"
@@ -85,17 +220,17 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                     {/* Metadata & Title */}
                     <div className="px-6 pt-6 pb-2">
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-gold/10 text-gold border border-gold/20">
+                            <span className="px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-news-accent/10 text-news-accent border border-news-accent/20">
                                 {getCategoryLabel(article)}
                             </span>
                         </div>
 
-                        <h1 className="text-2xl md:text-3xl font-serif font-bold text-foreground leading-tight mb-4">
+                        <h1 dir="auto" className="text-2xl md:text-3xl font-serif font-bold text-foreground leading-tight mb-4">
                             {article.title || article.excerpt?.slice(0, 100) || 'Untitled'}
                         </h1>
 
-                        <div className="flex items-center gap-3 py-4 border-y border-border">
-                            <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center overflow-hidden border border-border">
+                        <div className="flex items-center gap-3 py-4 border-y border-foreground/20">
+                            <div className="w-10 h-10 rounded-sm bg-news-accent/20 flex items-center justify-center overflow-hidden border border-foreground/20">
                                 <img
                                     src={`https://api.dicebear.com/7.x/initials/svg?seed=${article.author || article.source_name || 'Wahb'}`}
                                     alt="Author avatar"
@@ -121,25 +256,18 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                     </div>
 
                     {/* Body Text */}
-                    <div className="px-6 py-4 pb-20">
+                    <div className="px-6 py-4">
                         {article.body_text || article.excerpt ? (
-                            <div className="prose prose-sm dark:prose-invert prose-p:leading-relaxed prose-p:text-foreground/90 max-w-none font-sans text-base">
-                                {/* Splitting by newline to simulate paragraphs if pure text comes in */}
-                                {(article.body_text || article.excerpt)?.split('\n').map((paragraph, i) => {
-                                    if (!paragraph.trim()) return null;
-                                    return (
-                                        <p key={i} className="mb-5 last:mb-0">
-                                            {paragraph}
-                                        </p>
-                                    );
-                                })}
-                            </div>
+                            <BodyContent text={article.body_text || article.excerpt || ''} />
                         ) : (
                             <p className="text-muted-foreground italic text-center py-10">
                                 Full text content is not available for this item.
                             </p>
                         )}
                     </div>
+
+                    {/* Comments Section */}
+                    <CommentsSection article={article} />
                 </div>
             </motion.div>
         </AnimatePresence>

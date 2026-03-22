@@ -49,6 +49,9 @@
 
   /* Gold color token — Warm Gold accent */
   --color-gold: #DAA428;
+
+  /* News-accent color token — resolves to red in news-page scope, gold elsewhere */
+  --color-news-accent: var(--news-accent, #DAA428);
 }
 
 :root {
@@ -137,6 +140,54 @@
   --sidebar-accent-foreground: #E8E8F2;
   --sidebar-border: #2E2E8A;
   --sidebar-ring: #DAA428;
+}
+
+/* ═══════════════════════════════════════════════════
+   Newsprint Theme — scoped to .news-page
+   ═══════════════════════════════════════════════════ */
+
+.news-page {
+  /* Light Mode — Newsprint */
+  --background: #f8f5f2;
+  --foreground: #1a1a1a;
+  --card: #eae7e3;
+  --card-foreground: #1a1a1a;
+  --popover: #eae7e3;
+  --popover-foreground: #1a1a1a;
+  --primary: #e63946;
+  --primary-foreground: #ffffff;
+  --secondary: #eae7e3;
+  --secondary-foreground: #1a1a1a;
+  --muted: #eae7e3;
+  --muted-foreground: #666666;
+  --accent: #eae7e3;
+  --accent-foreground: #1a1a1a;
+  --border: #1a1a1a;
+  --input: #1a1a1a;
+  --ring: #e63946;
+  --news-accent: #e63946;
+}
+
+.dark .news-page {
+  /* Dark Mode — Dark Room */
+  --background: #1a1a1a;
+  --foreground: #f8f5f2;
+  --card: #2a2a2a;
+  --card-foreground: #f8f5f2;
+  --popover: #2a2a2a;
+  --popover-foreground: #f8f5f2;
+  --primary: #ff6b6b;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a2a;
+  --secondary-foreground: #f8f5f2;
+  --muted: #2a2a2a;
+  --muted-foreground: #999999;
+  --accent: #2a2a2a;
+  --accent-foreground: #f8f5f2;
+  --border: #f8f5f2;
+  --input: #f8f5f2;
+  --ring: #ff6b6b;
+  --news-accent: #ff6b6b;
 }
 
 @layer base {

@@ -9,8 +9,33 @@ import {
   mockFetchBookmarks,
   mockSearchContent,
 } from './mock-client';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+
+function getIdentityParams(): URLSearchParams {
+  const params = new URLSearchParams();
+  const { user, isAuthenticated } = useAuthStore.getState();
+  if (isAuthenticated && user) {
+    params.set('user_id', user.id);
+  } else if (typeof window !== 'undefined') {
+    const sessionId = sessionStorage.getItem('wahb_session_id') || '';
+    if (sessionId) params.set('session_id', sessionId);
+  }
+  return params;
+}
+
+function getIdentityBody(): Record<string, string> {
+  const { user, isAuthenticated } = useAuthStore.getState();
+  if (isAuthenticated && user) {
+    return { user_id: user.id };
+  }
+  if (typeof window !== 'undefined') {
+    const sessionId = sessionStorage.getItem('wahb_session_id') || '';
+    if (sessionId) return { session_id: sessionId };
+  }
+  return {};
+}
 
 /**
  * Fetch For You feed items
@@ -20,7 +45,7 @@ export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouRes
     return mockFetchForYouFeed(cursor);
   }
 
-  const params = new URLSearchParams();
+  const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '20');
 
@@ -42,7 +67,7 @@ export async function fetchNewsFeed(cursor?: string | null): Promise<NewsRespons
     return mockFetchNewsFeed(cursor);
   }
 
-  const params = new URLSearchParams();
+  const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '10');
 
@@ -93,6 +118,7 @@ export async function recordInteraction(
       content_item_id: contentItemId,
       interaction_type: interactionType,
       metadata,
+      ...getIdentityBody(),
     }),
   });
 
@@ -115,8 +141,12 @@ export async function removeInteraction(
     return mockRemoveInteraction(contentItemId, interactionType);
   }
 
+  const idParams = getIdentityParams();
+  idParams.set('content_item_id', contentItemId);
+  idParams.set('type', interactionType);
+
   const response = await fetch(
-    `${API_BASE}/interactions?content_item_id=${contentItemId}&type=${interactionType}`,
+    `${API_BASE}/interactions?${idParams}`,
     { method: 'DELETE' }
   );
 
@@ -133,7 +163,7 @@ export async function fetchBookmarks(cursor?: string): Promise<ForYouResponse> {
     return mockFetchBookmarks(cursor);
   }
 
-  const params = new URLSearchParams();
+  const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '20');
 

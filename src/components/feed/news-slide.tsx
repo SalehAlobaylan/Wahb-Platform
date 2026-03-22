@@ -1,8 +1,30 @@
 'use client';
 
-import { Clock, TrendingUp, Quote } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFeedStore } from '@/lib/stores';
+import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
+
+/** Detect if text contains HTML tags */
+const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
+
+/** Strip dangerous tags and attributes, keep safe markup */
+function sanitizeHtml(html: string): string {
+    return html
+        .replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
+        .replace(/\s+on\w+="[^"]*"/gi, '')
+        .replace(/\s+on\w+='[^']*'/gi, '')
+        .replace(/\s+style="[^"]*"/gi, '')
+        .replace(/\s+style='[^']*'/gi, '');
+}
+
+/** Strip all HTML tags to get plain text */
+function stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
 
 interface NewsSlideProps {
     slide: NewsSlideType;
@@ -10,75 +32,224 @@ interface NewsSlideProps {
     onOpenArticle: (item: ContentItem) => void;
 }
 
+/* ── Helpers ──────────────────────────────────────────────── */
+
+const getReadTime = (content?: string) => {
+    if (!content) return '3m';
+    const words = content.split(' ').length;
+    const minutes = Math.ceil(words / 200);
+    return `${minutes}m`;
+};
+
+const getRelatedBadge = (item: ContentItem) => {
+    if (item.type === 'TWEET') return 'Opinion';
+    if (item.type === 'COMMENT') return 'Reaction';
+    if (item.type === 'VIDEO') return 'Video';
+    if (item.type === 'PODCAST') return 'Audio';
+    if (item.topic_tags) {
+        if (item.topic_tags.includes('news-politics')) return 'Politics';
+        if (item.topic_tags.includes('news-economy')) return 'Economy';
+        if (item.topic_tags.includes('news-conflict')) return 'Conflict';
+        if (item.topic_tags.includes('news-disaster')) return 'Disaster';
+        if (item.topic_tags.includes('news')) return 'News';
+    }
+    return 'Article';
+};
+
+const getRelatedMeta = (item: ContentItem) => {
+    if (item.type === 'TWEET') return getReadTime(item.body_text);
+    if (item.type === 'COMMENT') return '2h ago';
+    if (item.type === 'ARTICLE') return getReadTime(item.body_text || item.excerpt);
+    return '';
+};
+
+const hasEnoughContent = (item: ContentItem) => {
+    const textLength = (item.body_text?.length || 0) + (item.excerpt?.length || 0);
+    return textLength > 150 || item.type === 'VIDEO' || item.type === 'PODCAST';
+};
+
+const getExpandableText = (item: ContentItem) => {
+    return item.excerpt || item.body_text?.slice(0, 400) || '';
+};
+
+/** Plain text version for length checks */
+const getPlainExpandableText = (item: ContentItem) => {
+    const raw = getExpandableText(item);
+    return isHtml(raw) ? stripHtml(raw) : raw;
+};
+
+const getFeaturedTitle = (item: ContentItem) =>
+    item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
+
+/* ── Expandable Related Item ─────────────────────────────── */
+
+function RelatedItem({
+    item,
+    onOpenArticle,
+    isExpanded,
+    onToggleExpand,
+}: {
+    item: ContentItem;
+    onOpenArticle: (item: ContentItem) => void;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+}) {
+    const { likedIds, bookmarkedIds } = useFeedStore();
+    const likeMutation = useLikeMutation();
+    const bookmarkMutation = useBookmarkMutation();
+    const expandableText = getExpandableText(item);
+    const canExpand = getPlainExpandableText(item).length > 40;
+    const isLiked = likedIds.has(item.id);
+    const isBookmarked = bookmarkedIds.has(item.id);
+
+    const handleCardClick = () => {
+        if (canExpand) {
+            onToggleExpand();
+        }
+    };
+
+    const handleOpenArticle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onOpenArticle(item);
+    };
+
+    return (
+        <article
+            className={cn(
+                'bg-muted/50 rounded-sm p-2.5 transition-colors border border-foreground/20',
+                canExpand ? 'hover:bg-muted cursor-pointer group' : 'opacity-90'
+            )}
+            onClick={handleCardClick}
+        >
+            {/* Top row: thumbnail + title + arrow */}
+            <div className="flex gap-3 items-center">
+                {/* Thumbnail or icon */}
+                <div className="w-14 h-14 shrink-0 overflow-hidden rounded-sm bg-secondary">
+                    {item.thumbnail_url ? (
+                        <div
+                            className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
+                            style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+                        />
+                    ) : item.type === 'COMMENT' ? (
+                        <div className="w-full h-full flex items-center justify-center bg-secondary">
+                            <Quote className="w-5 h-5 text-news-accent/60" />
+                        </div>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-secondary">
+                            <span className="text-lg opacity-30">📄</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-col justify-center flex-1 min-w-0 pe-1">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                        <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold">
+                            {getRelatedBadge(item)}
+                        </span>
+                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            {item.type === 'ARTICLE' ? (
+                                <>
+                                    <TrendingUp className="w-[10px] h-[10px]" />
+                                    {getRelatedMeta(item)}
+                                </>
+                            ) : (
+                                <>
+                                    <Clock className="w-[10px] h-[10px]" />
+                                    {getRelatedMeta(item)}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    {item.title ? (
+                        <h4 dir="auto" className={cn(
+                            'font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground',
+                            !isExpanded && 'line-clamp-2'
+                        )}>
+                            {item.title}
+                        </h4>
+                    ) : (
+                        <p dir="auto" className={cn(
+                            'text-[13px] leading-snug text-muted-foreground italic',
+                            !isExpanded && 'line-clamp-2'
+                        )}>
+                            &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
+                        </p>
+                    )}
+                </div>
+
+                {/* Side arrow → opens article reader */}
+                {hasEnoughContent(item) && (
+                    <button
+                        onClick={handleOpenArticle}
+                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-sm text-muted-foreground hover:text-news-accent hover:bg-foreground/10 transition-all"
+                        aria-label="Open article"
+                    >
+                        <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
+                    </button>
+                )}
+            </div>
+
+            {/* Inline action buttons */}
+            <div className="flex items-center gap-3 mt-2 ps-0.5">
+                <button
+                    onClick={(e) => { e.stopPropagation(); likeMutation.mutate({ contentId: item.id, isLiked }); }}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
+                    aria-label="Like"
+                >
+                    <Heart className={cn('w-3.5 h-3.5', isLiked && 'text-news-accent fill-news-accent')} />
+                    <span className="text-[10px]">{item.like_count || 0}</span>
+                </button>
+                <button
+                    onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: item.id, isBookmarked }); }}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
+                    aria-label="Bookmark"
+                >
+                    <Bookmark className={cn('w-3.5 h-3.5', isBookmarked && 'text-news-accent fill-news-accent')} />
+                </button>
+            </div>
+
+            {/* Expanded text */}
+            <div className={cn(
+                'overflow-hidden transition-all duration-200 ease-in-out',
+                isExpanded ? 'max-h-[400px] opacity-100 mt-2.5' : 'max-h-0 opacity-0'
+            )}>
+                <div className="border-t border-foreground/10 pt-2.5 ps-1">
+                    {isHtml(expandableText) ? (
+                        <div
+                            dir="auto"
+                            className="text-[13px] text-foreground/80 leading-relaxed [&_img]:w-full [&_img]:h-auto [&_img]:rounded-sm [&_img]:my-2"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(expandableText) }}
+                        />
+                    ) : (
+                        <p dir="auto" className="text-[13px] text-foreground/80 leading-relaxed">
+                            {expandableText}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </article>
+    );
+}
+
+/* ── Main Component ──────────────────────────────────────── */
+
 /**
  * Cinematic news slide with a top-half hero area and
  * a bottom-half section showing related articles.
  */
 export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
+    const { likedIds, bookmarkedIds } = useFeedStore();
+    const likeMutation = useLikeMutation();
+    const bookmarkMutation = useBookmarkMutation();
+    const isFeaturedLiked = likedIds.has(featured.id);
+    const isFeaturedBookmarked = bookmarkedIds.has(featured.id);
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-        }).toUpperCase();
-    };
+    const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
-    const getReadTime = (content?: string) => {
-        if (!content) return '3m';
-        const words = content.split(' ').length;
-        const minutes = Math.ceil(words / 200);
-        return `${minutes}m`;
-    };
-
-    const getCategoryLabel = (item: ContentItem) => {
-        if (item.type === 'TWEET') return 'Social';
-        if (item.type === 'COMMENT') return 'Reaction';
-        if (item.type === 'PODCAST') return 'Podcast';
-        if (item.type === 'VIDEO') return 'Video';
-        // For ARTICLEs, derive category from topic_tags if available
-        if (item.topic_tags && item.topic_tags.length > 0) {
-            const newsTag = item.topic_tags.find(t => t.startsWith('news-'));
-            if (newsTag) {
-                const cat = newsTag.replace('news-', '');
-                return cat.charAt(0).toUpperCase() + cat.slice(1);
-            }
-            if (item.topic_tags.includes('news')) return 'News';
-        }
-        return item.source_name || 'News';
-    };
-
-    const getRelatedBadge = (item: ContentItem) => {
-        if (item.type === 'TWEET') return 'Opinion';
-        if (item.type === 'COMMENT') return 'Reaction';
-        if (item.type === 'VIDEO') return 'Video';
-        if (item.type === 'PODCAST') return 'Audio';
-        // ARTICLE: use topic_tags-derived category
-        if (item.topic_tags) {
-            if (item.topic_tags.includes('news-politics')) return 'Politics';
-            if (item.topic_tags.includes('news-economy')) return 'Economy';
-            if (item.topic_tags.includes('news-conflict')) return 'Conflict';
-            if (item.topic_tags.includes('news-disaster')) return 'Disaster';
-            if (item.topic_tags.includes('news')) return 'News';
-        }
-        return 'Article';
-    };
-
-    const getRelatedMeta = (item: ContentItem) => {
-        if (item.type === 'TWEET') return getReadTime(item.body_text);
-        if (item.type === 'COMMENT') return '2h ago';
-        // For articles, show estimated read time from body_text or excerpt
-        if (item.type === 'ARTICLE') return getReadTime(item.body_text || item.excerpt);
-        return '';
-    };
-
-    const getFeaturedTitle = (item: ContentItem) =>
-        item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
-
-    const hasEnoughContent = (item: ContentItem) => {
-        const textLength = (item.body_text?.length || 0) + (item.excerpt?.length || 0);
-        return textLength > 150 || item.type === 'VIDEO' || item.type === 'PODCAST';
+    const handleToggleExpanded = (itemId: string) => {
+        setExpandedItemId(prev => prev === itemId ? null : itemId);
     };
 
     return (
@@ -92,7 +263,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                 onClick={() => hasEnoughContent(featured) ? onOpenArticle(featured) : undefined}
             >
                 {/* Hero Image */}
-                <div className="w-full aspect-[2/1] rounded-lg overflow-hidden mb-3 shadow-md border border-border relative group">
+                <div className="w-full aspect-[2/1] rounded-sm overflow-hidden mb-3 border border-foreground/20 relative group">
                     {featured.thumbnail_url ? (
                         <div
                             className={cn(
@@ -109,31 +280,65 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             <span className="text-4xl opacity-20">📰</span>
                         </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+
                 </div>
 
                 {/* Title & Author */}
                 <div className="relative">
-                    <h1 className={cn(
+                    <h1 dir="auto" className={cn(
                         "font-serif text-xl leading-tight font-bold mb-1.5 text-foreground line-clamp-2 transition-colors duration-300",
-                        hasEnoughContent(featured) && "group-hover/hero:text-gold"
+                        hasEnoughContent(featured) && "group-hover/hero:text-news-accent"
                     )}>
                         {getFeaturedTitle(featured)}
                     </h1>
                     {(featured.excerpt || featured.body_text) && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
+                        <p dir="auto" className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
                             {featured.excerpt || featured.body_text?.slice(0, 160)}
                         </p>
                     )}
-                    <div className="flex items-center gap-2">
-                        <img
-                            alt="Author"
-                            className="w-5 h-5 rounded-full border border-gold object-cover"
-                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
-                        />
-                        <span className="text-xs text-muted-foreground font-light italic">
-                            {featured.source_name || featured.author || 'Unknown'}
-                        </span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                alt="Author"
+                                className="w-5 h-5 rounded-sm border border-foreground/20 object-cover"
+                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
+                            />
+                            <span className="text-xs text-muted-foreground font-light italic">
+                                {featured.source_name || featured.author || 'Unknown'}
+                            </span>
+                        </div>
+                        {/* Featured action buttons */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); likeMutation.mutate({ contentId: featured.id, isLiked: isFeaturedLiked }); }}
+                                className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
+                                aria-label="Like"
+                            >
+                                <Heart className={cn('w-4 h-4', isFeaturedLiked && 'text-news-accent fill-news-accent')} />
+                                <span className="text-[11px]">{featured.like_count || 0}</span>
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: featured.id, isBookmarked: isFeaturedBookmarked }); }}
+                                className="text-muted-foreground hover:text-news-accent transition-colors"
+                                aria-label="Bookmark"
+                            >
+                                <Bookmark className={cn('w-4 h-4', isFeaturedBookmarked && 'text-news-accent fill-news-accent')} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (navigator.share) {
+                                        navigator.share({ title: featured.title, url: window.location.href }).catch(() => {});
+                                    } else {
+                                        navigator.clipboard.writeText(window.location.href);
+                                    }
+                                }}
+                                className="text-muted-foreground hover:text-news-accent transition-colors"
+                                aria-label="Share"
+                            >
+                                <Share2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -150,63 +355,13 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                 <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-2">
                     {related.length > 0 ? (
                         related.slice(0, 4).map((item) => (
-                            <article
+                            <RelatedItem
                                 key={item.id}
-                                className={cn(
-                                    "bg-muted/50 rounded-xl p-2.5 flex gap-3 transition-colors border border-border items-center",
-                                    hasEnoughContent(item) ? "hover:bg-muted cursor-pointer group" : "opacity-90"
-                                )}
-                                onClick={() => hasEnoughContent(item) ? onOpenArticle(item) : undefined}
-                            >
-                                {/* Thumbnail or icon */}
-                                <div className="w-14 h-14 shrink-0 overflow-hidden rounded-md bg-muted">
-                                    {item.thumbnail_url ? (
-                                        <div
-                                            className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
-                                            style={{ backgroundImage: `url(${item.thumbnail_url})` }}
-                                        />
-                                    ) : item.type === 'COMMENT' ? (
-                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
-                                            <Quote className="w-5 h-5 text-gold/60" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
-                                            <span className="text-lg opacity-30">📄</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex flex-col justify-center flex-1 min-w-0 pr-1">
-                                    <div className="flex justify-between items-baseline mb-0.5">
-                                        <span className="text-[8px] text-gold uppercase tracking-wider font-bold">
-                                            {getRelatedBadge(item)}
-                                        </span>
-                                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                                            {item.type === 'ARTICLE' ? (
-                                                <>
-                                                    <TrendingUp className="w-[10px] h-[10px]" />
-                                                    {getRelatedMeta(item)}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Clock className="w-[10px] h-[10px]" />
-                                                    {getRelatedMeta(item)}
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {item.title ? (
-                                        <h4 className="font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground line-clamp-2">
-                                            {item.title}
-                                        </h4>
-                                    ) : (
-                                        <p className="text-[13px] leading-snug text-muted-foreground italic line-clamp-2">
-                                            &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
-                                        </p>
-                                    )}
-                                </div>
-                            </article>
+                                item={item}
+                                onOpenArticle={onOpenArticle}
+                                isExpanded={expandedItemId === item.id}
+                                onToggleExpand={() => handleToggleExpanded(item.id)}
+                            />
                         ))
                     ) : (
                         <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">

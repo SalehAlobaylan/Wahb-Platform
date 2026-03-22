@@ -33,13 +33,13 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                 <div className="w-full mb-4">
                     <div className="flex justify-between text-[10px] text-muted-foreground font-mono mb-2">
                         <span>12:45</span>
-                        <span className="text-gold/80 text-[9px] uppercase tracking-wider font-bold">
+                        <span className="text-news-accent/80 text-[9px] uppercase tracking-wider font-bold">
                             Live Sync
                         </span>
                         <span>34:20</span>
                     </div>
                     <div className="h-1 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full w-[35%] bg-gold rounded-full relative">
+                        <div className="h-full w-[35%] bg-news-accent rounded-full relative">
                             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-foreground rounded-full shadow-lg" />
                         </div>
                     </div>
@@ -56,7 +56,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                         </button>
                         <button
                             onClick={togglePlayPause}
-                            className="w-14 h-14 rounded-full bg-gradient-to-b from-gold/90 to-gold flex items-center justify-center shadow-lg shadow-gold/20 hover:scale-105 active:scale-95 transition-all"
+                            className="w-14 h-14 rounded-full bg-gradient-to-b from-news-accent/90 to-news-accent flex items-center justify-center shadow-lg shadow-news-accent/20 hover:scale-105 active:scale-95 transition-all"
                             aria-label={isPlaying ? 'Pause' : 'Play'}
                         >
                             {isPlaying ? (
@@ -69,7 +69,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                             <SkipForward className="w-6 h-6" />
                         </button>
                     </div>
-                    <button className="text-gold hover:text-foreground transition-colors">
+                    <button className="text-news-accent hover:text-foreground transition-colors">
                         <ListMusic className="w-5 h-5" />
                     </button>
                 </div>
@@ -123,7 +123,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                 {/* Play/Pause */}
                 <button
                     onClick={togglePlayPause}
-                    className="w-9 h-9 rounded-full bg-gold flex items-center justify-center shrink-0 hover:bg-gold/80 active:scale-95 transition-all"
+                    className="w-9 h-9 rounded-full bg-news-accent flex items-center justify-center shrink-0 hover:bg-news-accent/80 active:scale-95 transition-all"
                     aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                     {isPlaying ? (

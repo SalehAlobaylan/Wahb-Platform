@@ -3,7 +3,7 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
-import { useFeedStore, useNowPlayingStore } from '@/lib/stores';
+import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
 import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
@@ -26,6 +26,7 @@ const adaptiveBuffer = new AdaptiveBuffer();
 
 export default function ForYouPage() {
     const feedRef = useRef<HTMLDivElement>(null);
+    const { user, isAuthenticated } = useAuthStore();
     const {
         activeIndex, setActiveIndex, resetProgress, progress,
         likedIds, bookmarkedIds,
@@ -207,7 +208,11 @@ export default function ForYouPage() {
                     {/* Profile avatar */}
                     <Link href="/profile" className="pointer-events-auto">
                         <div className="w-9 h-9 rounded-full bg-gold/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
-                            <User className="w-4.5 h-4.5 text-white" />
+                            {isAuthenticated && user ? (
+                                <span className="text-sm font-bold text-white uppercase">{(user.username || user.email)[0]}</span>
+                            ) : (
+                                <User className="w-4.5 h-4.5 text-white" />
+                            )}
                         </div>
                     </Link>
 
@@ -267,75 +272,77 @@ export default function ForYouPage() {
 
             {/* ── Fixed Draggable Bottom Sheet ──────────────────── */}
             {activeItem && (
-                <DraggableBottomSheet
-                    minHeight={80}
-                    maxHeight={480}
-                    defaultHeight={80}
-                    expandedContent={
-                        <BottomSheetTabs
-                            commentCount={activeItem.comment_count}
-                            hasTranscript={!!activeItem.transcript_id}
-                            title={activeItem.title}
-                            description={activeItem.excerpt || activeItem.body_text}
-                            author={activeItem.author}
-                            tags={activeItem.topic_tags}
-                        />
-                    }
-                >
-                    {/* Horizontal action buttons row — data changes with active item */}
-                    <div className="flex items-center justify-around w-full">
-                        {/* Like */}
-                        <button
-                            onClick={handleLike}
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Like"
-                        >
-                            <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                                isLiked ? "bg-gold" : "bg-muted/50 hover:bg-muted"
-                            )}>
-                                <Heart className={cn("w-5 h-5", isLiked ? "text-white fill-white" : "text-foreground")} />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground font-medium">{activeItem.like_count}</span>
-                        </button>
+                <div className="news-page">
+                    <DraggableBottomSheet
+                        minHeight={80}
+                        maxHeight={480}
+                        defaultHeight={80}
+                        expandedContent={
+                            <BottomSheetTabs
+                                commentCount={activeItem.comment_count}
+                                hasTranscript={!!activeItem.transcript_id}
+                                title={activeItem.title}
+                                description={activeItem.excerpt || activeItem.body_text}
+                                author={activeItem.author}
+                                tags={activeItem.topic_tags}
+                            />
+                        }
+                    >
+                        {/* Horizontal action buttons row — data changes with active item */}
+                        <div className="flex items-center justify-around w-full">
+                            {/* Like */}
+                            <button
+                                onClick={handleLike}
+                                className="flex flex-col items-center gap-1"
+                                aria-label="Like"
+                            >
+                                <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                                    isLiked ? "bg-news-accent" : "bg-muted/50 hover:bg-muted"
+                                )}>
+                                    <Heart className={cn("w-5 h-5", isLiked ? "text-white fill-white" : "text-foreground")} />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground font-medium">{activeItem.like_count}</span>
+                            </button>
 
-                        {/* Comment */}
-                        <button
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Comment"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
-                                <MessageCircle className="w-5 h-5 text-foreground" />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground font-medium">{activeItem.comment_count}</span>
-                        </button>
+                            {/* Comment */}
+                            <button
+                                className="flex flex-col items-center gap-1"
+                                aria-label="Comment"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
+                                    <MessageCircle className="w-5 h-5 text-foreground" />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground font-medium">{activeItem.comment_count}</span>
+                            </button>
 
-                        {/* Bookmark */}
-                        <button
-                            onClick={handleBookmark}
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Bookmark"
-                        >
-                            <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                                isBookmarked ? "bg-gold" : "bg-muted/50 hover:bg-muted"
-                            )}>
-                                <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-foreground")} />
-                            </div>
-                        </button>
+                            {/* Bookmark */}
+                            <button
+                                onClick={handleBookmark}
+                                className="flex flex-col items-center gap-1"
+                                aria-label="Bookmark"
+                            >
+                                <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                                    isBookmarked ? "bg-news-accent" : "bg-muted/50 hover:bg-muted"
+                                )}>
+                                    <Bookmark className={cn("w-5 h-5", isBookmarked ? "text-white fill-white" : "text-foreground")} />
+                                </div>
+                            </button>
 
-                        {/* Rewind */}
-                        <button
-                            className="flex flex-col items-center gap-1"
-                            aria-label="Rewind"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
-                                <RotateCcw className="w-4 h-4 text-foreground" />
-                            </div>
-                            <span className="text-[10px] text-muted-foreground">15s</span>
-                        </button>
-                    </div>
-                </DraggableBottomSheet>
+                            {/* Rewind */}
+                            <button
+                                className="flex flex-col items-center gap-1"
+                                aria-label="Rewind"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
+                                    <RotateCcw className="w-4 h-4 text-foreground" />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground">15s</span>
+                            </button>
+                        </div>
+                    </DraggableBottomSheet>
+                </div>
             )}
 
             {/* ── Floating Action Button (Create/Plus) ───────────── */}

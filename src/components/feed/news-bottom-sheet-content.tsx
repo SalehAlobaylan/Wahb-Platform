@@ -81,7 +81,7 @@ export function NewsBottomSheetContent() {
                         className={cn(
                             'flex-1 h-full text-xs font-bold uppercase tracking-widest transition-colors font-serif border-b-[2px]',
                             activeTab === 'upnext'
-                                ? 'text-gold border-gold'
+                                ? 'text-news-accent border-news-accent'
                                 : 'text-muted-foreground border-transparent hover:text-foreground'
                         )}
                     >
@@ -92,7 +92,7 @@ export function NewsBottomSheetContent() {
                         className={cn(
                             'flex-1 h-full text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 font-serif border-b-[2px]',
                             activeTab === 'tts'
-                                ? 'text-gold border-gold'
+                                ? 'text-news-accent border-news-accent'
                                 : 'text-muted-foreground border-transparent hover:text-foreground'
                         )}
                     >
@@ -144,13 +144,13 @@ function UpNextTab() {
                         className={cn(
                             'bg-card rounded-xl p-2.5 flex gap-3 items-center cursor-pointer group border transition-colors',
                             item.isNext
-                                ? 'border-gold/40 shadow-[0_0_15px_rgba(218,164,40,0.1)] relative overflow-hidden'
+                                ? 'border-news-accent/40 shadow-[0_0_15px_rgba(218,164,40,0.1)] relative overflow-hidden'
                                 : 'border-border opacity-60 hover:opacity-100 hover:bg-muted/50'
                         )}
                     >
                         {/* Highlight glow for "Playing Next" */}
                         {item.isNext && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-gold/5 to-transparent pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-news-accent/5 to-transparent pointer-events-none" />
                         )}
 
                         {/* Thumbnail */}
@@ -175,13 +175,13 @@ function UpNextTab() {
                             <div className="flex justify-between items-baseline mb-0.5">
                                 <span className={cn(
                                     'text-[8px] uppercase tracking-wider font-bold',
-                                    item.isNext ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/70'
+                                    item.isNext ? 'text-news-accent' : 'text-muted-foreground group-hover:text-news-accent/70'
                                 )}>
                                     {item.label}
                                 </span>
                                 <span className={cn(
                                     'text-[9px] font-mono',
-                                    item.isNext ? 'text-gold/80' : 'text-muted-foreground'
+                                    item.isNext ? 'text-news-accent/80' : 'text-muted-foreground'
                                 )}>
                                     {item.duration}
                                 </span>
@@ -197,7 +197,7 @@ function UpNextTab() {
                         {/* Trailing icon */}
                         <div className="shrink-0 pr-1">
                             {item.isNext ? (
-                                <AudioLines className="w-4 h-4 text-gold animate-pulse" />
+                                <AudioLines className="w-4 h-4 text-news-accent animate-pulse" />
                             ) : (
                                 <GripVertical className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
                             )}
@@ -217,7 +217,7 @@ function UpNextTab() {
                             key={i}
                             className={cn(
                                 line.active
-                                    ? 'relative pl-3 border-l-2 border-gold'
+                                    ? 'relative pl-3 border-l-2 border-news-accent'
                                     : 'opacity-40'
                             )}
                         >
@@ -227,7 +227,7 @@ function UpNextTab() {
                             )}>
                                 <span className={cn(
                                     'text-[10px] uppercase font-bold mr-2',
-                                    line.active ? 'text-gold/80 block mb-1' : 'text-gold/50'
+                                    line.active ? 'text-news-accent/80 block mb-1' : 'text-news-accent/50'
                                 )}>
                                     {line.speaker}
                                 </span>
@@ -250,14 +250,14 @@ function TTSTab() {
     if (!TTS_ENABLED) {
         return (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mb-4">
-                    <Sparkles className="w-7 h-7 text-gold" />
+                <div className="w-16 h-16 rounded-full bg-news-accent/10 flex items-center justify-center mb-4">
+                    <Sparkles className="w-7 h-7 text-news-accent" />
                 </div>
                 <h3 className="text-base font-serif font-bold text-foreground mb-2">Text-to-Speech</h3>
                 <p className="text-sm text-center max-w-[240px] mb-4">
                     Generate professional narration of any article using AI voices.
                 </p>
-                <span className="px-4 py-1.5 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30">
+                <span className="px-4 py-1.5 rounded-full bg-news-accent/20 text-news-accent text-xs font-bold uppercase tracking-wider border border-news-accent/30">
                     Coming Soon
                 </span>
             </div>
@@ -268,17 +268,17 @@ function TTSTab() {
     return (
         <div className="space-y-6 pb-20">
             {/* Active Voice Card */}
-            <div className="bg-card rounded-xl border border-gold/20 p-4 relative overflow-hidden">
+            <div className="bg-card rounded-xl border border-news-accent/20 p-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-3">
-                    <span className="px-2 py-0.5 bg-gold/20 rounded border border-gold/30 text-gold/80 text-[9px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 bg-news-accent/20 rounded border border-news-accent/30 text-news-accent/80 text-[9px] font-bold uppercase tracking-wider">
                         Active Voice
                     </span>
                 </div>
 
                 <div className="flex gap-4 items-start relative z-10">
-                    <div className="w-16 h-16 rounded-full border-2 border-gold/40 overflow-hidden shadow-lg shadow-black/20 shrink-0 bg-muted">
+                    <div className="w-16 h-16 rounded-full border-2 border-news-accent/40 overflow-hidden shadow-lg shadow-black/20 shrink-0 bg-muted">
                         <div className="w-full h-full flex items-center justify-center">
-                            <Mic className="w-6 h-6 text-gold" />
+                            <Mic className="w-6 h-6 text-news-accent" />
                         </div>
                     </div>
                     <div className="flex flex-col pt-1 w-full">
@@ -291,7 +291,7 @@ function TTSTab() {
                             {Array.from({ length: 8 }).map((_, i) => (
                                 <div
                                     key={i}
-                                    className="w-[3px] bg-gold rounded-full"
+                                    className="w-[3px] bg-news-accent rounded-full"
                                     style={{
                                         height: `${Math.random() * 16 + 4}px`,
                                         animation: `pulse ${0.7 + i * 0.08}s ease-in-out infinite alternate`,
@@ -313,7 +313,7 @@ function TTSTab() {
                             >
                                 −
                             </button>
-                            <span className="font-mono text-xs text-gold">{speed}x</span>
+                            <span className="font-mono text-xs text-news-accent">{speed}x</span>
                             <button
                                 onClick={() => setSpeed((s) => Math.min(3, +(s + 0.1).toFixed(1)))}
                                 className="w-6 h-6 flex items-center justify-center text-[10px] text-muted-foreground hover:text-foreground"
@@ -326,7 +326,7 @@ function TTSTab() {
             </div>
 
             {/* Generate button */}
-            <button className="w-full py-4 bg-gradient-to-r from-gold/70 to-gold hover:from-gold hover:to-gold/90 text-white font-bold text-sm uppercase tracking-widest rounded-lg shadow-lg shadow-gold/10 active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-gold/30 font-serif">
+            <button className="w-full py-4 bg-gradient-to-r from-news-accent/70 to-news-accent hover:from-news-accent hover:to-news-accent/90 text-white font-bold text-sm uppercase tracking-widest rounded-lg shadow-lg shadow-news-accent/10 active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-news-accent/30 font-serif">
                 <Sparkles className="w-4 h-4" />
                 Generate Audio
             </button>
@@ -348,7 +348,7 @@ function TTSTab() {
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
                                 <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
-                                    <Mic className="w-3.5 h-3.5 text-gold/60" />
+                                    <Mic className="w-3.5 h-3.5 text-news-accent/60" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-xs text-foreground/70 font-serif truncate group-hover:text-foreground">
@@ -357,7 +357,7 @@ function TTSTab() {
                                     <span className="text-[9px] text-muted-foreground font-mono">{gen.time}</span>
                                 </div>
                             </div>
-                            <button className="text-gold hover:text-foreground transition-colors">
+                            <button className="text-news-accent hover:text-foreground transition-colors">
                                 <PlayCircle className="w-5 h-5" />
                             </button>
                         </div>

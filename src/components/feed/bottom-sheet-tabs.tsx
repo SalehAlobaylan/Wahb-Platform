@@ -53,14 +53,14 @@ export function BottomSheetTabs({
                             className={cn(
                                 'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-all',
                                 activeTab === tab.key
-                                    ? 'text-gold border-b-2 border-gold bg-gold/5'
+                                    ? 'text-news-accent border-b-2 border-news-accent bg-news-accent/5'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                             )}
                         >
                             <tab.icon className="w-3.5 h-3.5" />
                             {tab.label}
                             {tab.key === 'comments' && commentCount > 0 && (
-                                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gold/20 text-gold">
+                                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-news-accent/20 text-news-accent">
                                     {commentCount}
                                 </span>
                             )}
@@ -123,14 +123,14 @@ function CommentsTab({ commentCount }: { commentCount: number }) {
         <div className="space-y-3">
             {/* Comment input */}
             <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-full bg-gold/30 flex items-center justify-center text-xs font-bold text-gold shrink-0">
+                <div className="w-8 h-8 rounded-full bg-news-accent/30 flex items-center justify-center text-xs font-bold text-news-accent shrink-0">
                     Y
                 </div>
                 <div className="flex-1 relative">
                     <input
                         type="text"
                         placeholder="Add a comment..."
-                        className="w-full px-3 py-2 text-sm rounded-full bg-muted/50 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gold/50 focus:border-gold/40"
+                        className="w-full px-3 py-2 text-sm rounded-full bg-muted/50 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-news-accent/50 focus:border-news-accent/40"
                     />
                 </div>
             </div>
@@ -153,7 +153,7 @@ function CommentsTab({ commentCount }: { commentCount: number }) {
                                 <span className="text-xs font-semibold text-foreground">{comment.author}</span>
                                 <span className="text-[10px] text-muted-foreground">{comment.time}</span>
                             </div>
-                            <p className="text-sm text-foreground/80 mt-0.5 leading-relaxed">{comment.text}</p>
+                            <p dir="auto" className="text-sm text-foreground/80 mt-0.5 leading-relaxed">{comment.text}</p>
                         </div>
                     </div>
                 ))
@@ -179,10 +179,10 @@ function TranscriptTab({ hasTranscript }: { hasTranscript: boolean }) {
         <div className="space-y-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Auto-generated transcript</p>
             <div className="space-y-2.5 text-sm text-foreground/80 leading-relaxed">
-                <p><span className="text-gold font-semibold text-xs mr-2">0:00</span>Welcome to today&apos;s episode. We&apos;re going to be discussing...</p>
-                <p><span className="text-gold font-semibold text-xs mr-2">0:15</span>This topic is really important because...</p>
-                <p><span className="text-gold font-semibold text-xs mr-2">0:32</span>Let me share some insights from our research...</p>
-                <p><span className="text-gold font-semibold text-xs mr-2">0:48</span>The key takeaway here is that we need to focus on...</p>
+                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:00</span>Welcome to today&apos;s episode. We&apos;re going to be discussing...</p>
+                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:15</span>This topic is really important because...</p>
+                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:32</span>Let me share some insights from our research...</p>
+                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:48</span>The key takeaway here is that we need to focus on...</p>
             </div>
         </div>
     );
@@ -206,7 +206,7 @@ function AboutTab({
             {title && (
                 <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Title</p>
-                    <h3 className="text-sm font-bold text-foreground leading-snug">{title}</h3>
+                    <h3 dir="auto" className="text-sm font-bold text-foreground leading-snug">{title}</h3>
                 </div>
             )}
 
@@ -220,7 +220,7 @@ function AboutTab({
             {description && (
                 <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Description</p>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+                    <p dir="auto" className="text-sm text-foreground/80 leading-relaxed">{description}</p>
                 </div>
             )}
 
@@ -231,7 +231,7 @@ function AboutTab({
                         {tags.map((tag) => (
                             <span
                                 key={tag}
-                                className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-gold/10 text-gold border border-gold/20"
+                                className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-news-accent/10 text-news-accent border border-news-accent/20"
                             >
                                 {tag}
                             </span>

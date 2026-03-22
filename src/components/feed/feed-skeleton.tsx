@@ -63,7 +63,7 @@ export function NewsSlideSkeleton() {
             {/* ═══════ TOP: Hero Skeleton ═══════ */}
             <div className="shrink-0 w-full flex flex-col px-4 pt-14 pb-3">
                 {/* Hero Image */}
-                <Skeleton className="w-full aspect-[2/1] rounded-lg bg-muted/80 mb-3" />
+                <Skeleton className="w-full aspect-[2/1] rounded-sm bg-muted/80 mb-3" />
 
                 {/* Title */}
                 <div className="space-y-2 mb-2">
@@ -93,7 +93,7 @@ export function NewsSlideSkeleton() {
                     {[1, 2, 3].map((i) => (
                         <div
                             key={i}
-                            className="bg-muted/50 rounded-xl p-2.5 flex gap-3 items-center border border-border"
+                            className="bg-muted/50 rounded-sm p-2.5 flex gap-3 items-center border border-border"
                         >
                             <Skeleton className="w-14 h-14 shrink-0 rounded-md bg-muted" />
                             <div className="flex-1 space-y-1.5">

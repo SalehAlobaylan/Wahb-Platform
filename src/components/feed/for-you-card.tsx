@@ -109,7 +109,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                 </div>
 
                 {/* Title */}
-                <h2 className="text-xl font-bold text-white leading-tight drop-shadow-lg line-clamp-2">
+                <h2 dir="auto" className="text-xl font-bold text-white leading-tight drop-shadow-lg line-clamp-2">
                     {item.title}
                 </h2>
 
@@ -122,7 +122,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                             className="w-full h-full"
                         />
                     </div>
-                    <span className="text-sm text-gray-200 font-medium">{item.author}</span>
+                    <span dir="auto" className="text-sm text-gray-200 font-medium">{item.author}</span>
                 </div>
 
                 {/* Duration */}
