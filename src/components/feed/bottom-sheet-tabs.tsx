@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranscript, useRequestTranscription } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
 type TabKey = 'comments' | 'transcript' | 'about';
 
@@ -11,6 +13,10 @@ interface BottomSheetTabsProps {
     commentCount?: number;
     /** Whether transcript is available */
     hasTranscript?: boolean;
+    /** Transcript public ID for fetching content */
+    transcriptId?: string;
+    /** Content item ID for on-demand transcript generation */
+    contentItemId?: string;
     /** Item title for the About tab */
     title?: string;
     /** Item description / excerpt */
@@ -34,6 +40,8 @@ const TABS: { key: TabKey; label: string; icon: typeof MessageCircle }[] = [
 export function BottomSheetTabs({
     commentCount = 0,
     hasTranscript = false,
+    transcriptId,
+    contentItemId,
     title,
     description,
     author,
@@ -95,7 +103,7 @@ export function BottomSheetTabs({
                     <CommentsTab commentCount={commentCount} />
                 )}
                 {activeTab === 'transcript' && (
-                    <TranscriptTab hasTranscript={hasTranscript} />
+                    <TranscriptTab hasTranscript={hasTranscript} transcriptId={transcriptId} contentItemId={contentItemId} />
                 )}
                 {activeTab === 'about' && (
                     <AboutTab
@@ -164,26 +172,102 @@ function CommentsTab({ commentCount }: { commentCount: number }) {
 
 // ── Transcript Tab ──────────────────────────────────────────
 
-function TranscriptTab({ hasTranscript }: { hasTranscript: boolean }) {
+function formatTimestamp(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTranscript: boolean; transcriptId?: string; contentItemId?: string }) {
+    const { isAuthenticated } = useAuthStore();
+    const triggerMutation = useRequestTranscription();
+    const { data: transcript, isLoading, error } = useTranscript(
+        hasTranscript ? transcriptId : null
+    );
+
     if (!hasTranscript) {
         return (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <FileText className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm">No transcript available</p>
-                <p className="text-xs mt-1">Transcript will appear here when ready</p>
+
+                {isAuthenticated && contentItemId ? (
+                    triggerMutation.isSuccess ? (
+                        <p className="text-xs mt-2 text-news-accent">
+                            Transcript is being generated. Check back shortly.
+                        </p>
+                    ) : (
+                        <button
+                            onClick={() => triggerMutation.mutate(contentItemId)}
+                            disabled={triggerMutation.isPending}
+                            className="mt-3 px-4 py-2 text-xs font-semibold bg-news-accent text-white rounded-lg hover:bg-news-accent/90 disabled:opacity-50 transition-all"
+                        >
+                            {triggerMutation.isPending ? (
+                                <span className="flex items-center gap-2">
+                                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Generating...
+                                </span>
+                            ) : (
+                                'Generate Transcript'
+                            )}
+                        </button>
+                    )
+                ) : (
+                    <p className="text-xs mt-1">Sign in to generate a transcript</p>
+                )}
+
+                {triggerMutation.isError && (
+                    <p className="text-xs mt-2 text-destructive">
+                        {(triggerMutation.error as Error)?.message || 'Failed to generate. Try again later.'}
+                    </p>
+                )}
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <div className="w-6 h-6 border-2 border-news-accent/30 border-t-news-accent rounded-full animate-spin mb-3" />
+                <p className="text-sm">Loading transcript...</p>
+            </div>
+        );
+    }
+
+    if (error || !transcript) {
+        return (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <FileText className="w-8 h-8 mb-2 opacity-40" />
+                <p className="text-sm">Could not load transcript</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Auto-generated transcript</p>
-            <div className="space-y-2.5 text-sm text-foreground/80 leading-relaxed">
-                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:00</span>Welcome to today&apos;s episode. We&apos;re going to be discussing...</p>
-                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:15</span>This topic is really important because...</p>
-                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:32</span>Let me share some insights from our research...</p>
-                <p dir="auto"><span className="text-news-accent font-semibold text-xs mr-2">0:48</span>The key takeaway here is that we need to focus on...</p>
-            </div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">
+                Auto-generated transcript
+                {transcript.language && (
+                    <span className="ml-2 normal-case">({transcript.language})</span>
+                )}
+            </p>
+
+            {transcript.word_timestamps && transcript.word_timestamps.length > 0 ? (
+                <div className="space-y-2.5 text-sm text-foreground/80 leading-relaxed">
+                    {transcript.word_timestamps.map((segment, i) => (
+                        <p key={i} dir="auto">
+                            <span className="text-news-accent font-semibold text-xs mr-2">
+                                {formatTimestamp(segment.start)}
+                            </span>
+                            {segment.text}
+                        </p>
+                    ))}
+                </div>
+            ) : (
+                <p dir="auto" className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                    {transcript.full_text}
+                </p>
+            )}
         </div>
     );
 }

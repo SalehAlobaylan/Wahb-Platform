@@ -1,5 +1,5 @@
 
-import type { ForYouResponse, NewsResponse, ContentItem, Interaction } from '@/types';
+import type { ForYouResponse, NewsResponse, ContentItem, Interaction, Transcript } from '@/types';
 import {
   mockFetchForYouFeed,
   mockFetchNewsFeed,
@@ -8,6 +8,7 @@ import {
   mockRemoveInteraction,
   mockFetchBookmarks,
   mockSearchContent,
+  mockFetchTranscript,
 } from './mock-client';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
@@ -48,6 +49,7 @@ export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouRes
   const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '20');
+  params.set('exclude_seen', 'true');
 
   const response = await fetch(`${API_BASE}/feed/foryou?${params}`);
 
@@ -70,6 +72,7 @@ export async function fetchNewsFeed(cursor?: string | null): Promise<NewsRespons
   const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '10');
+  params.set('exclude_seen', 'true');
 
   const response = await fetch(`${API_BASE}/feed/news?${params}`);
 
@@ -197,4 +200,97 @@ export async function searchContent(query: string): Promise<ContentItem[]> {
 
   const data = await response.json();
   return data.data?.items || data.items || data;
+}
+
+/**
+ * Fetch transcript by ID (lazy-loaded when user opens transcript tab)
+ */
+export async function fetchTranscript(transcriptId: string): Promise<Transcript> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    return mockFetchTranscript(transcriptId);
+  }
+
+  const response = await fetch(`${API_BASE}/transcripts/${transcriptId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch transcript: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || data;
+}
+
+/**
+ * Request transcript generation for a content item (logged-in users only).
+ * Calls our Next.js API proxy which reads the JWT from httpOnly cookie
+ * and forwards it to CMS with proper Authorization header.
+ * CMS validates the JWT, extracts user_id from the token, and triggers
+ * the Enrichment Service asynchronously.
+ */
+export interface WatchHistoryItem {
+  content_id: string;
+  viewed_at: string;
+  type: string;
+  title: string;
+  thumbnail_url?: string;
+  media_url?: string;
+  duration_sec?: number;
+  author?: string;
+  source_name?: string;
+}
+
+export interface WatchHistoryResponse {
+  cursor: string | null;
+  items: WatchHistoryItem[];
+}
+
+/**
+ * Fetch the current user's watch history (viewed items), paginated.
+ */
+export async function fetchWatchHistory(cursor?: string | null): Promise<WatchHistoryResponse> {
+  const params = getIdentityParams();
+  if (cursor) params.set('cursor', cursor);
+  params.set('limit', '20');
+
+  const response = await fetch(`${API_BASE}/interactions/history?${params}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch watch history: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Clear the current user's watch history.
+ */
+export async function clearWatchHistory(): Promise<void> {
+  const params = getIdentityParams();
+  const response = await fetch(`${API_BASE}/interactions/history?${params}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error(`Failed to clear history: ${response.statusText}`);
+  }
+}
+
+export async function requestTranscription(contentItemId: string): Promise<{ status: string; message: string }> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    // Simulate processing delay
+    await new Promise(r => setTimeout(r, 2000));
+    return { status: 'processing', message: 'Transcript generation started' };
+  }
+
+  const response = await fetch('/api/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content_id: contentItemId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Failed to request transcription: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || data;
 }

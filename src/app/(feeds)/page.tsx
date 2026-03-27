@@ -48,10 +48,20 @@ export default function ForYouPage() {
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
 
-    // Combine all pages of data
+    // Combine all pages; dedupe by id so cursor overlap does not duplicate keys
     const forYouItems = useMemo(() => {
         if (!data?.pages) return [];
-        return data.pages.flatMap((page) => page.items);
+        const seen = new Set<string>();
+        const out: ContentItem[] = [];
+        for (const page of data.pages) {
+            for (const item of page.items) {
+                if (!seen.has(item.id)) {
+                    seen.add(item.id);
+                    out.push(item);
+                }
+            }
+        }
+        return out;
     }, [data]);
 
     // Current active item — drives the fixed bottom sheet
@@ -129,6 +139,17 @@ export default function ForYouPage() {
         () => throttleScroll(rawHandleScroll, 200),
         [rawHandleScroll]
     );
+
+    // When fast-swiping ends, re-check if we need to fetch more
+    // (no scroll events fire after snap settles, so the scroll handler won't re-evaluate)
+    useEffect(() => {
+        if (isFastSwiping || !feedRef.current || !hasNextPage || isFetchingNextPage) return;
+        const { scrollTop, clientHeight, scrollHeight } = feedRef.current;
+        const nearBottom = scrollTop + clientHeight >= scrollHeight - clientHeight * 2;
+        if (nearBottom && backoffMgr.canProceed() && tokenBucket.tryConsume()) {
+            fetchNextPage();
+        }
+    }, [isFastSwiping, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     // Reset scroll on mount
     useEffect(() => {
@@ -281,6 +302,8 @@ export default function ForYouPage() {
                             <BottomSheetTabs
                                 commentCount={activeItem.comment_count}
                                 hasTranscript={!!activeItem.transcript_id}
+                                transcriptId={activeItem.transcript_id}
+                                contentItemId={activeItem.id}
                                 title={activeItem.title}
                                 description={activeItem.excerpt || activeItem.body_text}
                                 author={activeItem.author}

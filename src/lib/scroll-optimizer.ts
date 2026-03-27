@@ -21,14 +21,28 @@ export function throttleScroll(
 ): () => void {
     let lastTime = 0;
     let rafId: number | null = null;
+    let trailingTimer: ReturnType<typeof setTimeout> | null = null;
 
     return () => {
+        // Always schedule a trailing call so the last scroll event is never lost
+        // (critical for snap scrolling where events stop after the snap animation)
+        if (trailingTimer) clearTimeout(trailingTimer);
+        trailingTimer = setTimeout(() => {
+            trailingTimer = null;
+            callback();
+        }, intervalMs);
+
         if (rafId !== null) return;
 
         rafId = requestAnimationFrame(() => {
             const now = performance.now();
             if (now - lastTime >= intervalMs) {
                 lastTime = now;
+                // Cancel trailing since we just fired
+                if (trailingTimer) {
+                    clearTimeout(trailingTimer);
+                    trailingTimer = null;
+                }
                 callback();
             }
             rafId = null;

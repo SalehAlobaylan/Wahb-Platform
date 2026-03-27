@@ -61,6 +61,22 @@ export interface Interaction {
   created_at: string;
 }
 
+export interface Transcript {
+  id: string;
+  content_item_id: string;
+  full_text: string;
+  summary?: string;
+  word_timestamps?: TranscriptSegment[];
+  language?: string;
+  created_at: string;
+}
+
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export interface ApiResponse<T> {
   code: number;
   message: string;

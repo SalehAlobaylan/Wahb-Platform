@@ -1,5 +1,5 @@
 
-import { ForYouResponse, NewsResponse, ContentItem, Interaction } from '@/types';
+import { ForYouResponse, NewsResponse, ContentItem, Interaction, Transcript } from '@/types';
 import { MOCK_FORYOU_ITEMS, MOCK_NEWS_SLIDES } from '@/lib/mocks/data';
 
 const SIMULATED_DELAY_MS = 800;
@@ -106,4 +106,22 @@ export async function mockSearchContent(query: string): Promise<ContentItem[]> {
 
         return fields.some(f => f.includes(q));
     });
+}
+
+export async function mockFetchTranscript(transcriptId: string): Promise<Transcript> {
+    await delay(SIMULATED_DELAY_MS);
+
+    return {
+        id: transcriptId,
+        content_item_id: 'mock-content-id',
+        full_text: 'Welcome to today\'s episode. We\'re going to be discussing the latest developments in technology and how they impact our daily lives. This topic is really important because it affects everyone. Let me share some insights from our research. The key takeaway here is that we need to focus on building sustainable solutions.',
+        word_timestamps: [
+            { start: 0, end: 8.5, text: 'Welcome to today\'s episode. We\'re going to be discussing the latest developments in technology and how they impact our daily lives.' },
+            { start: 8.5, end: 15.2, text: 'This topic is really important because it affects everyone.' },
+            { start: 15.2, end: 25.8, text: 'Let me share some insights from our research.' },
+            { start: 25.8, end: 35.0, text: 'The key takeaway here is that we need to focus on building sustainable solutions.' },
+        ],
+        language: 'en',
+        created_at: new Date().toISOString(),
+    };
 }

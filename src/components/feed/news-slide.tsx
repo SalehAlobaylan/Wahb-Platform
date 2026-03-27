@@ -10,6 +10,46 @@ import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
 /** Detect if text contains HTML tags */
 const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
 
+/**
+ * Collapse newlines and multiple whitespace into a single space for
+ * single-line / line-clamped display. Preserves the full text for
+ * expanded / body views.
+ */
+const normalizeForTitle = (text: string): string =>
+    text.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+/**
+ * Count meaningful characters: letters + digits only, no spaces, punctuation,
+ * or Unicode directional/formatting marks (U+200F RTL mark, U+200E LTR mark, etc.).
+ */
+const meaningfulCharCount = (text: string): number =>
+    (text.match(/[\p{L}\p{N}]/gu) ?? []).length;
+
+/**
+ * Pick the best display title for a related item.
+ *
+ * Telegram/Twitter content often uses a short temporal or attribution header as
+ * `title` (e.g. "الأسبوع الماضي ..", "خلال العام القادم ..", "رئيس الحكومة :"),
+ * with the real news only in `body_text`. We detect these by:
+ *   • title ends with a header-suffix (:  ،  ..  …)
+ *   • OR fewer than 20 meaningful (letter/digit) characters after stripping whitespace
+ * In those cases we fall through to body_text which contains the full content.
+ */
+const getRelatedDisplayTitle = (item: ContentItem): string => {
+    const title = item.title?.trim() ?? '';
+    const HEADER_SUFFIXES = [':', '،', '..', '…'];
+    const isHeaderSuffix = HEADER_SUFFIXES.some(s => title.endsWith(s));
+    const isTooShort = meaningfulCharCount(title) < 20;
+
+    if (title && !isHeaderSuffix && !isTooShort) {
+        return normalizeForTitle(title);
+    }
+    // Fall through to body_text — it contains the complete content
+    const body = item.body_text ?? item.excerpt ?? '';
+    if (body) return normalizeForTitle(body);
+    return title || 'Untitled';
+};
+
 /** Strip dangerous tags and attributes, keep safe markup */
 function sanitizeHtml(html: string): string {
     return html
@@ -78,8 +118,10 @@ const getPlainExpandableText = (item: ContentItem) => {
     return isHtml(raw) ? stripHtml(raw) : raw;
 };
 
-const getFeaturedTitle = (item: ContentItem) =>
-    item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
+const getFeaturedTitle = (item: ContentItem) => {
+    const raw = item.title || item.excerpt?.slice(0, 100) || item.body_text?.slice(0, 100) || 'Untitled';
+    return normalizeForTitle(raw);
+};
 
 /* ── Expandable Related Item ─────────────────────────────── */
 
@@ -98,7 +140,18 @@ function RelatedItem({
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
     const expandableText = getExpandableText(item);
-    const canExpand = getPlainExpandableText(item).length > 40;
+    const plainExpand = getPlainExpandableText(item);
+    const displayedTitle = getRelatedDisplayTitle(item);
+    const expandMeaningful = meaningfulCharCount(plainExpand);
+    const titleMeaningful = meaningfulCharCount(displayedTitle);
+    // Count non-empty lines in the raw text — multi-line content (bullet lists,
+    // paragraphs) is worth expanding even when char counts match, because the
+    // expanded panel renders proper line breaks while the title collapses them.
+    const nonEmptyLines = plainExpand.split('\n').filter(l => l.trim().length > 2).length;
+    const canExpand = expandMeaningful > 40 && (
+        nonEmptyLines > 2 ||                      // structured / multi-line content
+        expandMeaningful - titleMeaningful > 30    // genuinely more prose than shown
+    );
     const isLiked = likedIds.has(item.id);
     const isBookmarked = bookmarkedIds.has(item.id);
 
@@ -161,21 +214,12 @@ function RelatedItem({
                             )}
                         </div>
                     </div>
-                    {item.title ? (
-                        <h4 dir="auto" className={cn(
-                            'font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground',
-                            !isExpanded && 'line-clamp-2'
-                        )}>
-                            {item.title}
-                        </h4>
-                    ) : (
-                        <p dir="auto" className={cn(
-                            'text-[13px] leading-snug text-muted-foreground italic',
-                            !isExpanded && 'line-clamp-2'
-                        )}>
-                            &ldquo;{item.body_text?.slice(0, 80)}...&rdquo;
-                        </p>
-                    )}
+                    <h4 dir="auto" className={cn(
+                        'font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground',
+                        !isExpanded && 'line-clamp-2'
+                    )}>
+                        {getRelatedDisplayTitle(item)}
+                    </h4>
                 </div>
 
                 {/* Side arrow → opens article reader */}
@@ -293,7 +337,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                     </h1>
                     {(featured.excerpt || featured.body_text) && (
                         <p dir="auto" className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
-                            {featured.excerpt || featured.body_text?.slice(0, 160)}
+                            {normalizeForTitle(featured.excerpt || featured.body_text?.slice(0, 160) || '')}
                         </p>
                     )}
                     <div className="flex items-center justify-between">

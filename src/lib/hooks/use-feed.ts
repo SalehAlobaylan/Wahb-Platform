@@ -1,10 +1,12 @@
 'use client';
 
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchForYouFeed,
   fetchNewsFeed,
   fetchBookmarks,
+  fetchTranscript,
+  requestTranscription,
   recordInteraction,
   removeInteraction,
 } from '@/lib/api';
@@ -106,6 +108,34 @@ export function useBookmarkMutation() {
     onSettled: () => {
       // Invalidate bookmarks query
       queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+    },
+  });
+}
+
+/**
+ * Hook for lazy-loading a transcript by ID.
+ * Only fetches when transcriptId is provided (enabled gate).
+ */
+export function useTranscript(transcriptId?: string | null) {
+  return useQuery({
+    queryKey: ['transcript', transcriptId],
+    queryFn: () => fetchTranscript(transcriptId!),
+    enabled: !!transcriptId,
+    staleTime: 1000 * 60 * 10, // 10 min — transcripts are immutable
+  });
+}
+
+/**
+ * Hook for requesting on-demand transcript generation.
+ * Triggers CMS → Enrichment → write-back flow.
+ */
+export function useRequestTranscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (contentItemId: string) => requestTranscription(contentItemId),
+    onSuccess: () => {
+      // Invalidate feed queries so transcript_id appears on next refetch
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
     },
   });
 }

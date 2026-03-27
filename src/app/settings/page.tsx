@@ -8,12 +8,15 @@ import {
     Download, Volume2, Bell, Palette, LogOut, Shield, Globe,
     Moon, Sun, Monitor, Check, Eye, BellRing, BellOff,
     Wifi, WifiOff, HardDrive, Trash2, Languages, Loader2,
+    Clock, Play, AlertCircle,
 } from 'lucide-react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { useAuthStore } from '@/lib/stores';
 import { useLogout } from '@/lib/hooks/use-auth';
 import { useTheme } from 'next-themes';
+import { fetchWatchHistory, clearWatchHistory, type WatchHistoryItem } from '@/lib/api/feeds';
 
 /* ═══════════════════════════════════════════════════════
    Sub-panel type & registry
@@ -27,7 +30,8 @@ type PanelId =
     | 'notifications'
     | 'theme'
     | 'language'
-    | 'security';
+    | 'security'
+    | 'history';
 
 /* ═══════════════════════════════════════════════════════
    Reusable components
@@ -581,6 +585,187 @@ function SecurityPanel({ onBack }: { onBack: () => void }) {
     );
 }
 
+function formatRelativeTime(dateStr: string): string {
+    const now = Date.now();
+    const diff = now - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString();
+}
+
+function formatDuration(sec?: number): string {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function HistoryPanel({ onBack }: { onBack: () => void }) {
+    const queryClient = useQueryClient();
+    const [confirmClear, setConfirmClear] = useState(false);
+
+    const {
+        data,
+        isLoading,
+        isError,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteQuery({
+        queryKey: ['watch-history'],
+        queryFn: ({ pageParam }) => fetchWatchHistory(pageParam),
+        initialPageParam: null as string | null,
+        getNextPageParam: (lastPage) => lastPage.cursor,
+    });
+
+    const clearMutation = useMutation({
+        mutationFn: clearWatchHistory,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['watch-history'] });
+            setConfirmClear(false);
+        },
+    });
+
+    const allItems: WatchHistoryItem[] = data?.pages.flatMap((p) => p.items) ?? [];
+
+    return (
+        <div className="flex flex-col h-full bg-background">
+            <PanelHeader title="Watch History" onBack={onBack} />
+            <div className="flex-1 overflow-y-auto">
+                {/* Clear button */}
+                {allItems.length > 0 && (
+                    <div className="px-5 pt-4 pb-2">
+                        {confirmClear ? (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => clearMutation.mutate()}
+                                    disabled={clearMutation.isPending}
+                                    className="flex-1 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-medium border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                                >
+                                    {clearMutation.isPending ? 'Clearing…' : 'Yes, clear all'}
+                                </button>
+                                <button
+                                    onClick={() => setConfirmClear(false)}
+                                    className="flex-1 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setConfirmClear(true)}
+                                className="w-full py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:border-destructive/30 hover:text-destructive transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Clear watch history
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* States */}
+                {isLoading && (
+                    <div className="flex flex-col gap-3 px-5 pt-4">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="flex gap-3 animate-pulse">
+                                <div className="w-20 h-14 rounded-lg bg-muted shrink-0" />
+                                <div className="flex-1 space-y-2 pt-1">
+                                    <div className="h-3 bg-muted rounded w-3/4" />
+                                    <div className="h-3 bg-muted rounded w-1/2" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {isError && (
+                    <div className="flex flex-col items-center justify-center py-16 px-5 text-center gap-3">
+                        <AlertCircle className="w-8 h-8 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Failed to load history</p>
+                    </div>
+                )}
+
+                {!isLoading && !isError && allItems.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-20 px-5 text-center gap-3">
+                        <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
+                            <Clock className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="font-serif text-base font-semibold text-foreground">Nothing here yet</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed max-w-[220px]">
+                            Videos you watch will appear here so you can easily find them again.
+                        </p>
+                    </div>
+                )}
+
+                {/* Item list */}
+                {allItems.length > 0 && (
+                    <div className="px-5 py-3 space-y-1">
+                        {allItems.map((item, i) => (
+                            <div key={`${item.content_id}-${i}`} className="flex gap-3 py-2.5 border-b border-border/50 last:border-0">
+                                {/* Thumbnail */}
+                                <div className="w-20 h-14 rounded-lg bg-muted shrink-0 overflow-hidden relative">
+                                    {item.thumbnail_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={item.thumbnail_url}
+                                            alt={item.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <Play className="w-5 h-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    {item.duration_sec && (
+                                        <span className="absolute bottom-1 right-1 text-[10px] font-medium bg-black/70 text-white px-1 rounded">
+                                            {formatDuration(item.duration_sec)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                    <p className="text-sm font-medium text-foreground line-clamp-2 leading-tight">
+                                        {item.title || 'Untitled'}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {item.source_name && (
+                                            <span className="text-[11px] text-gold font-medium truncate max-w-[100px]">
+                                                {item.source_name}
+                                            </span>
+                                        )}
+                                        {item.source_name && (
+                                            <span className="text-[11px] text-muted-foreground">·</span>
+                                        )}
+                                        <span className="text-[11px] text-muted-foreground">
+                                            {formatRelativeTime(item.viewed_at)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Load more */}
+                        {hasNextPage && (
+                            <button
+                                onClick={() => fetchNextPage()}
+                                disabled={isFetchingNextPage}
+                                className="w-full py-3 text-sm text-gold font-medium hover:text-gold/80 transition-colors disabled:opacity-50"
+                            >
+                                {isFetchingNextPage ? 'Loading…' : 'Load more'}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 /* ═══════════════════════════════════════════════════════
    Main Settings Page
    ═══════════════════════════════════════════════════════ */
@@ -605,6 +790,7 @@ export default function SettingsPage() {
     if (activePanel === 'theme') return <ThemePanel onBack={goBack} />;
     if (activePanel === 'language') return <LanguagePanel onBack={goBack} />;
     if (activePanel === 'security') return <SecurityPanel onBack={goBack} />;
+    if (activePanel === 'history') return <HistoryPanel onBack={goBack} />;
 
     return (
         <div className="h-full w-full overflow-y-auto bg-background text-foreground font-sans">
@@ -664,6 +850,8 @@ export default function SettingsPage() {
                         <SettingsRow icon={<User className="w-4 h-4" />} label="Profile & Subscription" onClick={() => setActivePanel('profile')} />
                         <Divider />
                         <SettingsRow icon={<CreditCard className="w-4 h-4" />} label="Payment Methods" onClick={() => setActivePanel('payment')} />
+                        <Divider />
+                        <SettingsRow icon={<Clock className="w-4 h-4" />} label="Watch History" onClick={() => setActivePanel('history')} />
                         <Divider />
                         <SettingsRow icon={<Shield className="w-4 h-4" />} label="Privacy & Security" onClick={() => setActivePanel('security')} />
                     </SettingsCard>
