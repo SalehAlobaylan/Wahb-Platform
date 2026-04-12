@@ -6,35 +6,54 @@ async function proxyRequest(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ): Promise<NextResponse> {
-  if (!CMS_BASE_URL) {
+  try {
+    if (!CMS_BASE_URL) {
+      return NextResponse.json(
+        { message: 'CMS base URL is not configured' },
+        { status: 500 }
+      );
+    }
+
+    const { path } = await context.params;
+    const incomingUrl = new URL(request.url);
+    const targetPath = path.join('/');
+    const targetUrl = `${CMS_BASE_URL.replace(/\/$/, '')}/${targetPath}${incomingUrl.search}`;
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete('host');
+
+    const body = request.method === 'GET' || request.method === 'HEAD'
+      ? undefined
+      : await request.arrayBuffer();
+
+    const upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers: requestHeaders,
+      body,
+      cache: 'no-store',
+    });
+
+    const responseHeaders = new Headers(upstream.headers);
+    responseHeaders.delete('content-encoding');
+    responseHeaders.delete('content-length');
+    responseHeaders.delete('transfer-encoding');
+    responseHeaders.delete('connection');
+
+    const responseBody = await upstream.arrayBuffer();
+
+    return new NextResponse(responseBody, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { message: 'CMS base URL is not configured' },
-      { status: 500 }
+      {
+        message: 'Proxy request failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 502 }
     );
   }
-
-  const { path } = await context.params;
-  const incomingUrl = new URL(request.url);
-  const targetPath = path.join('/');
-  const targetUrl = `${CMS_BASE_URL.replace(/\/$/, '')}/${targetPath}${incomingUrl.search}`;
-
-  const headers = new Headers(request.headers);
-  headers.delete('host');
-
-  const body = request.method === 'GET' || request.method === 'HEAD'
-    ? undefined
-    : await request.arrayBuffer();
-
-  const upstream = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    body,
-  });
-
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
-    headers: upstream.headers,
-  });
 }
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
