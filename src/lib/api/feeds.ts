@@ -12,7 +12,7 @@ import {
 } from './mock-client';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE = '/api/v1';
 
 function getIdentityParams(): URLSearchParams {
   const params = new URLSearchParams();
