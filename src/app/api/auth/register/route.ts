@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const IAM_URL = process.env.IAM_API_URL;
+const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
 
 export async function POST(request: Request) {
   if (!IAM_URL) {
