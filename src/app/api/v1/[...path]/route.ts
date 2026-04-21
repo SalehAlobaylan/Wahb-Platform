@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const CMS_BASE_URL = process.env.CMS_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
+// Prefer public API base for platform proxy. `CMS_BASE_URL` is commonly used
+// by other services (e.g. Aggregation) and may point to `/internal`.
+const CMS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL;
 
 async function proxyRequest(
   request: NextRequest,
