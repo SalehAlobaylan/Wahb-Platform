@@ -1,12 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { shareContent } from '@/lib/utils/share';
 import { useTranscript, useRequestTranscription } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import type { ContentType } from '@/types';
 
 type TabKey = 'comments' | 'transcript' | 'about';
+
+type CommentItem = {
+    id: string;
+    author: string;
+    text: string;
+    time: string;
+    avatar: string;
+};
 
 interface BottomSheetTabsProps {
     /** Number of comments to display in the tab badge */
@@ -17,6 +27,8 @@ interface BottomSheetTabsProps {
     transcriptId?: string;
     /** Content item ID for on-demand transcript generation */
     contentItemId?: string;
+    /** Content type for share deep-linking fallback */
+    contentType?: ContentType;
     /** Item title for the About tab */
     title?: string;
     /** Item description / excerpt */
@@ -42,12 +54,62 @@ export function BottomSheetTabs({
     hasTranscript = false,
     transcriptId,
     contentItemId,
+    contentType,
     title,
     description,
     author,
     tags,
 }: BottomSheetTabsProps) {
     const [activeTab, setActiveTab] = useState<TabKey>('comments');
+    const [commentBuckets, setCommentBuckets] = useState<Record<string, CommentItem[]>>({});
+
+    const comments = useMemo(() => {
+        if (!contentItemId) return [];
+
+        const fromMemory = commentBuckets[contentItemId];
+        if (fromMemory) return fromMemory;
+
+        if (typeof window === 'undefined') return [];
+
+        const raw = window.localStorage.getItem(`wahb_comments_${contentItemId}`);
+        if (!raw) return [];
+
+        try {
+            const parsed = JSON.parse(raw) as CommentItem[];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }, [contentItemId, commentBuckets]);
+
+    const totalComments = useMemo(() => commentCount + comments.length, [commentCount, comments.length]);
+
+    const addComment = (text: string) => {
+        const value = text.trim();
+        if (!value) return;
+
+        const newComment: CommentItem = {
+            id: `${Date.now()}`,
+            author: 'You',
+            text: value,
+            time: 'now',
+            avatar: 'Y',
+        };
+
+        setCommentBuckets((prev) => {
+            const existing = prev[contentItemId] ?? comments;
+            const next = [newComment, ...existing];
+
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(`wahb_comments_${contentItemId}`, JSON.stringify(next));
+            }
+
+            return {
+                ...prev,
+                [contentItemId]: next,
+            };
+        });
+    };
 
     return (
         <div className="flex flex-col h-full">
@@ -67,9 +129,9 @@ export function BottomSheetTabs({
                         >
                             <tab.icon className="w-3.5 h-3.5" />
                             {tab.label}
-                            {tab.key === 'comments' && commentCount > 0 && (
+                            {tab.key === 'comments' && totalComments > 0 && (
                                 <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-news-accent/20 text-news-accent">
-                                    {commentCount}
+                                    {totalComments}
                                 </span>
                             )}
                         </button>
@@ -79,15 +141,11 @@ export function BottomSheetTabs({
                 {/* Relocated Share Button */}
                 <button
                     onClick={() => {
-                        if (navigator.share) {
-                            navigator.share({
-                                title: title || 'Wahb Post',
-                                text: description || 'Check out this post on Wahb',
-                                url: window.location.href,
-                            }).catch(() => { });
-                        } else {
-                            navigator.clipboard.writeText(window.location.href);
-                        }
+                        shareContent({
+                            title: title || 'Wahb Post',
+                            text: description || 'Check out this post on Wahb',
+                            item: contentItemId && contentType ? { id: contentItemId, type: contentType } : null,
+                        }).catch(() => {});
                     }}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-muted/30 rounded-lg text-muted-foreground hover:text-foreground transition-all"
                     aria-label="Share Post"
@@ -100,7 +158,11 @@ export function BottomSheetTabs({
             {/* Tab content */}
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'comments' && (
-                    <CommentsTab commentCount={commentCount} />
+                    <CommentsTab
+                        commentCount={commentCount}
+                        comments={comments}
+                        onAddComment={addComment}
+                    />
                 )}
                 {activeTab === 'transcript' && (
                     <TranscriptTab hasTranscript={hasTranscript} transcriptId={transcriptId} contentItemId={contentItemId} />
@@ -120,12 +182,22 @@ export function BottomSheetTabs({
 
 // ── Comments Tab ────────────────────────────────────────────
 
-function CommentsTab({ commentCount }: { commentCount: number }) {
-    const mockComments = [
-        { id: '1', author: 'Ahmed', text: 'ماشاء الله، محتوى رائع! 🔥', time: '2h ago', avatar: 'A' },
-        { id: '2', author: 'Sara', text: 'شكراً على المشاركة', time: '4h ago', avatar: 'S' },
-        { id: '3', author: 'Omar', text: 'Very insightful discussion', time: '6h ago', avatar: 'O' },
-    ];
+function CommentsTab({
+    commentCount,
+    comments,
+    onAddComment,
+}: {
+    commentCount: number;
+    comments: CommentItem[];
+    onAddComment: (text: string) => void;
+}) {
+    const [draft, setDraft] = useState('');
+    const allComments = comments;
+
+    const submit = () => {
+        onAddComment(draft);
+        setDraft('');
+    };
 
     return (
         <div className="space-y-3">
@@ -138,20 +210,36 @@ function CommentsTab({ commentCount }: { commentCount: number }) {
                     <input
                         type="text"
                         placeholder="Add a comment..."
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                submit();
+                            }
+                        }}
                         className="w-full px-3 py-2 text-sm rounded-full bg-muted/50 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-news-accent/50 focus:border-news-accent/40"
                     />
                 </div>
+                <button
+                    type="button"
+                    onClick={submit}
+                    disabled={!draft.trim()}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-full bg-news-accent text-white disabled:opacity-50"
+                >
+                    Post
+                </button>
             </div>
 
             {/* Comments list */}
-            {commentCount === 0 && mockComments.length === 0 ? (
+            {commentCount === 0 && allComments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessageCircle className="w-8 h-8 mb-2 opacity-40" />
                     <p className="text-sm">No comments yet</p>
                     <p className="text-xs mt-1">Be the first to comment</p>
                 </div>
             ) : (
-                mockComments.map((comment) => (
+                allComments.map((comment) => (
                     <div key={comment.id} className="flex gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
                             {comment.avatar}

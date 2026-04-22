@@ -26,9 +26,9 @@ interface NowPlayingState {
     togglePlayPause: () => void;
     setBottomSheetMounted: (mounted: boolean) => void;
     /** Called by ForYou page to register the current item without triggering <audio> */
-    setCurrentFromVideo: (item: ContentItem) => void;
+    setCurrentFromVideo: (item: ContentItem, playing?: boolean) => void;
     /** Called by ForYou page on unmount to hand off playback to <audio> */
-    handoffToAudio: (currentTime: number) => void;
+    handoffToAudio: (currentTime: number, shouldResume?: boolean) => void;
     /** Called by NowPlayingProvider after it has seeked to the handoff position */
     clearSeek: () => void;
 }
@@ -73,19 +73,19 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
 
     setBottomSheetMounted: (mounted) => set({ bottomSheetMounted: mounted }),
 
-    setCurrentFromVideo: (item) =>
-        set({
+    setCurrentFromVideo: (item, playing = true) =>
+        set(() => ({
             currentItem: item,
             audioSrc: item.media_url || null,
-            isPlaying: true,
+            isPlaying: playing,
             videoActive: true,
-        }),
+        })),
 
-    handoffToAudio: (currentTime) =>
+    handoffToAudio: (currentTime, shouldResume = true) =>
         set({
             videoActive: false,
             seekTo: currentTime,
-            isPlaying: true,
+            isPlaying: shouldResume,
         }),
 
     clearSeek: () => set({ seekTo: null }),

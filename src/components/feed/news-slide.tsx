@@ -5,6 +5,7 @@ import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2 } from '
 import { cn } from '@/lib/utils';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
+import { shareContent } from '@/lib/utils/share';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
 
 /** Detect if text contains HTML tags */
@@ -371,11 +372,11 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (navigator.share) {
-                                        navigator.share({ title: featured.title, url: window.location.href }).catch(() => {});
-                                    } else {
-                                        navigator.clipboard.writeText(window.location.href);
-                                    }
+                                    shareContent({
+                                        title: featured.title,
+                                        text: featured.excerpt || featured.body_text,
+                                        item: featured,
+                                    }).catch(() => {});
                                 }}
                                 className="text-muted-foreground hover:text-news-accent transition-colors"
                                 aria-label="Share"

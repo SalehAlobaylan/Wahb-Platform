@@ -4,9 +4,10 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { searchContent } from '@/lib/api/feeds';
-import { useFeedStore, useNowPlayingStore } from '@/lib/stores';
+import { useFeedStore } from '@/lib/stores';
 import { useBookmarkMutation } from '@/lib/hooks/use-feed';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
+import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
 import {
     ArrowLeft, Search, X, Clock, TrendingUp,
@@ -92,10 +93,18 @@ export default function SearchPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
+    const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
 
     const { bookmarkedIds } = useFeedStore();
-    const { play } = useNowPlayingStore();
     const bookmarkMutation = useBookmarkMutation();
+
+    const handleOpenItem = (item: ContentItem) => {
+        if (item.type === 'VIDEO' || item.type === 'PODCAST') {
+            router.push(`/?item=${encodeURIComponent(item.id)}`);
+            return;
+        }
+        setSelectedArticle(item);
+    };
 
     const handleBookmark = (e: React.MouseEvent, contentId: string) => {
         e.stopPropagation();
@@ -376,7 +385,7 @@ export default function SearchPage() {
                             return (
                                 <article
                                     key={item.id}
-                                    onClick={() => play(item)}
+                                    onClick={() => handleOpenItem(item)}
                                     className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border hover:bg-muted/50 hover:border-border transition-all cursor-pointer group"
                                 >
                                     {/* Thumbnail */}
@@ -459,6 +468,11 @@ export default function SearchPage() {
 
             {/* ═══════════ NOW PLAYING BAR ═══════════ */}
             <GlobalNowPlayingBar />
+
+            <ArticleReader
+                article={selectedArticle}
+                onClose={() => setSelectedArticle(null)}
+            />
         </div>
     );
 }

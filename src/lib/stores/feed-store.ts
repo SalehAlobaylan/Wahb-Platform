@@ -3,10 +3,14 @@ import { persist } from 'zustand/middleware';
 
 interface FeedState {
   // Active feed state
-  activeIndex: number;
+  forYouActiveIndex: number;
+  newsActiveIndex: number;
   isPlaying: boolean;
+  globalPaused: boolean;
   playbackSpeed: number;
   progress: number;
+  forYouPlaybackById: Record<string, { timeSec: number; progress: number }>;
+  lastActiveForYouItemId: string | null;
 
   // Scroll optimization
   isFastSwiping: boolean;
@@ -20,11 +24,14 @@ interface FeedState {
   sessionId: string;
 
   // Actions
-  setActiveIndex: (index: number) => void;
+  setForYouActiveIndex: (index: number) => void;
+  setNewsActiveIndex: (index: number) => void;
   togglePlay: () => void;
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setProgress: (progress: number) => void;
+  setForYouPlayback: (id: string, timeSec: number, progress: number) => void;
+  setLastActiveForYouItemId: (id: string | null) => void;
   toggleBookmark: (id: string) => void;
   toggleLike: (id: string) => void;
   resetProgress: () => void;
@@ -46,10 +53,14 @@ export const useFeedStore = create<FeedState>()(
   persist(
     (set, get) => ({
       // Initial state
-      activeIndex: 0,
-      isPlaying: false,
+      forYouActiveIndex: 0,
+      newsActiveIndex: 0,
+      isPlaying: true,
+      globalPaused: false,
       playbackSpeed: 1.0,
       progress: 0,
+      forYouPlaybackById: {},
+      lastActiveForYouItemId: null,
       isFastSwiping: false,
       backoffUntil: 0,
       bookmarkedIds: new Set<string>(),
@@ -57,15 +68,36 @@ export const useFeedStore = create<FeedState>()(
       sessionId: '',
 
       // Actions
-      setActiveIndex: (index) => set({ activeIndex: index }),
+      setForYouActiveIndex: (index) => set({ forYouActiveIndex: index }),
 
-      togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
+      setNewsActiveIndex: (index) => set({ newsActiveIndex: index }),
 
-      setPlaying: (playing) => set({ isPlaying: playing }),
+      togglePlay: () => set((state) => {
+        const nextPlaying = !state.isPlaying;
+        return {
+          isPlaying: nextPlaying,
+          globalPaused: !nextPlaying,
+        };
+      }),
+
+      setPlaying: (playing) => set({ isPlaying: playing, globalPaused: !playing }),
 
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
       setProgress: (progress) => set({ progress }),
+
+      setForYouPlayback: (id, timeSec, progress) =>
+        set((state) => ({
+          forYouPlaybackById: {
+            ...state.forYouPlaybackById,
+            [id]: {
+              timeSec,
+              progress,
+            },
+          },
+        })),
+
+      setLastActiveForYouItemId: (id) => set({ lastActiveForYouItemId: id }),
 
       setFastSwiping: (fast) => set({ isFastSwiping: fast }),
 
@@ -91,7 +123,7 @@ export const useFeedStore = create<FeedState>()(
         return { likedIds: newSet };
       }),
 
-      resetProgress: () => set({ progress: 0, isPlaying: true }),
+      resetProgress: () => set({ progress: 0 }),
     }),
     {
       name: 'wahb-feed-storage',
@@ -99,6 +131,8 @@ export const useFeedStore = create<FeedState>()(
         bookmarkedIds: Array.from(state.bookmarkedIds),
         likedIds: Array.from(state.likedIds),
         playbackSpeed: state.playbackSpeed,
+        forYouPlaybackById: state.forYouPlaybackById,
+        lastActiveForYouItemId: state.lastActiveForYouItemId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

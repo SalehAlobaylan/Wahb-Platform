@@ -1,13 +1,15 @@
 'use client';
 
-import { useRef, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
 import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs } from '@/components/feed';
+import type { DraggableBottomSheetHandle } from '@/components/feed/draggable-bottom-sheet';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { Search, Bookmark, User, Heart, MessageCircle, Share2, RotateCcw, Plus } from 'lucide-react';
+import { Search, Bookmark, User, Heart, MessageCircle, RotateCcw, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     throttleScroll,
@@ -28,10 +30,13 @@ export default function ForYouPage() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { user, isAuthenticated } = useAuthStore();
     const {
-        activeIndex, setActiveIndex, resetProgress, progress,
+        forYouActiveIndex, setForYouActiveIndex, resetProgress, progress,
+        isPlaying, globalPaused,
+        lastActiveForYouItemId, setLastActiveForYouItemId,
         likedIds, bookmarkedIds,
-        isFastSwiping, setFastSwiping, setBackoffUntil,
+        isFastSwiping, setFastSwiping,
     } = useFeedStore();
+    const searchParams = useSearchParams();
 
     // API hooks
     const {
@@ -65,14 +70,27 @@ export default function ForYouPage() {
     }, [data]);
 
     // Current active item — drives the fixed bottom sheet
-    const activeItem = forYouItems[activeIndex] ?? null;
+    const activeItem = forYouItems[forYouActiveIndex] ?? null;
     const isLiked = activeItem ? likedIds.has(activeItem.id) : false;
     const isBookmarked = activeItem ? bookmarkedIds.has(activeItem.id) : false;
+
+    useEffect(() => {
+        if (activeItem?.id) {
+            setLastActiveForYouItemId(activeItem.id);
+        }
+    }, [activeItem?.id, setLastActiveForYouItemId]);
 
     // Now Playing — register metadata so the bar shows on other pages
     const setCurrentFromVideo = useNowPlayingStore((s) => s.setCurrentFromVideo);
     const handoffToAudio = useNowPlayingStore((s) => s.handoffToAudio);
     const videoTimeRef = useRef(0);
+    const [showSeekMenu, setShowSeekMenu] = useState(false);
+    const sheetRef = useRef<DraggableBottomSheetHandle>(null);
+    const rewindButtonRef = useRef<HTMLDivElement>(null);
+    const rewindPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const rewindLongPressTriggeredRef = useRef(false);
+    const hasRestoredScrollRef = useRef(false);
+    const shouldResumeOnHandoffRef = useRef(true);
 
     // ── Scroll optimization refs (stable across renders) ─────────────────
     const swipeDetectorRef = useRef<SwipeSpeedDetector | null>(null);
@@ -96,12 +114,12 @@ export default function ForYouPage() {
     useEffect(() => {
         if (prefetchRef.current && forYouItems.length > 0) {
             prefetchRef.current.update(
-                activeIndex,
+                forYouActiveIndex,
                 forYouItems,
                 adaptiveBuffer.prefetchDepth
             );
         }
-    }, [activeIndex, forYouItems]);
+    }, [forYouActiveIndex, forYouItems]);
 
     // ── Throttled scroll handler ─────────────────────────────────────────
     const rawHandleScroll = useCallback(() => {
@@ -112,8 +130,8 @@ export default function ForYouPage() {
         const scrollHeight = feedRef.current.scrollHeight;
         const newIndex = Math.round(scrollPosition / height);
 
-        if (activeIndex !== newIndex) {
-            setActiveIndex(newIndex);
+        if (forYouActiveIndex !== newIndex) {
+            setForYouActiveIndex(newIndex);
             resetProgress();
 
             // Record this swipe for speed detection
@@ -132,7 +150,7 @@ export default function ForYouPage() {
         ) {
             fetchNextPage();
         }
-    }, [activeIndex, setActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage, isFastSwiping]);
+    }, [forYouActiveIndex, setForYouActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage, isFastSwiping]);
 
     // Wrap with throttle (fires at most once per 200ms)
     const handleScroll = useMemo(
@@ -151,29 +169,68 @@ export default function ForYouPage() {
         }
     }, [isFastSwiping, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    // Reset scroll on mount
     useEffect(() => {
-        if (feedRef.current) {
-            feedRef.current.scrollTop = 0;
-            setActiveIndex(0);
+        shouldResumeOnHandoffRef.current = !globalPaused && isPlaying;
+    }, [globalPaused, isPlaying]);
+
+    // Restore scroll position once on mount
+    useEffect(() => {
+        if (!feedRef.current || hasRestoredScrollRef.current) return;
+        if (forYouItems.length === 0) return;
+        if (feedRef.current.clientHeight <= 0) return;
+
+        const idMatchedIndex = lastActiveForYouItemId
+            ? forYouItems.findIndex((item) => item.id === lastActiveForYouItemId)
+            : -1;
+        const preferredIndex = idMatchedIndex >= 0 ? idMatchedIndex : forYouActiveIndex;
+        const safeIndex = Math.min(Math.max(0, preferredIndex), Math.max(0, forYouItems.length - 1));
+
+        if (safeIndex !== forYouActiveIndex) {
+            setForYouActiveIndex(safeIndex);
+        }
+
+        feedRef.current.scrollTop = safeIndex * feedRef.current.clientHeight;
+        hasRestoredScrollRef.current = true;
+    }, [forYouActiveIndex, forYouItems, lastActiveForYouItemId, setForYouActiveIndex]);
+
+    // Deep-link support: /?item=<content_id>
+    useEffect(() => {
+        const targetItemId = searchParams.get('item');
+        if (!targetItemId || !feedRef.current || forYouItems.length === 0) return;
+
+        const idx = forYouItems.findIndex((item) => item.id === targetItemId);
+        if (idx < 0) {
+            if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+            }
+            return;
+        }
+
+        if (forYouActiveIndex !== idx) {
+            setForYouActiveIndex(idx);
             resetProgress();
         }
-    }, [setActiveIndex, resetProgress]);
+
+        const targetTop = idx * feedRef.current.clientHeight;
+        if (Math.abs(feedRef.current.scrollTop - targetTop) > 2) {
+            feedRef.current.scrollTo({ top: targetTop, behavior: 'smooth' });
+        }
+    }, [searchParams, forYouItems, forYouActiveIndex, setForYouActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     // Register active item with the now-playing store (metadata only, no <audio> playback)
     useEffect(() => {
         if (activeItem && activeItem.media_url) {
-            setCurrentFromVideo(activeItem);
+            setCurrentFromVideo(activeItem, !globalPaused && isPlaying);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeItem?.id]);
+    }, [activeItem?.id, globalPaused, isPlaying]);
 
     // On unmount (user leaves For You page): hand off playback to <audio> provider
     useEffect(() => {
         return () => {
             const { currentItem } = useNowPlayingStore.getState();
             if (currentItem) {
-                handoffToAudio(videoTimeRef.current);
+                handoffToAudio(videoTimeRef.current, shouldResumeOnHandoffRef.current);
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,22 +246,86 @@ export default function ForYouPage() {
         bookmarkMutation.mutate({ contentId: activeItem.id, isBookmarked });
     };
 
-    const handleShare = async () => {
-        if (!activeItem) return;
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: activeItem.title,
-                    text: activeItem.excerpt || activeItem.body_text,
-                    url: window.location.href,
-                });
-            } catch {
-                // User cancelled or error
-            }
-        } else {
-            navigator.clipboard.writeText(window.location.href);
-        }
+    const handleOpenComments = () => {
+        sheetRef.current?.expand();
     };
+
+    const seekActiveVideo = useCallback((deltaSeconds: number) => {
+        if (!feedRef.current || !activeItem) return;
+
+        const activeVideo = Array.from(feedRef.current.querySelectorAll('video')).find(
+            (video) => video.dataset.contentId === activeItem.id
+        );
+
+        if (!activeVideo) return;
+
+        const duration = Number.isFinite(activeVideo.duration) ? activeVideo.duration : null;
+        const upperBound = duration && duration > 0 ? Math.max(0, duration - 0.01) : Number.POSITIVE_INFINITY;
+        const nextTime = Math.max(0, Math.min(activeVideo.currentTime + deltaSeconds, upperBound));
+
+        activeVideo.currentTime = nextTime;
+        videoTimeRef.current = nextTime;
+
+        const nextProgress = duration && duration > 0 ? (nextTime / duration) * 100 : 0;
+        useFeedStore.getState().setForYouPlayback(activeItem.id, nextTime, nextProgress);
+        useFeedStore.getState().setProgress(nextProgress);
+    }, [activeItem]);
+
+    const startRewindPress = useCallback(() => {
+        rewindLongPressTriggeredRef.current = false;
+        if (rewindPressTimerRef.current) {
+            clearTimeout(rewindPressTimerRef.current);
+        }
+        rewindPressTimerRef.current = setTimeout(() => {
+            rewindLongPressTriggeredRef.current = true;
+            setShowSeekMenu(true);
+        }, 450);
+    }, []);
+
+    const endRewindPress = useCallback(() => {
+        if (rewindPressTimerRef.current) {
+            clearTimeout(rewindPressTimerRef.current);
+            rewindPressTimerRef.current = null;
+        }
+
+        if (!rewindLongPressTriggeredRef.current) {
+            seekActiveVideo(-15);
+        }
+    }, [seekActiveVideo]);
+
+    const cancelRewindPress = useCallback(() => {
+        if (rewindPressTimerRef.current) {
+            clearTimeout(rewindPressTimerRef.current);
+            rewindPressTimerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!showSeekMenu) return;
+
+        const closeOnOutside = (event: MouseEvent | TouchEvent) => {
+            if (!rewindButtonRef.current) return;
+            if (!rewindButtonRef.current.contains(event.target as Node)) {
+                setShowSeekMenu(false);
+            }
+        };
+
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setShowSeekMenu(false);
+            }
+        };
+
+        window.addEventListener('mousedown', closeOnOutside);
+        window.addEventListener('touchstart', closeOnOutside);
+        window.addEventListener('keydown', closeOnEscape);
+
+        return () => {
+            window.removeEventListener('mousedown', closeOnOutside);
+            window.removeEventListener('touchstart', closeOnOutside);
+            window.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [showSeekMenu]);
 
     // Show loading state
     const showLoading = isLoading;
@@ -268,8 +389,8 @@ export default function ForYouPage() {
                         <ViewTracker key={item.id} contentId={item.id} className="h-full w-full snap-start snap-always">
                             <ForYouCard
                                 item={item}
-                                isActive={index === activeIndex}
-                                videoTimeRef={index === activeIndex ? videoTimeRef : undefined}
+                                isActive={index === forYouActiveIndex}
+                                videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
                             />
                         </ViewTracker>
                     ))
@@ -295,6 +416,7 @@ export default function ForYouPage() {
             {activeItem && (
                 <div className="news-page">
                     <DraggableBottomSheet
+                        ref={sheetRef}
                         minHeight={80}
                         maxHeight={480}
                         defaultHeight={80}
@@ -304,6 +426,7 @@ export default function ForYouPage() {
                                 hasTranscript={!!activeItem.transcript_id}
                                 transcriptId={activeItem.transcript_id}
                                 contentItemId={activeItem.id}
+                                contentType={activeItem.type}
                                 title={activeItem.title}
                                 description={activeItem.excerpt || activeItem.body_text}
                                 author={activeItem.author}
@@ -330,6 +453,7 @@ export default function ForYouPage() {
 
                             {/* Comment */}
                             <button
+                                onClick={handleOpenComments}
                                 className="flex flex-col items-center gap-1"
                                 aria-label="Comment"
                             >
@@ -354,15 +478,64 @@ export default function ForYouPage() {
                             </button>
 
                             {/* Rewind */}
-                            <button
-                                className="flex flex-col items-center gap-1"
-                                aria-label="Rewind"
-                            >
-                                <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
-                                    <RotateCcw className="w-4 h-4 text-foreground" />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground">15s</span>
-                            </button>
+                            <div ref={rewindButtonRef} className="relative">
+                                <button
+                                    className="flex flex-col items-center gap-1"
+                                    aria-label="Rewind"
+                                    onPointerDown={startRewindPress}
+                                    onPointerUp={endRewindPress}
+                                    onPointerCancel={cancelRewindPress}
+                                    onPointerLeave={cancelRewindPress}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            seekActiveVideo(-15);
+                                        }
+                                    }}
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
+                                        <RotateCcw className="w-4 h-4 text-foreground" />
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">15s</span>
+                                </button>
+
+                                {showSeekMenu && (
+                                    <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                        <div className="rounded-xl border border-border/70 bg-card/95 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.25)] p-1.5">
+                                            <div className="flex items-center gap-1">
+                                            <button
+                                                className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
+                                                onClick={() => {
+                                                    seekActiveVideo(60);
+                                                    setShowSeekMenu(false);
+                                                }}
+                                            >
+                                                +1m
+                                            </button>
+                                            <button
+                                                className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
+                                                onClick={() => {
+                                                    seekActiveVideo(15);
+                                                    setShowSeekMenu(false);
+                                                }}
+                                            >
+                                                +15s
+                                            </button>
+                                            <button
+                                                className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
+                                                onClick={() => {
+                                                    seekActiveVideo(-60);
+                                                    setShowSeekMenu(false);
+                                                }}
+                                            >
+                                                Back 1m
+                                            </button>
+                                            </div>
+                                        </div>
+                                        <div className="mx-auto mt-[-1px] h-2.5 w-2.5 rotate-45 border-r border-b border-border/70 bg-card/95" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </DraggableBottomSheet>
                 </div>

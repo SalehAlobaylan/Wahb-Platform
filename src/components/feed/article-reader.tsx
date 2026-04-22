@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
+import { shareContent } from '@/lib/utils/share';
 import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
@@ -98,11 +99,11 @@ function CommentsSection({ article }: { article: ContentItem }) {
                     </button>
                     <button
                         onClick={() => {
-                            if (navigator.share) {
-                                navigator.share({ title: article.title, url: window.location.href }).catch(() => {});
-                            } else {
-                                navigator.clipboard.writeText(window.location.href);
-                            }
+                            shareContent({
+                                title: article.title,
+                                text: article.excerpt || article.body_text,
+                                item: article,
+                            }).catch(() => {});
                         }}
                         className="text-muted-foreground hover:text-news-accent transition-colors"
                     >

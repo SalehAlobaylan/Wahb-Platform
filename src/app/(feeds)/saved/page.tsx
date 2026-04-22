@@ -2,17 +2,19 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBookmarks, useBookmarkMutation } from '@/lib/hooks';
-import { useFeedStore, useNowPlayingStore } from '@/lib/stores';
+import { useFeedStore } from '@/lib/stores';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
+import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
 import {
     User, Search, Bookmark, ArrowUpDown,
     FileText, Video, Mic, MessageCircle, Rss,
 } from 'lucide-react';
-import type { ContentType } from '@/types';
+import type { ContentItem, ContentType } from '@/types';
 
 /* ══════════════════════════════════════════════════════════
    Constants
@@ -74,18 +76,26 @@ function formatDuration(sec?: number) {
    Page Component
    ══════════════════════════════════════════════════════════ */
 export default function SavedPage() {
+    const router = useRouter();
     const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
     const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+    const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
 
     const { data, isLoading, isError, error, refetch } = useBookmarks();
     const bookmarkMutation = useBookmarkMutation();
-
-    const { play } = useNowPlayingStore();
 
     const allItems = useMemo(() => {
         if (!data?.pages) return [];
         return data.pages.flatMap((page) => page.items);
     }, [data]);
+
+    const handleOpenItem = (item: ContentItem) => {
+        if (item.type === 'VIDEO' || item.type === 'PODCAST') {
+            router.push(`/?item=${encodeURIComponent(item.id)}`);
+            return;
+        }
+        setSelectedArticle(item);
+    };
 
     const handleRemoveBookmark = (e: React.MouseEvent, contentId: string) => {
         e.stopPropagation();
@@ -256,7 +266,7 @@ export default function SavedPage() {
                             return (
                                 <article
                                     key={item.id}
-                                    onClick={() => play(item)}
+                                    onClick={() => handleOpenItem(item)}
                                     className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border hover:bg-muted/50 hover:border-border transition-all cursor-pointer group"
                                 >
                                     {/* Thumbnail */}
@@ -333,6 +343,11 @@ export default function SavedPage() {
 
             {/* ═══════════ NOW PLAYING BAR ═══════════ */}
             <GlobalNowPlayingBar />
+
+            <ArticleReader
+                article={selectedArticle}
+                onClose={() => setSelectedArticle(null)}
+            />
         </div>
     );
 }

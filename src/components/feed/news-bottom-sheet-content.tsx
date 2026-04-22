@@ -6,7 +6,9 @@ import {
     AudioLines, Lock, Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { shareContent } from '@/lib/utils/share';
 import { NowPlayingBar } from '@/components/now-playing-bar';
+import type { ContentItem } from '@/types';
 
 type TabKey = 'upnext' | 'tts';
 
@@ -57,6 +59,8 @@ const TTS_RECENT = [
     { title: 'Leica sales up 40% globa...', time: 'Yesterday' },
 ];
 
+const VISUALIZER_BAR_HEIGHTS = [7, 12, 18, 10, 16, 9, 14, 8];
+
 /* ══════════════════════════════════════════════════════════
    Exported Component
    ══════════════════════════════════════════════════════════ */
@@ -65,7 +69,11 @@ const TTS_RECENT = [
  * Content for the News page bottom sheet.
  * Includes playback controls (from NowPlayingBar), Up Next queue, and TTS (coming soon).
  */
-export function NewsBottomSheetContent() {
+interface NewsBottomSheetContentProps {
+    featuredItem?: Pick<ContentItem, 'id' | 'type' | 'original_url' | 'title' | 'excerpt' | 'body_text'>;
+}
+
+export function NewsBottomSheetContent({ featuredItem }: NewsBottomSheetContentProps) {
     const [activeTab, setActiveTab] = useState<TabKey>('upnext');
 
     return (
@@ -103,15 +111,15 @@ export function NewsBottomSheetContent() {
                 {/* Share Button relocated here */}
                 <button
                     onClick={() => {
-                        if (navigator.share) {
-                            navigator.share({
-                                title: 'News Post',
-                                text: 'Check out this news report on Wahb',
-                                url: window.location.href,
-                            }).catch(() => { });
-                        } else {
-                            navigator.clipboard.writeText(window.location.href);
-                        }
+                        shareContent({
+                            title: featuredItem?.title || 'News Post',
+                            text: featuredItem?.excerpt || featuredItem?.body_text || 'Check out this news report on Wahb',
+                            item: featuredItem ? {
+                                id: featuredItem.id,
+                                type: featuredItem.type,
+                                original_url: featuredItem.original_url,
+                            } : undefined,
+                        }).catch(() => {});
                     }}
                     className="flex items-center gap-1.5 px-3 h-full mb-1 text-muted-foreground hover:text-foreground transition-all shrink-0"
                     aria-label="Share"
@@ -293,7 +301,7 @@ function TTSTab() {
                                     key={i}
                                     className="w-[3px] bg-news-accent rounded-full"
                                     style={{
-                                        height: `${Math.random() * 16 + 4}px`,
+                                        height: `${VISUALIZER_BAR_HEIGHTS[i] ?? 10}px`,
                                         animation: `pulse ${0.7 + i * 0.08}s ease-in-out infinite alternate`,
                                     }}
                                 />

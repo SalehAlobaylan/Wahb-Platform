@@ -23,7 +23,7 @@ import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 
 export default function NewsPage() {
     const feedRef = useRef<HTMLDivElement>(null);
-    const { activeIndex, setActiveIndex, resetProgress } = useFeedStore();
+    const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore();
     const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
     
     // Reader Overlay State
@@ -82,7 +82,7 @@ export default function NewsPage() {
     }, [data]);
 
     // Active slide data
-    const activeSlide = newsSlides[activeIndex];
+    const activeSlide = newsSlides[newsActiveIndex];
     const activeFeatured = activeSlide?.featured;
 
     // Handle scroll to detect active item and load more
@@ -93,8 +93,8 @@ export default function NewsPage() {
             const scrollHeight = feedRef.current.scrollHeight;
             const newIndex = Math.round(scrollPosition / height);
 
-            if (activeIndex !== newIndex) {
-                setActiveIndex(newIndex);
+            if (newsActiveIndex !== newIndex) {
+                setNewsActiveIndex(newIndex);
                 resetProgress();
             }
 
@@ -106,16 +106,16 @@ export default function NewsPage() {
                 fetchNextPage();
             }
         }
-    }, [activeIndex, setActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     // Reset scroll on mount
     useEffect(() => {
         if (feedRef.current) {
             feedRef.current.scrollTop = 0;
-            setActiveIndex(0);
+            setNewsActiveIndex(0);
             resetProgress();
         }
-    }, [setActiveIndex, resetProgress]);
+    }, [setNewsActiveIndex, resetProgress]);
 
     const handleOpenArticle = (item: ContentItem) => {
         setSelectedArticle(item);
@@ -172,7 +172,7 @@ export default function NewsPage() {
                         <ViewTracker key={slide.slide_id} contentId={slide.featured.id} className="h-full w-full snap-start">
                             <NewsSlide
                                 slide={slide}
-                                isActive={index === activeIndex}
+                                isActive={index === newsActiveIndex}
                                 onOpenArticle={handleOpenArticle}
                             />
                         </ViewTracker>
@@ -192,7 +192,7 @@ export default function NewsPage() {
                     maxHeight={550}
                     defaultHeight={80}
                     className="bg-card/95 border-t border-border rounded-t-sm"
-                    expandedContent={<NewsBottomSheetContent />}
+                    expandedContent={<NewsBottomSheetContent featuredItem={activeFeatured} />}
                 >
                     <div className="w-full">
                         <NowPlayingBar inline />

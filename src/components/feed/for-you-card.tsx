@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, type MutableRefObject } from 'react';
+import { useRef, useEffect, useCallback, type MutableRefObject } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Headphones } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
@@ -20,21 +20,58 @@ interface ForYouCardProps {
  */
 export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const { isPlaying, setPlaying, togglePlay, progress, setProgress, playbackSpeed } = useFeedStore();
+    const wasActiveRef = useRef(false);
+    const {
+        isPlaying,
+        globalPaused,
+        setPlaying,
+        togglePlay,
+        setProgress,
+        setForYouPlayback,
+        forYouPlaybackById,
+        playbackSpeed,
+    } = useFeedStore();
+    const savedPlayback = forYouPlaybackById[item.id];
+
+    const applySavedTime = useCallback((timeSec?: number) => {
+        if (!videoRef.current || typeof timeSec !== 'number') return;
+
+        const duration = Number.isFinite(videoRef.current.duration) ? videoRef.current.duration : null;
+        const upperBound = duration && duration > 0 ? Math.max(0, duration - 0.01) : Number.POSITIVE_INFINITY;
+        const safeTime = Math.max(0, Math.min(timeSec, upperBound));
+        videoRef.current.currentTime = safeTime;
+
+        if (videoTimeRef) {
+            videoTimeRef.current = safeTime;
+        }
+    }, [videoTimeRef]);
 
     // Handle autoplay based on active state
     useEffect(() => {
         if (!videoRef.current) return;
 
         if (isActive) {
-            videoRef.current.play().catch(() => {
-                setPlaying(false);
-            });
+            if (!wasActiveRef.current) {
+                applySavedTime(savedPlayback?.timeSec);
+                if (savedPlayback) {
+                    setProgress(savedPlayback.progress);
+                } else {
+                    setProgress(0);
+                }
+            }
+
+            if (globalPaused || !isPlaying) {
+                videoRef.current.pause();
+            } else {
+                videoRef.current.play().catch(() => {
+                    setPlaying(false);
+                });
+            }
         } else {
             videoRef.current.pause();
-            setPlaying(false);
         }
-    }, [isActive, setPlaying]);
+        wasActiveRef.current = isActive;
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, savedPlayback, applySavedTime]);
 
     // Handle playback speed
     useEffect(() => {
@@ -47,17 +84,38 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     useEffect(() => {
         if (!videoRef.current || !isActive) return;
 
-        if (isPlaying) {
-            videoRef.current.play().catch(() => setPlaying(false));
-        } else {
+        if (globalPaused || !isPlaying) {
             videoRef.current.pause();
+        } else {
+            videoRef.current.play().catch(() => setPlaying(false));
         }
-    }, [isPlaying, isActive, setPlaying]);
+    }, [isPlaying, globalPaused, isActive, setPlaying]);
+
+    // Apply seek after metadata is loaded when duration becomes known
+    useEffect(() => {
+        if (!videoRef.current) return;
+
+        const onLoadedMetadata = () => {
+            if (!isActive) return;
+            const playback = useFeedStore.getState().forYouPlaybackById[item.id];
+            applySavedTime(playback?.timeSec);
+        };
+
+        const el = videoRef.current;
+        el.addEventListener('loadedmetadata', onLoadedMetadata);
+        return () => {
+            el.removeEventListener('loadedmetadata', onLoadedMetadata);
+        };
+    }, [isActive, item.id, applySavedTime]);
 
     const handleTimeUpdate = () => {
         if (videoRef.current) {
             const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-            setProgress(percent);
+            const safePercent = Number.isFinite(percent) ? percent : 0;
+            if (isActive) {
+                setProgress(safePercent);
+            }
+            setForYouPlayback(item.id, videoRef.current.currentTime, safePercent);
             // Report current time to parent for now-playing handoff
             if (videoTimeRef) {
                 videoTimeRef.current = videoRef.current.currentTime;
@@ -71,6 +129,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             {item.media_url ? (
                 <video
                     ref={videoRef}
+                    data-content-id={item.id}
                     className="absolute inset-0 w-full h-full object-cover"
                     src={item.media_url}
                     poster={item.thumbnail_url}
@@ -147,6 +206,14 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                     >
                         <Play className="w-16 h-16 text-white/90 fill-white/90" />
                     </motion.div>
+                </div>
+            )}
+
+            {isActive && globalPaused && (
+                <div className="absolute top-20 left-4 z-10 pointer-events-none">
+                    <span className="px-2.5 py-1 rounded-full bg-black/55 border border-white/15 text-white/90 text-[11px] font-semibold tracking-wide">
+                        Paused
+                    </span>
                 </div>
             )}
         </div>

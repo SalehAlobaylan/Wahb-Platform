@@ -1,7 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+
+export interface DraggableBottomSheetHandle {
+    expand: () => void;
+    collapse: () => void;
+}
 
 interface DraggableBottomSheetProps {
     /** Content shown in the collapsed state (e.g. horizontal action buttons) */
@@ -22,14 +27,14 @@ interface DraggableBottomSheetProps {
  * A draggable bottom sheet that supports touch + mouse drag and double-click
  * to expand or collapse. Snaps to three positions: min, mid, max.
  */
-export function DraggableBottomSheet({
+export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, DraggableBottomSheetProps>(function DraggableBottomSheet({
     children,
     expandedContent,
     minHeight = 80,
     maxHeight = 500,
     defaultHeight = 80,
     className,
-}: DraggableBottomSheetProps) {
+}, ref) {
     const [height, setHeight] = useState(defaultHeight);
     const [isDragging, setIsDragging] = useState(false);
 
@@ -39,6 +44,11 @@ export function DraggableBottomSheet({
     const lastTapTime = useRef(0);
 
     const isExpanded = height > minHeight + 20;
+
+    useImperativeHandle(ref, () => ({
+        expand: () => setHeight(maxHeight),
+        collapse: () => setHeight(minHeight),
+    }), [maxHeight, minHeight]);
 
     // ── Snap logic ──────────────────────────────────────────
     const snapToNearest = useCallback(
@@ -147,7 +157,7 @@ export function DraggableBottomSheet({
                 'bg-card/95 backdrop-blur-xl',
                 'border-t border-border/50',
                 'shadow-[0_-2px_12px_rgba(0,0,0,0.08)]',
-                'overflow-hidden',
+                'overflow-visible',
                 'max-w-md mx-auto rounded-t-2xl',
                 'pb-[calc(env(safe-area-inset-bottom)+4rem)] md:pb-[env(safe-area-inset-bottom)]',
                 className
@@ -203,4 +213,4 @@ export function DraggableBottomSheet({
             )}
         </div>
     );
-}
+});
