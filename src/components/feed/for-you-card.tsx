@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useCallback, type MutableRefObject } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Play, Headphones } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
@@ -127,23 +128,48 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-background">
             {/* Background/Video */}
             {item.media_url ? (
-                <video
-                    ref={videoRef}
-                    data-content-id={item.id}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    src={item.media_url}
-                    poster={item.thumbnail_url}
-                    loop
-                    muted={false}
-                    playsInline
-                    onTimeUpdate={handleTimeUpdate}
-                    onClick={togglePlay}
-                />
+                <>
+                    {/* Poster behind video — guarantees object-cover on all mobile browsers */}
+                    {item.thumbnail_url && (
+                        <Image
+                            src={item.thumbnail_url}
+                            alt=""
+                            fill
+                            sizes="100vw"
+                            className="object-cover"
+                            priority={isActive}
+                            unoptimized
+                        />
+                    )}
+                    <video
+                        ref={videoRef}
+                        data-content-id={item.id}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        src={item.media_url}
+                        loop
+                        muted={false}
+                        playsInline
+                        onTimeUpdate={handleTimeUpdate}
+                        onClick={togglePlay}
+                    />
+                </>
             ) : (
-                <div
-                    className="absolute inset-0 bg-cover bg-center opacity-60"
-                    style={{ backgroundImage: `url(${item.thumbnail_url})` }}
-                />
+                /* Audio-only: thumbnail fills the screen */
+                <div className="absolute inset-0">
+                    {item.thumbnail_url ? (
+                        <Image
+                            src={item.thumbnail_url}
+                            alt=""
+                            fill
+                            sizes="100vw"
+                            className="object-cover opacity-60"
+                            priority={isActive}
+                            unoptimized
+                        />
+                    ) : (
+                        <div className="absolute inset-0 bg-zinc-900" />
+                    )}
+                </div>
             )}
 
             {/* Gradient overlay (Clickable to pause/play) */}

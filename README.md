@@ -9,6 +9,20 @@ Wahb Platform is a modern web application built with Next.js that delivers a soc
 - **For You Feed**: An audio-first personalized content feed
 - **News Feed**: A magazine-style news and content discovery experience
 
+## Design System
+
+Wahb uses a mobile-first, max-width app shell centered on a black outer canvas. The default brand identity is warm gold on neutral editorial surfaces.
+
+### Default Palette
+
+- **Gold accent**: `#DAA428` — reserved for interactive elements such as primary buttons, active tabs, progress bars, focus rings, selected badges, and floating actions.
+- **Light mode**: Warm Ivory `#FAF8F3`, Warm Cream cards `#FFF9F0`, Deep Navy text `#1A1A2E`.
+- **Dark mode**: True Black `#111111` background, Charcoal cards `#1A1A1A`, lifted neutral surfaces `#1E1E1E`, subtle borders `#2A2A2A`, text `#F0F0F0`, muted text `#888888`.
+
+### News Scope
+
+The News feed owns a separate `.news-page` theme using newsprint colors and red accents. Do not replace those red/newsprint tokens with gold when changing the default Wahb identity.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router)

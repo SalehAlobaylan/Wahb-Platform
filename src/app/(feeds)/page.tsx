@@ -542,7 +542,7 @@ export default function ForYouPage() {
             )}
 
             {/* ── Floating Action Button (Create/Plus) ───────────── */}
-            <div className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
+            <div className="absolute left-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
                 <Link
                     href="/create"
                     className="flex items-center justify-center w-12 h-12 rounded-full bg-gold hover:bg-gold/90 transition-all shadow-lg shadow-black/50 active:scale-95"

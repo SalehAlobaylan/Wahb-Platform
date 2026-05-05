@@ -38,6 +38,24 @@ export async function logoutUser(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST' });
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ success: boolean }> {
+  const res = await fetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Password update failed' }));
+    throw new Error(err.message || 'Password update failed');
+  }
+
+  return res.json();
+}
+
 export async function fetchCurrentUser(): Promise<{ user: AuthUser | null }> {
   const res = await fetch('/api/auth/me');
 

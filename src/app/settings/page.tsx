@@ -4,17 +4,17 @@ import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-    ArrowLeft, ChevronRight, User, CreditCard, AudioLines,
-    Download, Volume2, Bell, Palette, LogOut, Shield, Globe,
-    Moon, Sun, Monitor, Check, Eye, BellRing, BellOff,
-    Wifi, WifiOff, HardDrive, Trash2, Languages, Loader2,
-    Clock, Play, AlertCircle,
+    ArrowLeft, ChevronRight, User, AudioLines,
+    Download, Volume2, Bell, Palette, LogOut, Shield,
+    Moon, Sun, Monitor, Check, Eye,
+    Trash2, Languages, Loader2,
+    Clock, Play, AlertCircle, Lock,
 } from 'lucide-react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { useAuthStore } from '@/lib/stores';
-import { useLogout } from '@/lib/hooks/use-auth';
+import { useChangePassword, useLogout } from '@/lib/hooks/use-auth';
 import { useTheme } from 'next-themes';
 import { fetchWatchHistory, clearWatchHistory, type WatchHistoryItem } from '@/lib/api/feeds';
 
@@ -24,10 +24,8 @@ import { fetchWatchHistory, clearWatchHistory, type WatchHistoryItem } from '@/l
 type PanelId =
     | 'main'
     | 'profile'
-    | 'payment'
+    | 'change-password'
     | 'audio'
-    | 'downloads'
-    | 'notifications'
     | 'theme'
     | 'language'
     | 'security'
@@ -44,11 +42,32 @@ function SectionTitle({ children }: { children: ReactNode }) {
     );
 }
 
-function SettingsCard({ children }: { children: ReactNode }) {
+function SettingsCard({ children, locked }: { children: ReactNode; locked?: boolean }) {
     return (
-        <div className="bg-card rounded-xl overflow-hidden border border-border">
+        <div
+            className={cn(
+                'rounded-xl overflow-hidden border',
+                locked
+                    ? 'border-dashed border-muted-foreground/35 bg-muted/20'
+                    : 'bg-card border-border'
+            )}
+        >
             {children}
         </div>
+    );
+}
+
+function LaterPill({ className }: { className?: string }) {
+    return (
+        <span
+            className={cn(
+                'inline-flex items-center gap-1 rounded-md border border-border/90 bg-muted/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                className
+            )}
+        >
+            <Lock className="w-3 h-3 shrink-0 opacity-90" aria-hidden />
+            Later
+        </span>
     );
 }
 
@@ -62,46 +81,84 @@ function SettingsRow({
     value,
     onClick,
     trailing,
+    disabled,
 }: {
     icon: ReactNode;
     label: string;
     value?: string;
     onClick?: () => void;
     trailing?: ReactNode;
+    disabled?: boolean;
 }) {
-    const Wrapper = onClick ? 'button' : 'div';
+    const interactive = !!onClick && !disabled;
+    const Wrapper = interactive ? 'button' : 'div';
     return (
         <Wrapper
-            className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors group"
-            onClick={onClick}
+            type={interactive ? 'button' : undefined}
+            className={cn(
+                'w-full flex items-center justify-between p-4 transition-colors group text-left',
+                interactive && 'hover:bg-muted/40',
+                disabled && 'cursor-not-allowed bg-muted/10'
+            )}
+            onClick={interactive ? onClick : undefined}
+            aria-disabled={disabled || undefined}
         >
-            <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold shrink-0">
+            <div className="flex items-center space-x-3 min-w-0">
+                <div
+                    className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ring-1',
+                        disabled
+                            ? 'bg-muted/80 text-muted-foreground ring-border/70'
+                            : 'bg-gold/10 text-gold ring-transparent'
+                    )}
+                >
                     {icon}
                 </div>
-                <span className="text-sm font-medium text-foreground">{label}</span>
-            </div>
-            {trailing ?? (
-                <div className="flex items-center space-x-2">
-                    {value && <span className="text-xs text-muted-foreground">{value}</span>}
-                    {onClick && (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all" />
+                <span
+                    className={cn(
+                        'text-sm font-medium truncate',
+                        disabled ? 'text-muted-foreground' : 'text-foreground'
                     )}
-                </div>
-            )}
+                >
+                    {label}
+                </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 pl-2">
+                {disabled && <LaterPill />}
+                {trailing ?? (
+                    <>
+                        {value && <span className="text-xs text-muted-foreground">{value}</span>}
+                        {interactive && (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all" />
+                        )}
+                    </>
+                )}
+            </div>
         </Wrapper>
     );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+    checked,
+    onChange,
+    disabled,
+}: {
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+}) {
     return (
         <button
             role="switch"
             aria-checked={checked}
-            onClick={() => onChange(!checked)}
+            aria-disabled={disabled}
+            disabled={disabled}
+            onClick={() => !disabled && onChange(!checked)}
             className={cn(
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-                checked ? 'bg-gold' : 'bg-muted'
+                'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors',
+                disabled ? 'cursor-not-allowed opacity-55 ring-1 ring-inset ring-muted-foreground/35' : 'cursor-pointer',
+                checked ? 'bg-gold/90' : 'bg-muted',
+                disabled && 'grayscale-[0.35]'
             )}
         >
             <span
@@ -178,7 +235,7 @@ function ProfilePanel({ onBack }: { onBack: () => void }) {
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Profile & Subscription" onBack={onBack} />
+            <PanelHeader title="Profile" onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 {/* Avatar & Name */}
                 <div className="flex flex-col items-center pt-2 pb-4">
@@ -197,85 +254,6 @@ function ProfilePanel({ onBack }: { onBack: () => void }) {
                         <SettingsRow icon={<User className="w-4 h-4" />} label="Username" value={displayName} />
                         <Divider />
                         <SettingsRow icon={<Shield className="w-4 h-4" />} label="Email" value={displayEmail} />
-                    </SettingsCard>
-                </div>
-
-                <div>
-                    <SectionTitle>Subscription</SectionTitle>
-                    <div className="bg-card rounded-xl border border-gold/20 p-5">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="font-serif text-base font-bold text-foreground">Patron Plan</span>
-                            <span className="text-[10px] px-2.5 py-1 rounded-full bg-gold text-background font-bold uppercase tracking-wide">Active</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">Unlimited access to all content, offline downloads, and spatial audio.</p>
-                        <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-2xl font-bold text-foreground">$9.99</span>
-                            <span className="text-xs text-muted-foreground">/month</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Next billing: March 15, 2026</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function PaymentPanel({ onBack }: { onBack: () => void }) {
-    return (
-        <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Payment Methods" onBack={onBack} />
-            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
-                <div>
-                    <SectionTitle>Saved Cards</SectionTitle>
-                    <SettingsCard>
-                        <div className="p-4 flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-11 h-7 rounded bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white text-[10px] font-bold">VISA</div>
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">•••• 4829</p>
-                                    <p className="text-xs text-muted-foreground">Expires 08/27</p>
-                                </div>
-                            </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30 font-bold">Default</span>
-                        </div>
-                        <Divider />
-                        <div className="p-4 flex items-center space-x-3">
-                            <div className="w-11 h-7 rounded bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white text-[10px] font-bold">MC</div>
-                            <div>
-                                <p className="text-sm font-medium text-foreground">•••• 1053</p>
-                                <p className="text-xs text-muted-foreground">Expires 12/26</p>
-                            </div>
-                        </div>
-                    </SettingsCard>
-                </div>
-
-                <button className="w-full p-4 rounded-xl border border-dashed border-border text-muted-foreground hover:border-gold/50 hover:text-gold transition-colors flex items-center justify-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    <span className="text-sm font-medium">Add New Card</span>
-                </button>
-
-                <div>
-                    <SectionTitle>Billing History</SectionTitle>
-                    <SettingsCard>
-                        {[
-                            { date: 'Feb 15, 2026', amount: '$9.99', status: 'Paid' },
-                            { date: 'Jan 15, 2026', amount: '$9.99', status: 'Paid' },
-                            { date: 'Dec 15, 2025', amount: '$9.99', status: 'Paid' },
-                        ].map((item, i) => (
-                            <div key={i}>
-                                {i > 0 && <Divider />}
-                                <div className="p-4 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-foreground">{item.date}</p>
-                                        <p className="text-xs text-muted-foreground">Patron Plan</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-medium text-foreground">{item.amount}</p>
-                                        <p className="text-xs text-green-500">{item.status}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
                     </SettingsCard>
                 </div>
             </div>
@@ -318,117 +296,6 @@ function AudioPanel({ onBack }: { onBack: () => void }) {
                             icon={<AudioLines className="w-4 h-4" />}
                             label="Autoplay"
                             trailing={<Toggle checked={autoPlay} onChange={setAutoPlay} />}
-                        />
-                    </SettingsCard>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function DownloadsPanel({ onBack }: { onBack: () => void }) {
-    const [wifiOnly, setWifiOnly] = useState(true);
-    const [downloadQuality, setDownloadQuality] = useState('high');
-
-    return (
-        <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Downloads & Offline" onBack={onBack} />
-            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
-                <div>
-                    <SectionTitle>Download Settings</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow
-                            icon={wifiOnly ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-                            label="Wi-Fi Only"
-                            trailing={<Toggle checked={wifiOnly} onChange={setWifiOnly} />}
-                        />
-                        <Divider />
-                        <RadioOption label="Standard" description="128 kbps · ~1 MB/min" selected={downloadQuality === 'standard'} onSelect={() => setDownloadQuality('standard')} />
-                        <Divider />
-                        <RadioOption label="High" description="256 kbps · ~2 MB/min" selected={downloadQuality === 'high'} onSelect={() => setDownloadQuality('high')} />
-                    </SettingsCard>
-                </div>
-
-                <div>
-                    <SectionTitle>Storage</SectionTitle>
-                    <SettingsCard>
-                        <div className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <HardDrive className="w-4 h-4 text-gold" />
-                                    <span className="text-sm font-medium text-foreground">Used Space</span>
-                                </div>
-                                <span className="text-xs text-muted-foreground">1.2 GB / 4 GB</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full bg-gold rounded-full" style={{ width: '30%' }} />
-                            </div>
-                        </div>
-                        <Divider />
-                        <SettingsRow
-                            icon={<Trash2 className="w-4 h-4" />}
-                            label="Clear All Downloads"
-                            onClick={() => { }}
-                        />
-                    </SettingsCard>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function NotificationsPanel({ onBack }: { onBack: () => void }) {
-    const [pushEnabled, setPushEnabled] = useState(true);
-    const [newContent, setNewContent] = useState(true);
-    const [recommendations, setRecommendations] = useState(true);
-    const [weeklyDigest, setWeeklyDigest] = useState(false);
-    const [liveAlerts, setLiveAlerts] = useState(true);
-
-    return (
-        <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Notifications" onBack={onBack} />
-            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
-                <div>
-                    <SectionTitle>General</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow
-                            icon={pushEnabled ? <BellRing className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-                            label="Push Notifications"
-                            trailing={<Toggle checked={pushEnabled} onChange={setPushEnabled} />}
-                        />
-                    </SettingsCard>
-                </div>
-
-                <div>
-                    <SectionTitle>Content Alerts</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow
-                            icon={<Bell className="w-4 h-4" />}
-                            label="New Content"
-                            trailing={<Toggle checked={newContent} onChange={setNewContent} />}
-                        />
-                        <Divider />
-                        <SettingsRow
-                            icon={<AudioLines className="w-4 h-4" />}
-                            label="Recommendations"
-                            trailing={<Toggle checked={recommendations} onChange={setRecommendations} />}
-                        />
-                        <Divider />
-                        <SettingsRow
-                            icon={<Globe className="w-4 h-4" />}
-                            label="Live & Trending"
-                            trailing={<Toggle checked={liveAlerts} onChange={setLiveAlerts} />}
-                        />
-                    </SettingsCard>
-                </div>
-
-                <div>
-                    <SectionTitle>Email</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow
-                            icon={<Bell className="w-4 h-4" />}
-                            label="Weekly Digest"
-                            trailing={<Toggle checked={weeklyDigest} onChange={setWeeklyDigest} />}
                         />
                     </SettingsCard>
                 </div>
@@ -536,10 +403,13 @@ function LanguagePanel({ onBack }: { onBack: () => void }) {
     );
 }
 
-function SecurityPanel({ onBack }: { onBack: () => void }) {
-    const [biometric, setBiometric] = useState(false);
-    const [twoFactor, setTwoFactor] = useState(false);
-
+function SecurityPanel({
+    onBack,
+    onChangePassword,
+}: {
+    onBack: () => void;
+    onChangePassword: () => void;
+}) {
     return (
         <div className="flex flex-col h-full bg-background">
             <PanelHeader title="Privacy & Security" onBack={onBack} />
@@ -547,39 +417,205 @@ function SecurityPanel({ onBack }: { onBack: () => void }) {
                 <div>
                     <SectionTitle>Authentication</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Change Password" onClick={() => { }} />
+                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Change Password" onClick={onChangePassword} />
                         <Divider />
                         <SettingsRow
                             icon={<Eye className="w-4 h-4" />}
                             label="Face ID / Biometric"
-                            trailing={<Toggle checked={biometric} onChange={setBiometric} />}
+                            disabled
+                            trailing={<Toggle checked={false} onChange={() => { }} disabled />}
                         />
                         <Divider />
                         <SettingsRow
                             icon={<Shield className="w-4 h-4" />}
                             label="Two-Factor Auth"
-                            trailing={<Toggle checked={twoFactor} onChange={setTwoFactor} />}
+                            disabled
+                            trailing={<Toggle checked={false} onChange={() => { }} disabled />}
                         />
                     </SettingsCard>
                 </div>
 
                 <div>
                     <SectionTitle>Privacy</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow icon={<Eye className="w-4 h-4" />} label="Private Profile" trailing={<Toggle checked={false} onChange={() => { }} />} />
-                        <Divider />
-                        <SettingsRow icon={<Globe className="w-4 h-4" />} label="Activity Status" trailing={<Toggle checked={true} onChange={() => { }} />} />
+                    <SettingsCard locked>
+                        <SettingsRow
+                            icon={<Eye className="w-4 h-4" />}
+                            label="Private Profile"
+                            disabled
+                            trailing={<Toggle checked={false} onChange={() => { }} disabled />}
+                        />
                     </SettingsCard>
                 </div>
 
                 <div>
                     <SectionTitle>Data</SectionTitle>
-                    <SettingsCard>
-                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Download My Data" onClick={() => { }} />
+                    <SettingsCard locked>
+                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Download My Data" disabled />
                         <Divider />
-                        <SettingsRow icon={<Trash2 className="w-4 h-4" />} label="Delete Account" onClick={() => { }} />
+                        <SettingsRow icon={<Trash2 className="w-4 h-4" />} label="Delete Account" disabled />
                     </SettingsCard>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function PasswordInput({
+    label,
+    value,
+    onChange,
+    autoComplete,
+    placeholder,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    autoComplete: string;
+    placeholder: string;
+}) {
+    return (
+        <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">
+                {label}
+            </label>
+            <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                    type="password"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-gold focus:ring-1 focus:ring-gold/30 outline-none transition-all text-sm"
+                />
+            </div>
+        </div>
+    );
+}
+
+function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
+    const { isAuthenticated } = useAuthStore();
+    const changePassword = useChangePassword();
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const passwordsMatch = newPassword === confirmPassword;
+    const isValid =
+        isAuthenticated &&
+        currentPassword.length >= 4 &&
+        newPassword.length >= 4 &&
+        passwordsMatch &&
+        currentPassword !== newPassword;
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        if (!isAuthenticated) {
+            setError('Please sign in before changing your password.');
+            return;
+        }
+
+        if (!passwordsMatch) {
+            setError('New passwords do not match.');
+            return;
+        }
+
+        if (newPassword.length < 4) {
+            setError('New password must be at least 4 characters.');
+            return;
+        }
+
+        if (currentPassword === newPassword) {
+            setError('New password must be different from your current password.');
+            return;
+        }
+
+        try {
+            await changePassword.mutateAsync({ currentPassword, newPassword });
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setSuccess('Password updated successfully.');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Password update failed.');
+        }
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-background">
+            <PanelHeader title="Change Password" onBack={onBack} />
+            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+                {!isAuthenticated && (
+                    <div className="rounded-xl border border-gold/20 bg-gold/10 p-4">
+                        <p className="text-sm font-medium text-foreground">Sign in required</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            You need to be signed in to update your password.
+                        </p>
+                        <Link href="/login" className="mt-3 inline-flex text-sm font-semibold text-gold hover:text-gold/80">
+                            Sign in
+                        </Link>
+                    </div>
+                )}
+
+                {error && (
+                    <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-center">
+                        <p className="text-sm text-red-400">{error}</p>
+                    </div>
+                )}
+
+                {success && (
+                    <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-3 text-center">
+                        <p className="text-sm text-green-400">{success}</p>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <PasswordInput
+                        label="Current Password"
+                        value={currentPassword}
+                        onChange={setCurrentPassword}
+                        placeholder="Enter current password"
+                        autoComplete="current-password"
+                    />
+                    <PasswordInput
+                        label="New Password"
+                        value={newPassword}
+                        onChange={setNewPassword}
+                        placeholder="Min 4 characters"
+                        autoComplete="new-password"
+                    />
+                    <PasswordInput
+                        label="Confirm New Password"
+                        value={confirmPassword}
+                        onChange={setConfirmPassword}
+                        placeholder="Repeat new password"
+                        autoComplete="new-password"
+                    />
+
+                    {confirmPassword && !passwordsMatch && (
+                        <p className="text-xs text-red-400 ml-1">New passwords do not match</p>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={!isValid || changePassword.isPending}
+                        className="w-full h-12 rounded-xl bg-gold text-background font-semibold text-sm hover:bg-gold/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {changePassword.isPending ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Updating password...
+                            </>
+                        ) : (
+                            'Update Password'
+                        )}
+                    </button>
+                </form>
             </div>
         </div>
     );
@@ -782,14 +818,12 @@ export default function SettingsPage() {
         router.push('/');
     }
 
+    if (activePanel === 'change-password') return <ChangePasswordPanel onBack={() => setActivePanel('security')} />;
     if (activePanel === 'profile') return <ProfilePanel onBack={goBack} />;
-    if (activePanel === 'payment') return <PaymentPanel onBack={goBack} />;
     if (activePanel === 'audio') return <AudioPanel onBack={goBack} />;
-    if (activePanel === 'downloads') return <DownloadsPanel onBack={goBack} />;
-    if (activePanel === 'notifications') return <NotificationsPanel onBack={goBack} />;
     if (activePanel === 'theme') return <ThemePanel onBack={goBack} />;
     if (activePanel === 'language') return <LanguagePanel onBack={goBack} />;
-    if (activePanel === 'security') return <SecurityPanel onBack={goBack} />;
+    if (activePanel === 'security') return <SecurityPanel onBack={goBack} onChangePassword={() => setActivePanel('change-password')} />;
     if (activePanel === 'history') return <HistoryPanel onBack={goBack} />;
 
     return (
@@ -847,10 +881,6 @@ export default function SettingsPage() {
                 <div>
                     <SectionTitle>Account</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<User className="w-4 h-4" />} label="Profile & Subscription" onClick={() => setActivePanel('profile')} />
-                        <Divider />
-                        <SettingsRow icon={<CreditCard className="w-4 h-4" />} label="Payment Methods" onClick={() => setActivePanel('payment')} />
-                        <Divider />
                         <SettingsRow icon={<Clock className="w-4 h-4" />} label="Watch History" onClick={() => setActivePanel('history')} />
                         <Divider />
                         <SettingsRow icon={<Shield className="w-4 h-4" />} label="Privacy & Security" onClick={() => setActivePanel('security')} />
@@ -863,7 +893,7 @@ export default function SettingsPage() {
                     <SettingsCard>
                         <SettingsRow icon={<AudioLines className="w-4 h-4" />} label="Audio Quality" value="High Fidelity" onClick={() => setActivePanel('audio')} />
                         <Divider />
-                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Downloads & Offline" onClick={() => setActivePanel('downloads')} />
+                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Downloads & Offline" disabled />
                     </SettingsCard>
                 </div>
 
@@ -871,7 +901,7 @@ export default function SettingsPage() {
                 <div>
                     <SectionTitle>Preferences</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<Bell className="w-4 h-4" />} label="Notifications" onClick={() => setActivePanel('notifications')} />
+                        <SettingsRow icon={<Bell className="w-4 h-4" />} label="Notifications" disabled />
                         <Divider />
                         <SettingsRow icon={<Palette className="w-4 h-4" />} label="Display & Theme" onClick={() => setActivePanel('theme')} />
                         <Divider />

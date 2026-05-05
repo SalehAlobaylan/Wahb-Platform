@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { searchContent } from '@/lib/api/feeds';
 import { useFeedStore } from '@/lib/stores';
@@ -55,7 +54,7 @@ function getTypeBadge(type: ContentType) {
     const map: Record<ContentType, { label: string; color: string }> = {
         ARTICLE: { label: 'Article', color: 'bg-gold/20 text-gold border-gold/30' },
         PODCAST: { label: 'Podcast', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
-        VIDEO: { label: 'Video', color: 'bg-sky-500/15 text-sky-400 border-sky-500/25' },
+        VIDEO: { label: 'Video', color: 'bg-gold/15 text-gold border-gold/25' },
         TWEET: { label: 'Tweet', color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
         COMMENT: { label: 'Comment', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };

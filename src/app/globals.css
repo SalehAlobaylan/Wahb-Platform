@@ -87,7 +87,7 @@
   /* Gold ring */
   --chart-1: #DAA428;
   --chart-2: #1A1A2E;
-  --chart-3: #242A80;
+  --chart-3: #B8891E;
   --chart-4: #E8E4DA;
   --chart-5: #FDF8ED;
   --sidebar: #FFF9F0;
@@ -101,44 +101,44 @@
 }
 
 .dark {
-  /* Wahb — Midnight Heritage (Dark Mode) */
-  --background: #0F0F3D;
-  /* Deep Midnight — page background */
-  --foreground: #E8E8F2;
-  /* Midnight wash light — primary text */
-  --card: #191970;
-  /* Midnight Blue — card surfaces */
-  --card-foreground: #E8E8F2;
-  --popover: #191970;
-  --popover-foreground: #E8E8F2;
+  /* Wahb — True Black / Charcoal (Dark Mode) */
+  --background: #111111;
+  /* True black — page background */
+  --foreground: #F0F0F0;
+  /* Near white — primary text */
+  --card: #1A1A1A;
+  /* Charcoal — card surfaces */
+  --card-foreground: #F0F0F0;
+  --popover: #1A1A1A;
+  --popover-foreground: #F0F0F0;
   --primary: #DAA428;
   /* Warm Gold — constant */
   --primary-foreground: #FFFFFF;
-  --secondary: #242A80;
-  /* Midnight Light — secondary surfaces */
-  --secondary-foreground: #E8E8F2;
-  --muted: #242A80;
-  --muted-foreground: #A0A0C0;
-  /* Soft lavender — muted text */
-  --accent: #242A80;
-  --accent-foreground: #E8E8F2;
+  --secondary: #1E1E1E;
+  /* Slightly lifted charcoal — secondary surfaces */
+  --secondary-foreground: #F0F0F0;
+  --muted: #1E1E1E;
+  --muted-foreground: #888888;
+  /* Mid grey — muted text */
+  --accent: #1E1E1E;
+  --accent-foreground: #F0F0F0;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #2E2E8A;
-  /* Mid-midnight — borders */
-  --input: #2E2E8A;
+  --border: #2A2A2A;
+  /* Subtle charcoal border */
+  --input: #2A2A2A;
   --ring: #DAA428;
   --chart-1: #DAA428;
-  --chart-2: #E8E8F2;
-  --chart-3: #A0A0C0;
-  --chart-4: #2E2E8A;
-  --chart-5: #242A80;
-  --sidebar: #191970;
-  --sidebar-foreground: #E8E8F2;
+  --chart-2: #F0F0F0;
+  --chart-3: #888888;
+  --chart-4: #2A2A2A;
+  --chart-5: #1E1E1E;
+  --sidebar: #1A1A1A;
+  --sidebar-foreground: #F0F0F0;
   --sidebar-primary: #DAA428;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #242A80;
-  --sidebar-accent-foreground: #E8E8F2;
-  --sidebar-border: #2E2E8A;
+  --sidebar-accent: #1E1E1E;
+  --sidebar-accent-foreground: #F0F0F0;
+  --sidebar-border: #2A2A2A;
   --sidebar-ring: #DAA428;
 }
 
@@ -231,13 +231,13 @@ footer {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #191970;
+  background: #B8891E;
 }
 
-/* Selection — Midnight & Gold */
+/* Selection — Charcoal & Gold */
 ::selection {
-  background: #191970;
-  color: #DAA428;
+  background: #DAA428;
+  color: #111111;
 }
 
 /* Hide scrollbar utility */

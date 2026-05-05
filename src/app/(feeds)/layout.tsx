@@ -12,7 +12,7 @@ interface FeedsLayoutProps {
  */
 export default function FeedsLayout({ children }: FeedsLayoutProps) {
     return (
-        <div className="h-screen w-full overflow-hidden">
+        <div className="h-dvh w-full overflow-hidden">
             {children}
         </div>
     );

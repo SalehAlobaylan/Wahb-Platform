@@ -96,15 +96,19 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                     'flex items-center gap-3'
                 )}
             >
-                {/* Thumbnail */}
-                <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-muted">
+                {/* Thumbnail — fixed square frame; image is cropped uniformly */}
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
                     {currentItem.thumbnail_url ? (
-                        <div
-                            className="w-full h-full bg-cover bg-center"
-                            style={{ backgroundImage: `url(${currentItem.thumbnail_url})` }}
+                        // eslint-disable-next-line @next/next/no-img-element -- remote CDN URLs vary; object-fit normalizes crop
+                        <img
+                            src={currentItem.thumbnail_url}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover object-center"
+                            draggable={false}
+                            loading="lazy"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center">
+                        <div className="flex size-full items-center justify-center">
                             <span className="text-sm opacity-30">🎵</span>
                         </div>
                     )}

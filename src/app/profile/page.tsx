@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
     ArrowLeft,
-    MoreHorizontal,
     Sparkles,
     Globe,
     Lightbulb,
@@ -151,8 +150,8 @@ export default function ProfilePage() {
                         <div className="flex gap-4 flex-col items-center">
                             <div className="relative">
                                 {/* Avatar: initials fallback until user avatars are supported */}
-                                <div className="aspect-square rounded-full min-h-28 w-28 ring-4 ring-foreground ring-offset-2 ring-offset-background bg-muted flex items-center justify-center">
-                                    <span className="text-3xl font-black font-serif text-foreground uppercase">
+                                <div className="aspect-square rounded-full min-h-28 w-28 ring-4 ring-primary/30 ring-offset-2 ring-offset-background bg-card border border-border flex items-center justify-center">
+                                    <span className="text-3xl font-black font-serif text-primary uppercase">
                                         {displayName.charAt(0)}
                                     </span>
                                 </div>
@@ -175,11 +174,11 @@ export default function ProfilePage() {
                         {/* Action Buttons */}
                         <div className="flex w-full gap-3 px-4">
                             <Link href="/settings" className="flex-1">
-                                <button className="w-full cursor-pointer flex items-center justify-center rounded-lg h-11 bg-foreground text-background text-sm font-bold tracking-wide transition-all hover:opacity-90 shadow-md">
+                                <button className="w-full cursor-pointer flex items-center justify-center rounded-lg h-11 bg-primary text-primary-foreground text-sm font-bold tracking-wide transition-all hover:bg-primary/90 active:scale-[0.98] shadow-md shadow-primary/20">
                                     Edit Profile
                                 </button>
                             </Link>
-                            <button className="flex-1 cursor-pointer flex items-center justify-center rounded-lg h-11 border-2 border-border bg-card text-foreground text-sm font-bold tracking-wide transition-all hover:bg-muted">
+                            <button className="flex-1 cursor-pointer flex items-center justify-center rounded-lg h-11 border border-border bg-card text-foreground text-sm font-bold tracking-wide transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary active:scale-[0.98]">
                                 Share Profile
                             </button>
                         </div>
@@ -195,10 +194,10 @@ export default function ProfilePage() {
                                 <button
                                     key={idx}
                                     onClick={() => setShowInterestsModal(true)}
-                                    className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-foreground/5 px-4 border border-foreground/5 transition-colors hover:bg-foreground hover:text-background group/chip cursor-pointer"
+                                    className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-card px-4 border border-border transition-colors hover:border-primary/30 hover:bg-primary/10 group/chip cursor-pointer"
                                 >
-                                    <Icon className="w-4 h-4 text-foreground group-hover/chip:text-background transition-colors" />
-                                    <span className="text-foreground group-hover/chip:text-background text-xs font-bold tracking-wide transition-colors">
+                                    <Icon className="w-4 h-4 text-muted-foreground group-hover/chip:text-primary transition-colors" />
+                                    <span className="text-foreground group-hover/chip:text-primary text-xs font-bold tracking-wide transition-colors">
                                         {interest.label}
                                     </span>
                                 </button>
@@ -222,7 +221,7 @@ export default function ProfilePage() {
                             className={cn(
                                 "flex flex-col items-center justify-center pb-3 pt-4 flex-1 group transition-colors",
                                 activeTab === 'audio'
-                                    ? "border-b-2 border-foreground text-foreground"
+                                    ? "border-b-2 border-primary text-primary"
                                     : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
                             )}
                         >
@@ -234,7 +233,7 @@ export default function ProfilePage() {
                             className={cn(
                                 "flex flex-col items-center justify-center pb-3 pt-4 flex-1 transition-colors",
                                 activeTab === 'writes'
-                                    ? "border-b-2 border-foreground text-foreground"
+                                    ? "border-b-2 border-primary text-primary"
                                     : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
                             )}
                         >

@@ -1,170 +1,419 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   X,
-  Settings,
   Mic,
-  PenTool,
+  SlidersHorizontal,
   FileText,
-  FileAudio,
-  ChevronRight,
-  Quote,
-  Activity,
-  SlidersHorizontal
+  Save,
+  Timer,
+  Type,
+  Trash2
 } from 'lucide-react';
+import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
+import { cn } from '@/lib/utils';
+
+const DRAFT_STORAGE_KEY = 'wahb_create_draft';
+
+interface CreateDraft {
+  title: string;
+  body: string;
+  audioDataUrl: string | null;
+  audioMimeType: string | null;
+  ambientReduction: boolean;
+  warmClarity: boolean;
+  updatedAt: string;
+}
+
+function formatSavedTime(value: string) {
+  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDraftDate(value: string) {
+  return new Date(value).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function CreatePage() {
   const router = useRouter();
+  const hasNowPlaying = Boolean(useNowPlayingStore((state) => state.currentItem));
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [showTuning, setShowTuning] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<CreateDraft | null>(null);
+  const [audioDataUrl, setAudioDataUrl] = useState<string | null>(null);
+  const [audioMimeType, setAudioMimeType] = useState<string | null>(null);
+  const [ambientReduction, setAmbientReduction] = useState(true);
+  const [warmClarity, setWarmClarity] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const hasDraftContent = title.trim().length > 0 || body.trim().length > 0 || Boolean(audioDataUrl);
+  const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
+
+  useEffect(() => {
+    const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!rawDraft) return;
+
+    try {
+      const draft = JSON.parse(rawDraft) as CreateDraft;
+      const restoreDraft = window.setTimeout(() => {
+        setSavedDraft(draft);
+        setTitle(draft.title);
+        setBody(draft.body);
+        setAudioDataUrl(draft.audioDataUrl);
+        setAudioMimeType(draft.audioMimeType);
+        setAmbientReduction(draft.ambientReduction);
+        setWarmClarity(draft.warmClarity);
+        setLastSavedAt(formatSavedTime(draft.updatedAt));
+        setStatusMessage('Loaded your saved draft.');
+      }, 0);
+
+      return () => window.clearTimeout(restoreDraft);
+    } catch {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const buildDraft = (): CreateDraft => ({
+    title: title.trim(),
+    body: body.trim(),
+    audioDataUrl,
+    audioMimeType,
+    ambientReduction,
+    warmClarity,
+    updatedAt: new Date().toISOString(),
+  });
+
+  const handleSaveDraft = () => {
+    const draft = buildDraft();
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    setSavedDraft(draft);
+    setLastSavedAt(formatSavedTime(draft.updatedAt));
+    setStatusMessage('Draft saved on this device.');
+  };
+
+  const handleLoadDraft = () => {
+    if (!savedDraft) {
+      setStatusMessage('No saved draft yet.');
+      return;
+    }
+
+    setTitle(savedDraft.title);
+    setBody(savedDraft.body);
+    setAudioDataUrl(savedDraft.audioDataUrl);
+    setAudioMimeType(savedDraft.audioMimeType);
+    setAmbientReduction(savedDraft.ambientReduction);
+    setWarmClarity(savedDraft.warmClarity);
+    setLastSavedAt(formatSavedTime(savedDraft.updatedAt));
+    setStatusMessage('Draft restored.');
+    setShowDrafts(false);
+  };
+
+  const handleDeleteDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setSavedDraft(null);
+    setTitle('');
+    setBody('');
+    setAudioDataUrl(null);
+    setAudioMimeType(null);
+    setLastSavedAt(null);
+    setStatusMessage('Draft deleted.');
+    setShowDrafts(false);
+  };
+
+  const handleRecordClick = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setStatusMessage('Audio recording is not supported in this browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const reader = new FileReader();
+
+        reader.onloadend = () => {
+          setAudioDataUrl(typeof reader.result === 'string' ? reader.result : null);
+          setAudioMimeType(mimeType);
+          setStatusMessage('Voice layer attached. Save the draft to keep it.');
+        };
+
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setStatusMessage('Recording started.');
+    } catch {
+      setStatusMessage('Microphone access was blocked or unavailable.');
+    }
+  };
+
+  const handleRemoveAudio = () => {
+    setAudioDataUrl(null);
+    setAudioMimeType(null);
+    setStatusMessage('Voice layer removed.');
+  };
+
+  const draftPreview = savedDraft?.body || savedDraft?.title || 'Untitled draft';
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-gradient-to-b from-[#0A0A2E] via-[#191970] to-[#0A0A2E] text-slate-200 font-sans">
-      {/* Theater Lighting Effect */}
-      <div 
-        className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(circle at 50% -20%, rgba(218, 164, 40, 0.15) 0%, transparent 60%)' }}
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground font-sans" dir="ltr">
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{ background: 'radial-gradient(circle at 100% 0%, rgba(218, 164, 40, 0.16) 0%, transparent 42%)' }}
       />
-      
-      {/* Top Navigation */}
-      <nav className="flex items-center px-6 py-6 justify-between z-20 sticky top-0 bg-[#0A0A2E]/40 backdrop-blur-md">
-        <button 
+
+      <nav className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-background/90 p-4 pb-2 backdrop-blur-md">
+        <button
           onClick={() => router.back()}
-          className="text-primary/70 flex size-10 items-center justify-center hover:text-primary transition-colors"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted/70"
+          aria-label="Close create page"
         >
-          <X className="w-6 h-6" />
+          <X className="h-6 w-6" />
         </button>
-        <div className="flex-1 flex justify-center items-center py-2">
-          <Image 
-            src="/images/Wahb-logo-noblue-removebg.png" 
-            alt="Wahb Logo" 
-            width={72} 
-            height={40} 
-            className="object-contain"
-            priority
-          />
-        </div>
-        <div className="flex w-10 items-center justify-end">
-          <button className="flex items-center justify-center rounded-full h-10 w-10 text-primary/70 hover:text-primary transition-colors">
-            <Settings className="w-6 h-6" />
-          </button>
-        </div>
+
+        <h1 className="flex-1 pr-10 text-center font-serif text-xl font-bold leading-tight tracking-[-0.015em] text-primary">
+          WAHB.
+        </h1>
       </nav>
 
-      {/* Header Message */}
-      <div className="relative px-8 pt-4 pb-10 flex flex-col items-center text-center z-10">
-        <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-[280px] mx-auto opacity-90 italic">
-          Preserving your legacy through the fine arts of voice and word.
-        </p>
-      </div>
+      <main
+        className={cn(
+          'relative z-10 flex-1 overflow-y-auto hide-scrollbar p-4',
+          hasNowPlaying ? 'pb-24' : 'pb-6'
+        )}
+      >
+        <div className="flex items-center justify-between px-2">
+          <button
+            onClick={() => setShowDrafts((value) => !value)}
+            className={cn(
+              'flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary',
+              showDrafts ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            Drafts
+          </button>
 
-      {/* Main Actions */}
-      <div className="px-6 grid grid-cols-2 gap-4 mb-12 z-10">
-        {/* Record Audio */}
-        <button className="group relative flex flex-col items-center w-full">
-          <div className="relative w-full aspect-[4/5] rounded-2xl flex flex-col items-center justify-center p-6 transition-all duration-300 group-hover:border-primary/40 group-active:scale-[0.98] bg-[#191970]/40 backdrop-blur-md border border-primary/10">
-            <div className="bg-primary/10 text-primary p-4 rounded-full mb-4 border border-primary/20 group-hover:bg-primary group-hover:text-[#0A0A2E] transition-all duration-300">
-              <Mic className="w-8 h-8" />
-            </div>
-            <span className="font-serif font-bold text-lg text-slate-100">Record</span>
-            <span className="text-[10px] text-primary/60 uppercase tracking-[0.2em] mt-1.5 font-bold">Audio</span>
+          <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Type className="h-3.5 w-3.5" />
+              {wordCount} words
+            </span>
+            {lastSavedAt && (
+              <span className="flex items-center gap-1 text-primary">
+                <Timer className="h-3.5 w-3.5" />
+                {lastSavedAt}
+              </span>
+            )}
           </div>
-        </button>
+        </div>
 
-        {/* Write Something */}
-        <button className="group relative flex flex-col items-center w-full">
-          <div className="relative w-full aspect-[4/5] rounded-2xl flex flex-col items-center justify-center p-6 transition-all duration-300 group-hover:border-primary/40 group-active:scale-[0.98] bg-[#191970]/40 backdrop-blur-md border border-primary/10">
-            <div className="bg-primary/10 text-primary p-4 rounded-full mb-4 border border-primary/20 group-hover:bg-primary group-hover:text-[#0A0A2E] transition-all duration-300">
-              <PenTool className="w-8 h-8" />
-            </div>
-            <span className="font-serif font-bold text-lg text-slate-100">Write</span>
-            <span className="text-[10px] text-primary/60 uppercase tracking-[0.2em] mt-1.5 font-bold">Something</span>
+        {statusMessage && (
+          <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-xs font-medium text-primary">
+            {statusMessage}
           </div>
-        </button>
-      </div>
+        )}
 
-      {/* Extra Features */}
-      <div className="flex-1 px-6 space-y-10 pb-16 z-10">
-        {/* Drafts Section */}
-        <section>
-          <div className="flex items-end justify-between mb-5 px-1">
-            <h3 className="font-serif text-xl font-bold text-primary tracking-tight">Drafts</h3>
-            <button className="text-primary/50 text-[10px] font-bold uppercase tracking-widest hover:text-primary transition-colors">View All</button>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="bg-[#191970]/40 backdrop-blur-md border border-primary/10 px-4 py-3.5 rounded-xl flex items-center gap-4 hover:bg-primary/5 transition-colors cursor-pointer">
-              <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 border border-primary/10">
-                <FileText className="text-primary/60 w-5 h-5" />
+        {showDrafts && (
+          <section className="mt-4 rounded-3xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-serif text-base font-bold text-foreground">Saved Draft</p>
+                {savedDraft ? (
+                  <>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{draftPreview}</p>
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">
+                      Updated {formatDraftDate(savedDraft.updatedAt)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">No saved draft on this device yet.</p>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-[15px] font-bold text-slate-200 truncate">The Summer of &apos;84</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Last edited 2h ago</p>
-              </div>
-              <ChevronRight className="text-slate-600 w-5 h-5" />
+
+              {savedDraft && (
+                <button
+                  onClick={handleDeleteDraft}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  aria-label="Delete draft"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
-            <div className="bg-[#191970]/40 backdrop-blur-md border border-primary/10 px-4 py-3.5 rounded-xl flex items-center gap-4 hover:bg-primary/5 transition-colors cursor-pointer">
-              <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 border border-primary/10">
-                <FileAudio className="text-primary/60 w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-[15px] font-bold text-slate-200 truncate">Voicemail for Elena</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Last edited Yesterday</p>
-              </div>
-              <ChevronRight className="text-slate-600 w-5 h-5" />
+            {savedDraft && (
+              <button
+                onClick={handleLoadDraft}
+                className="mt-4 h-10 w-full rounded-full bg-primary text-xs font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+              >
+                Load Draft
+              </button>
+            )}
+          </section>
+        )}
+
+        <section className="mt-5 flex min-h-[58vh] flex-col rounded-3xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Writing Canvas</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lastSavedAt ? `Draft saved at ${lastSavedAt}` : 'Start with text. Add voice whenever it helps.'}
+              </p>
             </div>
+            <button
+              onClick={handleSaveDraft}
+              disabled={!hasDraftContent}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-3 text-xs font-bold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+              aria-label="Save draft"
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save
+            </button>
           </div>
+
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="w-full border-0 border-b border-border/70 bg-transparent px-0 py-4 font-serif text-2xl font-semibold text-foreground placeholder:text-foreground/35 transition-colors focus:border-primary focus:outline-none focus:ring-0"
+            placeholder="Title your performance..."
+            type="text"
+          />
+
+          <textarea
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            className="mt-4 min-h-[38vh] flex-1 resize-none border-0 bg-transparent p-0 text-lg leading-8 text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
+            placeholder="Begin your story here... The canvas is yours."
+          />
         </section>
 
-        {/* Inspiration Feed */}
-        <section>
-          <h3 className="font-serif text-xl font-bold text-primary tracking-tight mb-5 px-1">Inspiration</h3>
-          <div className="bg-[#191970]/40 backdrop-blur-md border border-primary/10 p-6 rounded-2xl relative overflow-hidden group">
-            <div className="absolute -top-1 -right-1 opacity-10">
-              <Quote className="text-primary w-16 h-16" />
+        <section className="mt-4 rounded-3xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={cn('h-2 w-2 rounded-full', isRecording ? 'animate-pulse bg-red-500' : 'bg-primary')} />
+                <p className="truncate font-serif text-base font-bold leading-tight text-foreground">
+                  {isRecording ? 'Recording voice layer' : 'Audio Companion'}
+                </p>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {isRecording
+                  ? 'Your voice note will attach to this draft. Tap the mic again to stop.'
+                  : 'Add a spoken note when typing slows you down.'}
+              </p>
             </div>
-            <p className="font-serif italic text-lg text-slate-200 leading-relaxed relative z-10 mb-6">
-              &quot;Your legacy is every life you&apos;ve touched.&quot;
-            </p>
+
             <div className="flex items-center gap-3">
-              <div className="h-px w-6 bg-primary/40"></div>
-              <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary/70">Daily Prompt</span>
+              <button
+                onClick={() => setShowTuning((value) => !value)}
+                className={cn(
+                  'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors',
+                  showTuning ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                )}
+                aria-label="Tune voice"
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleRecordClick}
+                className={cn(
+                  'group relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-primary-foreground shadow-md transition-all active:scale-95',
+                  isRecording ? 'bg-red-500 shadow-red-500/25 hover:bg-red-500/90' : 'bg-primary shadow-primary/25 hover:bg-primary/90'
+                )}
+                aria-label={isRecording ? 'Stop recording' : 'Record audio'}
+              >
+                <span className="absolute inset-0 scale-0 rounded-full bg-white/20 transition-transform duration-500 ease-out group-hover:scale-150" />
+                <Mic className="relative z-10 h-6 w-6" />
+              </button>
             </div>
           </div>
+
+          {audioDataUrl && (
+            <div className="mt-4 rounded-2xl border border-border bg-background/70 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary/70">Voice Layer</p>
+                <button
+                  onClick={handleRemoveAudio}
+                  className="text-xs font-bold text-muted-foreground transition-colors hover:text-red-500"
+                >
+                  Remove
+                </button>
+              </div>
+              <audio controls src={audioDataUrl} className="w-full" />
+              {audioMimeType && <p className="mt-2 text-[10px] text-muted-foreground">{audioMimeType}</p>}
+            </div>
+          )}
         </section>
 
-        {/* Voice Tuning */}
-        <section>
-          <h3 className="font-serif text-xl font-bold text-primary tracking-tight mb-5 px-1">Voice Tuning</h3>
-          <div className="bg-[#191970]/40 backdrop-blur-md border border-primary/10 divide-y divide-primary/10 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Activity className="text-primary/60 w-5 h-5" />
-                <span className="text-sm font-medium text-slate-300">Ambient Reduction</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input defaultChecked type="checkbox" className="sr-only peer" />
-                <div className="w-10 h-5 bg-[#242A80] border border-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:bg-primary after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-slate-500 after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+        {showTuning && (
+          <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className="font-serif text-base font-bold text-foreground">Voice tuning</p>
+            <div className="mt-3 grid gap-2">
+              <label className="flex items-center justify-between rounded-xl bg-background/70 px-3 py-3 text-sm">
+                Ambient reduction
+                <input
+                  checked={ambientReduction}
+                  onChange={(event) => setAmbientReduction(event.target.checked)}
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+              <label className="flex items-center justify-between rounded-xl bg-background/70 px-3 py-3 text-sm">
+                Warm clarity
+                <input
+                  checked={warmClarity}
+                  onChange={(event) => setWarmClarity(event.target.checked)}
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                />
               </label>
             </div>
-            
-            <div className="px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal className="text-primary/60 w-5 h-5" />
-                <span className="text-sm font-medium text-slate-300">Cinematic Clarity</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-10 h-5 bg-[#242A80] border border-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:bg-primary after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-slate-500 after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
-              </label>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Decorative elements */}
-      <div className="fixed bottom-[-5%] -left-10 w-72 h-72 bg-primary/5 rounded-full blur-[100px] pointer-events-none z-0"></div>
+          </section>
+        )}
+      </main>
     </div>
   );
 }
