@@ -36,6 +36,7 @@ export interface ContentItem {
   // User-specific state (joined)
   is_liked?: boolean;
   is_bookmarked?: boolean;
+  is_archived?: boolean;
 }
 
 export interface NewsSlide {

@@ -273,6 +273,36 @@ export async function clearWatchHistory(): Promise<void> {
   }
 }
 
+export async function requestRestore(
+  contentItemId: string
+): Promise<{ status: string; message: string; retry_after_seconds?: number }> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    await new Promise(r => setTimeout(r, 800));
+    return { status: 'pending', message: 'Restore requested (mock)' };
+  }
+
+  const response = await fetch(`${API_BASE}/content/${contentItemId}/request-restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (response.status === 429) {
+    const data = await response.json().catch(() => ({}));
+    return {
+      status: 'throttled',
+      message: data.message ?? 'Restore already requested recently',
+      retry_after_seconds: data.retry_after_seconds,
+    };
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.message || `Failed to request restore: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export async function requestTranscription(contentItemId: string): Promise<{ status: string; message: string }> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     // Simulate processing delay

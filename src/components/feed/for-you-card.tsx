@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useCallback, type MutableRefObject } from 'react';
+import { useRef, useEffect, useCallback, useState, type MutableRefObject } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Play, Headphones } from 'lucide-react';
+import { Play, Headphones, Archive, Loader2 } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
+import { requestRestore } from '@/lib/api/feeds';
 import type { ContentItem } from '@/types';
 
 interface ForYouCardProps {
@@ -124,8 +125,13 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         }
     };
 
+    const isArchived = item.is_archived || (!item.media_url && item.status === 'ARCHIVED');
+
     return (
         <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-background">
+            {isArchived && (
+                <ArchivedOverlay item={item} />
+            )}
             {/* Background/Video */}
             {item.media_url ? (
                 <>
@@ -242,6 +248,69 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                     </span>
                 </div>
             )}
+        </div>
+    );
+}
+
+function ArchivedOverlay({ item }: { item: ContentItem }) {
+    const [state, setState] = useState<'idle' | 'pending' | 'throttled' | 'error'>('idle');
+    const [message, setMessage] = useState<string | null>(null);
+    const [requesting, setRequesting] = useState(false);
+
+    async function handleRestore(e: React.MouseEvent) {
+        e.stopPropagation();
+        if (requesting) return;
+        setRequesting(true);
+        try {
+            const res = await requestRestore(item.id);
+            if (res.status === 'throttled') {
+                setState('throttled');
+                setMessage(res.message);
+            } else {
+                setState('pending');
+                setMessage('Restore requested — refresh in a minute or two');
+            }
+        } catch (err) {
+            setState('error');
+            setMessage(err instanceof Error ? err.message : 'Could not request restore');
+        } finally {
+            setRequesting(false);
+        }
+    }
+
+    return (
+        <div
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+            onClick={handleRestore}
+        >
+            <div className="flex flex-col items-center gap-4 px-8 text-center">
+                <div className="rounded-full bg-white/10 p-4">
+                    <Archive className="h-10 w-10 text-white/80" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Video archived to save storage</h3>
+                <p className="max-w-xs text-sm text-white/70">
+                    {state === 'idle' && 'Tap to request a re-fetch — usually ready in a couple of minutes.'}
+                    {state === 'pending' && message}
+                    {state === 'throttled' && message}
+                    {state === 'error' && message}
+                </p>
+                <button
+                    type="button"
+                    onClick={handleRestore}
+                    disabled={requesting || state === 'pending'}
+                    className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-50"
+                >
+                    {requesting ? (
+                        <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Requesting…</span>
+                    ) : state === 'pending' ? (
+                        'Restore queued'
+                    ) : state === 'throttled' ? (
+                        'Already requested'
+                    ) : (
+                        'Restore video'
+                    )}
+                </button>
+            </div>
         </div>
     );
 }
