@@ -87,6 +87,7 @@ export function BottomSheetTabs({
     const addComment = (text: string) => {
         const value = text.trim();
         if (!value) return;
+        if (!contentItemId) return;
 
         const newComment: CommentItem = {
             id: `${Date.now()}`,
