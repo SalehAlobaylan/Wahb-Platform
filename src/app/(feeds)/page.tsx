@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
@@ -27,6 +27,23 @@ const backoffMgr = new BackoffManager();
 const adaptiveBuffer = new AdaptiveBuffer();
 
 export default function ForYouPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="h-full w-full overflow-hidden relative">
+                    <FeedContainer>
+                        <ForYouSkeleton />
+                        <ForYouSkeleton />
+                    </FeedContainer>
+                </div>
+            }
+        >
+            <ForYouPageContent />
+        </Suspense>
+    );
+}
+
+function ForYouPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { user, isAuthenticated } = useAuthStore();
     const {
