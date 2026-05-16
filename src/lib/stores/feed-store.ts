@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type ForYouDisplayMode = 'fit' | 'fill' | 'transcript';
+
 interface FeedState {
   // Active feed state
   forYouActiveIndex: number;
@@ -8,6 +10,7 @@ interface FeedState {
   isPlaying: boolean;
   globalPaused: boolean;
   playbackSpeed: number;
+  forYouDisplayMode: ForYouDisplayMode;
   progress: number;
   forYouPlaybackById: Record<string, { timeSec: number; progress: number }>;
   lastActiveForYouItemId: string | null;
@@ -29,6 +32,7 @@ interface FeedState {
   togglePlay: () => void;
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
+  setForYouDisplayMode: (mode: ForYouDisplayMode) => void;
   setProgress: (progress: number) => void;
   setForYouPlayback: (id: string, timeSec: number, progress: number) => void;
   setLastActiveForYouItemId: (id: string | null) => void;
@@ -58,6 +62,7 @@ export const useFeedStore = create<FeedState>()(
       isPlaying: true,
       globalPaused: false,
       playbackSpeed: 1.0,
+      forYouDisplayMode: 'fit',
       progress: 0,
       forYouPlaybackById: {},
       lastActiveForYouItemId: null,
@@ -83,6 +88,8 @@ export const useFeedStore = create<FeedState>()(
       setPlaying: (playing) => set({ isPlaying: playing, globalPaused: !playing }),
 
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+
+      setForYouDisplayMode: (mode) => set({ forYouDisplayMode: mode }),
 
       setProgress: (progress) => set({ progress }),
 
@@ -131,6 +138,7 @@ export const useFeedStore = create<FeedState>()(
         bookmarkedIds: Array.from(state.bookmarkedIds),
         likedIds: Array.from(state.likedIds),
         playbackSpeed: state.playbackSpeed,
+        forYouDisplayMode: state.forYouDisplayMode,
         forYouPlaybackById: state.forYouPlaybackById,
         lastActiveForYouItemId: state.lastActiveForYouItemId,
       }),
