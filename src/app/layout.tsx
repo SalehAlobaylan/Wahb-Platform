@@ -51,7 +51,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieHeader = cookies().toString();
+  // Next.js 16: cookies() returns a Promise — must await before .toString().
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.toString();
   const locale = getLocaleFromCookies(cookieHeader);
   const messages = await getMessages(locale);
   const dir = getDirection(locale);
