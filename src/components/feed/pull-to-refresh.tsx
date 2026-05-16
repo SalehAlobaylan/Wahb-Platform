@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode, type RefObject } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,13 @@ interface PullToRefreshProps {
     isRefreshing?: boolean;
     threshold?: number;
     className?: string;
+    /**
+     * When set, scrollTop is read from this element instead of the component's
+     * own wrapper. Use this when the actual scroll container is provided by a
+     * descendant (e.g. snap-scroll feeds where wrapping in another overflow
+     * container would conflict with snap behavior).
+     */
+    externalScrollRef?: RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -22,6 +29,7 @@ export function PullToRefresh({
     isRefreshing = false,
     threshold = 80,
     className,
+    externalScrollRef,
 }: PullToRefreshProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isPulling, setIsPulling] = useState(false);
@@ -33,12 +41,17 @@ export function PullToRefresh({
     const scale = useTransform(pullDistance, [0, threshold], [0.5, 1]);
     const rotate = useTransform(pullDistance, [0, threshold * 2], [0, 360]);
 
+    const getScrollTop = useCallback((): number => {
+        if (externalScrollRef?.current) return externalScrollRef.current.scrollTop;
+        return containerRef.current?.scrollTop ?? 0;
+    }, [externalScrollRef]);
+
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        if (containerRef.current?.scrollTop === 0 && !isRefreshing) {
+        if (getScrollTop() === 0 && !isRefreshing) {
             startY.current = e.touches[0].clientY;
             setIsPulling(true);
         }
-    }, [isRefreshing]);
+    }, [isRefreshing, getScrollTop]);
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
         if (!isPulling || isRefreshing) return;
@@ -91,10 +104,11 @@ export function PullToRefresh({
                 )}
             </AnimatePresence>
 
-            {/* Content */}
+            {/* Content. When an external scroll container is provided we let
+                the descendant own the overflow; otherwise this wrapper scrolls. */}
             <div
                 ref={containerRef}
-                className="h-full overflow-y-auto"
+                className={cn('h-full', !externalScrollRef && 'overflow-y-auto')}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}

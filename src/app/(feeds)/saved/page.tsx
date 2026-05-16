@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useBookmarks, useBookmarkMutation } from '@/lib/hooks';
@@ -9,6 +9,7 @@ import { FeedErrorFallback } from '@/components/error-boundary';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
+import { useI18n, useTranslations } from '@/lib/i18n';
 import {
     User, Search, Bookmark, ArrowUpDown,
     FileText, Video, Mic, MessageCircle, Rss,
@@ -21,12 +22,12 @@ import type { ContentItem, ContentType } from '@/types';
 
 type FilterKey = 'ALL' | ContentType;
 
-const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'ALL', label: 'All', icon: <Bookmark className="w-3.5 h-3.5" /> },
-    { key: 'ARTICLE', label: 'Articles', icon: <FileText className="w-3.5 h-3.5" /> },
-    { key: 'PODCAST', label: 'Podcasts', icon: <Mic className="w-3.5 h-3.5" /> },
-    { key: 'VIDEO', label: 'Videos', icon: <Video className="w-3.5 h-3.5" /> },
-    { key: 'TWEET', label: 'Tweets', icon: <MessageCircle className="w-3.5 h-3.5" /> },
+const FILTERS: { key: FilterKey; labelKey: string; icon: React.ReactNode }[] = [
+    { key: 'ALL', labelKey: 'saved.filters.all', icon: <Bookmark className="w-3.5 h-3.5" /> },
+    { key: 'ARTICLE', labelKey: 'saved.filters.articles', icon: <FileText className="w-3.5 h-3.5" /> },
+    { key: 'PODCAST', labelKey: 'saved.filters.podcasts', icon: <Mic className="w-3.5 h-3.5" /> },
+    { key: 'VIDEO', labelKey: 'saved.filters.videos', icon: <Video className="w-3.5 h-3.5" /> },
+    { key: 'TWEET', labelKey: 'saved.filters.tweets', icon: <MessageCircle className="w-3.5 h-3.5" /> },
 ];
 
 type SortOrder = 'newest' | 'oldest';
@@ -34,29 +35,29 @@ type SortOrder = 'newest' | 'oldest';
 /* ══════════════════════════════════════════════════════════
    Helper: format relative date
    ══════════════════════════════════════════════════════════ */
-function formatRelativeDate(dateStr: string) {
+function formatRelativeDate(dateStr: string, t: (key: string, vars?: Record<string, string | number>) => string, locale: string) {
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (diffDays === 0) return t('saved.relative.today');
+    if (diffDays === 1) return t('saved.relative.yesterday');
+    if (diffDays < 7) return t('saved.relative.days', { count: diffDays });
+    if (diffDays < 30) return t('saved.relative.weeks', { count: Math.floor(diffDays / 7) });
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 /* ══════════════════════════════════════════════════════════
    Helper: type badge colors
    ══════════════════════════════════════════════════════════ */
-function getTypeBadge(type: ContentType) {
+function getTypeBadge(type: ContentType, t: (key: string) => string) {
     const map: Record<ContentType, { label: string; color: string }> = {
-        ARTICLE: { label: 'Article', color: 'bg-gold/20 text-gold border-gold/30' },
-        PODCAST: { label: 'Podcast', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
-        VIDEO: { label: 'Video', color: 'bg-gold/15 text-gold border-gold/25' },
-        TWEET: { label: 'Tweet', color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
-        COMMENT: { label: 'Comment', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
+        ARTICLE: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
+        PODCAST: { label: t('saved.badge.podcast'), color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
+        VIDEO: { label: t('saved.badge.video'), color: 'bg-gold/15 text-gold border-gold/25' },
+        TWEET: { label: t('saved.badge.tweet'), color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
+        COMMENT: { label: t('saved.badge.comment'), color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };
     return map[type] || { label: type, color: 'bg-muted text-muted-foreground border-border' };
 }
@@ -79,9 +80,39 @@ export default function SavedPage() {
     const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
     const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
+    const t = useTranslations();
+    const { locale } = useI18n();
 
-    const { data, isLoading, isError, error, refetch } = useBookmarks();
+    const {
+        data,
+        isLoading,
+        isError,
+        error,
+        refetch,
+        hasNextPage,
+        isFetchingNextPage,
+        fetchNextPage,
+    } = useBookmarks();
     const bookmarkMutation = useBookmarkMutation();
+
+    // IntersectionObserver-based infinite scroll: when the sentinel near the
+    // bottom of the list enters the viewport, fetch the next page.
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        const node = sentinelRef.current;
+        if (!node || !hasNextPage) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+                    fetchNextPage();
+                }
+            },
+            { rootMargin: '300px' }
+        );
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const allItems = useMemo(() => {
         if (!data?.pages) return [];
@@ -122,7 +153,7 @@ export default function SavedPage() {
             <div className="h-full w-full bg-background">
                 <FeedErrorFallback
                     onRetry={() => refetch()}
-                    message={error?.message || 'Failed to load saved items'}
+                    message={error?.message || t('feed.error.saved')}
                 />
             </div>
         );
@@ -162,10 +193,10 @@ export default function SavedPage() {
                 <div className="px-5 mb-5">
                     <div className="flex items-center gap-3 mb-1">
                         <Bookmark className="w-5 h-5 text-gold" />
-                        <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">Saved</h1>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-8">Your bookmarked content, all in one place.</p>
+                    <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">{t('saved.title')}</h1>
                 </div>
+                <p className="text-xs text-muted-foreground pl-8">{t('saved.subtitle')}</p>
+            </div>
 
                 {/* ── Filter Chips ── */}
                 <div className="flex gap-2 px-5 mb-5 overflow-x-auto hide-scrollbar">
@@ -186,7 +217,7 @@ export default function SavedPage() {
                                 )}
                             >
                                 {filter.icon}
-                                {filter.label}
+                                {t(filter.labelKey)}
                                 {count > 0 && (
                                     <span className={cn(
                                         'text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center font-bold',
@@ -203,14 +234,16 @@ export default function SavedPage() {
                 {/* ── Stats Bar ── */}
                 <div className="flex items-center justify-between px-5 mb-4">
                     <span className="text-xs text-muted-foreground font-mono">
-                        {sortedItems.length} {sortedItems.length === 1 ? 'item' : 'items'}
+                        {sortedItems.length === 1
+                            ? t('saved.countSingle')
+                            : t('saved.count', { count: sortedItems.length })}
                     </span>
                     <button
                         onClick={() => setSortOrder((s) => s === 'newest' ? 'oldest' : 'newest')}
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold transition-colors"
                     >
                         <ArrowUpDown className="w-3.5 h-3.5" />
-                        {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+                        {sortOrder === 'newest' ? t('saved.sort.newest') : t('saved.sort.oldest')}
                     </button>
                 </div>
 
@@ -240,19 +273,21 @@ export default function SavedPage() {
                             </div>
                         </div>
                         <h2 className="text-xl font-serif text-foreground mb-2 font-medium">
-                            {activeFilter === 'ALL' ? 'No saved items yet' : `No saved ${FILTERS.find(f => f.key === activeFilter)?.label.toLowerCase()}`}
+                            {activeFilter === 'ALL'
+                                ? t('saved.empty.title')
+                                : t('saved.empty.filtered', { filter: t(FILTERS.find(f => f.key === activeFilter)?.labelKey || 'saved.filters.all') })}
                         </h2>
                         <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-[260px]">
                             {activeFilter === 'ALL'
-                                ? 'Tap the bookmark icon on any content to save it here for later.'
-                                : 'Try switching to a different filter or bookmark more content.'}
+                                ? t('saved.empty.body')
+                                : t('saved.empty.bodyFiltered')}
                         </p>
                         {activeFilter !== 'ALL' && (
                             <button
                                 onClick={() => setActiveFilter('ALL')}
                                 className="mt-4 px-4 py-2 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30 hover:bg-gold/30 transition-colors"
                             >
-                                View All
+                                {t('saved.empty.viewAll')}
                             </button>
                         )}
                     </div>
@@ -260,7 +295,7 @@ export default function SavedPage() {
                     /* Bookmark Card List */
                     <div className="px-5 space-y-3 pb-4">
                         {sortedItems.map((item) => {
-                            const badge = getTypeBadge(item.type);
+                            const badge = getTypeBadge(item.type, t);
                             const duration = formatDuration(item.duration_sec);
                             return (
                                 <article
@@ -311,7 +346,7 @@ export default function SavedPage() {
                                             )}
                                         </div>
                                         <h3 className="text-sm font-serif text-foreground leading-snug line-clamp-2 group-hover:text-foreground transition-colors">
-                                            {item.title || 'Untitled'}
+                                            {item.title || t('saved.item.untitled')}
                                         </h3>
                                         <div className="flex items-center gap-2 mt-1">
                                             {item.author && (
@@ -320,7 +355,7 @@ export default function SavedPage() {
                                                 </span>
                                             )}
                                             <span className="text-[11px] text-muted-foreground">
-                                                {formatRelativeDate(item.published_at)}
+                                                {formatRelativeDate(item.published_at, t, locale)}
                                             </span>
                                         </div>
                                     </div>
@@ -329,13 +364,28 @@ export default function SavedPage() {
                                     <button
                                         onClick={(e) => handleRemoveBookmark(e, item.id)}
                                         className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-gold hover:bg-gold/10 transition-all"
-                                        aria-label="Remove bookmark"
+                                        aria-label={t('saved.removeBookmark')}
                                     >
                                         <Bookmark className="w-4 h-4 fill-gold" />
                                     </button>
                                 </article>
                             );
                         })}
+
+                        {/* Infinite-scroll sentinel + status row. Observer in
+                            useEffect above triggers fetchNextPage when this
+                            scrolls into view. */}
+                        <div ref={sentinelRef} className="h-1" />
+                        {isFetchingNextPage && (
+                            <div className="py-4 text-center text-xs text-muted-foreground">
+                                {t('saved.loadingMore')}
+                            </div>
+                        )}
+                        {!hasNextPage && sortedItems.length > 6 && (
+                            <div className="py-4 text-center text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                {t('saved.caughtUp')}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

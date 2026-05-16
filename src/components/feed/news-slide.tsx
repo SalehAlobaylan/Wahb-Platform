@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { shareContent } from '@/lib/utils/share';
@@ -83,23 +84,23 @@ const getReadTime = (content?: string) => {
 };
 
 const getRelatedBadge = (item: ContentItem) => {
-    if (item.type === 'TWEET') return 'Opinion';
-    if (item.type === 'COMMENT') return 'Reaction';
-    if (item.type === 'VIDEO') return 'Video';
-    if (item.type === 'PODCAST') return 'Audio';
+    if (item.type === 'TWEET') return 'news.badge.opinion';
+    if (item.type === 'COMMENT') return 'news.badge.reaction';
+    if (item.type === 'VIDEO') return 'news.badge.video';
+    if (item.type === 'PODCAST') return 'news.badge.audio';
     if (item.topic_tags) {
-        if (item.topic_tags.includes('news-politics')) return 'Politics';
-        if (item.topic_tags.includes('news-economy')) return 'Economy';
-        if (item.topic_tags.includes('news-conflict')) return 'Conflict';
-        if (item.topic_tags.includes('news-disaster')) return 'Disaster';
-        if (item.topic_tags.includes('news')) return 'News';
+        if (item.topic_tags.includes('news-politics')) return 'news.badge.politics';
+        if (item.topic_tags.includes('news-economy')) return 'news.badge.economy';
+        if (item.topic_tags.includes('news-conflict')) return 'news.badge.conflict';
+        if (item.topic_tags.includes('news-disaster')) return 'news.badge.disaster';
+        if (item.topic_tags.includes('news')) return 'news.badge.news';
     }
-    return 'Article';
+    return 'news.badge.article';
 };
 
-const getRelatedMeta = (item: ContentItem) => {
+const getRelatedMeta = (item: ContentItem, t: (key: string, vars?: Record<string, string | number>) => string) => {
     if (item.type === 'TWEET') return getReadTime(item.body_text);
-    if (item.type === 'COMMENT') return '2h ago';
+    if (item.type === 'COMMENT') return t('news.meta.comment', { count: 2 });
     if (item.type === 'ARTICLE') return getReadTime(item.body_text || item.excerpt);
     return '';
 };
@@ -137,6 +138,7 @@ function RelatedItem({
     isExpanded: boolean;
     onToggleExpand: () => void;
 }) {
+    const t = useTranslations();
     const { likedIds, bookmarkedIds } = useFeedStore();
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
@@ -198,19 +200,19 @@ function RelatedItem({
                 {/* Content */}
                 <div className="flex flex-col justify-center flex-1 min-w-0 pe-1">
                     <div className="flex justify-between items-baseline mb-0.5">
-                        <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold">
-                            {getRelatedBadge(item)}
-                        </span>
+                            <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold">
+                                {t(getRelatedBadge(item))}
+                            </span>
                         <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                             {item.type === 'ARTICLE' ? (
                                 <>
                                     <TrendingUp className="w-[10px] h-[10px]" />
-                                    {getRelatedMeta(item)}
+                                    {getRelatedMeta(item, t)}
                                 </>
                             ) : (
                                 <>
                                     <Clock className="w-[10px] h-[10px]" />
-                                    {getRelatedMeta(item)}
+                                    {getRelatedMeta(item, t)}
                                 </>
                             )}
                         </div>
@@ -228,7 +230,7 @@ function RelatedItem({
                     <button
                         onClick={handleOpenArticle}
                         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-sm text-muted-foreground hover:text-news-accent hover:bg-foreground/10 transition-all"
-                        aria-label="Open article"
+                        aria-label={t('news.badge.article')}
                     >
                         <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
                     </button>
@@ -285,6 +287,7 @@ function RelatedItem({
  */
 export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
+    const t = useTranslations();
     const { likedIds, bookmarkedIds } = useFeedStore();
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
@@ -349,7 +352,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                                 src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
                             />
                             <span className="text-xs text-muted-foreground font-light italic">
-                                {featured.source_name || featured.author || 'Unknown'}
+                                {featured.source_name || featured.author || t('saved.item.untitled')}
                             </span>
                         </div>
                         {/* Featured action buttons */}
@@ -357,7 +360,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             <button
                                 onClick={(e) => { e.stopPropagation(); likeMutation.mutate({ contentId: featured.id, isLiked: isFeaturedLiked }); }}
                                 className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
-                                aria-label="Like"
+                                aria-label={t('profile.guest.feature.likes')}
                             >
                                 <Heart className={cn('w-4 h-4', isFeaturedLiked && 'text-news-accent fill-news-accent')} />
                                 <span className="text-[11px]">{featured.like_count || 0}</span>
@@ -365,7 +368,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             <button
                                 onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: featured.id, isBookmarked: isFeaturedBookmarked }); }}
                                 className="text-muted-foreground hover:text-news-accent transition-colors"
-                                aria-label="Bookmark"
+                                aria-label={t('saved.title')}
                             >
                                 <Bookmark className={cn('w-4 h-4', isFeaturedBookmarked && 'text-news-accent fill-news-accent')} />
                             </button>
@@ -379,7 +382,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                                     }).catch(() => {});
                                 }}
                                 className="text-muted-foreground hover:text-news-accent transition-colors"
-                                aria-label="Share"
+                                aria-label={t('share.action')}
                             >
                                 <Share2 className="w-4 h-4" />
                             </button>
@@ -395,7 +398,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
 
             {/* ═══════════════ BOTTOM: Related ═══════════════ */}
             <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-24">
-                <h3 className="shrink-0 font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">Related</h3>
+                <h3 className="shrink-0 font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">{t('news.related')}</h3>
 
                 <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-2">
                     {related.length > 0 ? (
@@ -410,7 +413,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                         ))
                     ) : (
                         <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-                            No related available
+                            {t('news.related.empty')}
                         </div>
                     )}
                 </div>

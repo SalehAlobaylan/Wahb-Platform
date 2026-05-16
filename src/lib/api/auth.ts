@@ -65,3 +65,25 @@ export async function fetchCurrentUser(): Promise<{ user: AuthUser | null }> {
 
   return res.json();
 }
+
+export async function updateProfile(payload: {
+  username?: string;
+  bio?: string;
+  avatar_url?: string;
+  interests?: string[];
+}): Promise<AuthUser> {
+  const res = await fetch('/api/auth/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to update profile' }));
+    throw new Error(err.message || 'Failed to update profile');
+  }
+
+  // IAM returns the updated user object directly (or wrapped in { data }).
+  const data = await res.json();
+  return (data?.data ?? data) as AuthUser;
+}

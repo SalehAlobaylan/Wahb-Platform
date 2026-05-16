@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
   X,
@@ -8,11 +9,17 @@ import {
   SlidersHorizontal,
   FileText,
   Save,
+  Send,
   Timer,
   Type,
-  Trash2
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
+import { useAuthStore } from '@/lib/stores';
+import { usePublishContent } from '@/lib/hooks/use-publish-content';
+import { dataUrlToBlob } from '@/lib/api/content';
+import { useTranslations } from '@/lib/i18n/use-translations';
 import { cn } from '@/lib/utils';
 
 const DRAFT_STORAGE_KEY = 'wahb_create_draft';
@@ -43,6 +50,8 @@ function formatDraftDate(value: string) {
 export default function CreatePage() {
   const router = useRouter();
   const hasNowPlaying = Boolean(useNowPlayingStore((state) => state.currentItem));
+  const { isAuthenticated } = useAuthStore();
+  const publish = usePublishContent();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -58,6 +67,7 @@ export default function CreatePage() {
   const [warmClarity, setWarmClarity] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const t = useTranslations();
 
   const hasDraftContent = title.trim().length > 0 || body.trim().length > 0 || Boolean(audioDataUrl);
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
@@ -197,6 +207,44 @@ export default function CreatePage() {
 
   const draftPreview = savedDraft?.body || savedDraft?.title || 'Untitled draft';
 
+  const trimmedTitle = title.trim();
+  const trimmedBody = body.trim();
+  const canPublish = isAuthenticated && trimmedTitle.length >= 3 && (trimmedBody.length > 0 || Boolean(audioDataUrl));
+
+  const handlePublish = async () => {
+    if (!canPublish) return;
+    setStatusMessage(null);
+
+    const audioBlob = audioDataUrl ? dataUrlToBlob(audioDataUrl) : null;
+    try {
+      const result = await publish.mutateAsync({
+        title: trimmedTitle,
+        bodyText: trimmedBody,
+        audioBlob: audioBlob ?? undefined,
+        audioFilename: audioMimeType
+          ? `voice-layer.${audioMimeType.split('/')[1]?.split(';')[0] || 'webm'}`
+          : 'voice-layer.webm',
+      });
+
+      // Drop the local draft now that the item is in CMS.
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setSavedDraft(null);
+
+      if (result.status === 'READY') {
+        toast.success('Published to your profile');
+      } else {
+        toast('Submitted — normalizing audio', {
+          description: 'It will appear in My Audio once transcoding finishes.',
+        });
+      }
+
+      const targetTab = audioBlob ? 'audio' : 'writes';
+      setTimeout(() => router.push(`/profile?tab=${targetTab}`), 700);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to publish');
+    }
+  };
+
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground font-sans" dir="ltr">
       <div
@@ -204,19 +252,19 @@ export default function CreatePage() {
         style={{ background: 'radial-gradient(circle at 100% 0%, rgba(218, 164, 40, 0.16) 0%, transparent 42%)' }}
       />
 
-      <nav className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-background/90 p-4 pb-2 backdrop-blur-md">
-        <button
-          onClick={() => router.back()}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted/70"
-          aria-label="Close create page"
-        >
-          <X className="h-6 w-6" />
-        </button>
+        <nav className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-background/90 p-4 pb-2 backdrop-blur-md">
+          <button
+            onClick={() => router.back()}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted/70"
+            aria-label={t('create.close')}
+          >
+            <X className="h-6 w-6" />
+          </button>
 
-        <h1 className="flex-1 pr-10 text-center font-serif text-xl font-bold leading-tight tracking-[-0.015em] text-primary">
-          WAHB.
-        </h1>
-      </nav>
+          <h1 className="flex-1 pr-10 text-center font-serif text-xl font-bold leading-tight tracking-[-0.015em] text-primary">
+            WAHB.
+          </h1>
+        </nav>
 
       <main
         className={cn(
@@ -224,17 +272,17 @@ export default function CreatePage() {
           hasNowPlaying ? 'pb-24' : 'pb-6'
         )}
       >
-        <div className="flex items-center justify-between px-2">
-          <button
-            onClick={() => setShowDrafts((value) => !value)}
-            className={cn(
-              'flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary',
-              showDrafts ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            <FileText className="h-4 w-4" />
-            Drafts
-          </button>
+         <div className="flex items-center justify-between px-2">
+           <button
+             onClick={() => setShowDrafts((value) => !value)}
+             className={cn(
+               'flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary',
+               showDrafts ? 'text-primary' : 'text-muted-foreground'
+             )}
+           >
+             <FileText className="h-4 w-4" />
+             {t('create.drafts')}
+           </button>
 
           <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -257,43 +305,43 @@ export default function CreatePage() {
         )}
 
         {showDrafts && (
-          <section className="mt-4 rounded-3xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-serif text-base font-bold text-foreground">Saved Draft</p>
-                {savedDraft ? (
-                  <>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{draftPreview}</p>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">
-                      Updated {formatDraftDate(savedDraft.updatedAt)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">No saved draft on this device yet.</p>
-                )}
-              </div>
+           <section className="mt-4 rounded-3xl border border-border bg-card p-4 shadow-sm">
+             <div className="flex items-start justify-between gap-3">
+               <div className="min-w-0">
+                 <p className="font-serif text-base font-bold text-foreground">{t('create.savedDraft')}</p>
+                 {savedDraft ? (
+                   <>
+                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{draftPreview}</p>
+                     <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary/70">
+                       {t('create.updatedAt', { date: formatDraftDate(savedDraft.updatedAt) })}
+                     </p>
+                   </>
+                 ) : (
+                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('create.noSavedDraft')}</p>
+                 )}
+               </div>
 
-              {savedDraft && (
-                <button
-                  onClick={handleDeleteDraft}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-                  aria-label="Delete draft"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+               {savedDraft && (
+                 <button
+                   onClick={handleDeleteDraft}
+                   className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                   aria-label={t('create.deleteDraft')}
+                 >
+                   <Trash2 className="h-4 w-4" />
+                 </button>
+               )}
+             </div>
 
-            {savedDraft && (
-              <button
-                onClick={handleLoadDraft}
-                className="mt-4 h-10 w-full rounded-full bg-primary text-xs font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
-              >
-                Load Draft
-              </button>
-            )}
-          </section>
-        )}
+             {savedDraft && (
+               <button
+                 onClick={handleLoadDraft}
+                 className="mt-4 h-10 w-full rounded-full bg-primary text-xs font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+               >
+                 {t('create.loadDraft')}
+               </button>
+             )}
+           </section>
+         )}
 
         <section className="mt-5 flex min-h-[58vh] flex-col rounded-3xl border border-border/70 bg-card/60 p-4 shadow-sm backdrop-blur-sm">
           <div className="mb-2 flex items-center justify-between">
@@ -303,15 +351,31 @@ export default function CreatePage() {
                 {lastSavedAt ? `Draft saved at ${lastSavedAt}` : 'Start with text. Add voice whenever it helps.'}
               </p>
             </div>
-            <button
-              onClick={handleSaveDraft}
-              disabled={!hasDraftContent}
-              className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-3 text-xs font-bold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
-              aria-label="Save draft"
-            >
-              <Save className="h-3.5 w-3.5" />
-              Save
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+               <button
+                 onClick={handleSaveDraft}
+                 disabled={!hasDraftContent}
+                 className="flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-background px-3 text-xs font-bold text-foreground transition-all hover:border-primary/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                 aria-label={t('create.saveDraft')}
+               >
+                <Save className="h-3.5 w-3.5" />
+                Save
+              </button>
+                <button
+                  onClick={handlePublish}
+                  disabled={!canPublish || publish.isPending}
+                  className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-3 text-xs font-bold text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                  aria-label={t('create.publish')}
+                  title={!isAuthenticated ? t('create.publish.signIn') : trimmedTitle.length < 3 ? t('create.publish.titleMin') : undefined}
+                >
+                {publish.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Publish
+              </button>
+            </div>
           </div>
 
           <input
@@ -347,14 +411,14 @@ export default function CreatePage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowTuning((value) => !value)}
-                className={cn(
-                  'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors',
-                  showTuning ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-                )}
-                aria-label="Tune voice"
-              >
+               <button
+                 onClick={() => setShowTuning((value) => !value)}
+                 className={cn(
+                   'flex size-10 shrink-0 items-center justify-center rounded-full transition-colors',
+                   showTuning ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                 )}
+                 aria-label={t('create.tuneVoice')}
+               >
                 <SlidersHorizontal className="h-5 w-5" />
               </button>
               <button

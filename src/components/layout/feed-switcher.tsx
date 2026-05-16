@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 
 type FeedType = 'foryou' | 'news' | 'saved';
 
@@ -15,6 +16,7 @@ interface FeedSwitcherProps {
 export function FeedSwitcher({ value, onChange, variant = 'dark' }: FeedSwitcherProps) {
     const pathname = usePathname();
     const isDark = variant === 'dark';
+    const t = useTranslations();
 
     // Determine active feed from pathname if value not provided
     const activeFeed: FeedType = value ?? (
@@ -30,9 +32,9 @@ export function FeedSwitcher({ value, onChange, variant = 'dark' }: FeedSwitcher
     };
 
     const tabs: { key: FeedType; label: string; href: string }[] = [
-        { key: 'foryou', label: 'For You', href: '/' },
-        { key: 'news', label: 'News', href: '/news' },
-        { key: 'saved', label: 'Saved', href: '/saved' },
+        { key: 'foryou', label: t('feeds.foryou'), href: '/' },
+        { key: 'news', label: t('feeds.news'), href: '/news' },
+        { key: 'saved', label: t('feeds.saved'), href: '/saved' },
     ];
 
     return (

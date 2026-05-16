@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { loginUser, registerUser, logoutUser, fetchCurrentUser, changePassword } from '@/lib/api';
+import { loginUser, registerUser, logoutUser, fetchCurrentUser, changePassword, updateProfile } from '@/lib/api';
 import { useAuthStore } from '@/lib/stores';
 
 export function useUser() {
@@ -65,5 +65,18 @@ export function useChangePassword() {
       currentPassword: string;
       newPassword: string;
     }) => changePassword(currentPassword, newPassword),
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const { setUser } = useAuthStore();
+
+  return useMutation({
+    mutationFn: updateProfile,
+    onSuccess: (user) => {
+      setUser(user);
+      queryClient.setQueryData(['auth', 'user'], user);
+    },
   });
 }

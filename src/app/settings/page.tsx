@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,6 +17,7 @@ import { useAuthStore } from '@/lib/stores';
 import { useChangePassword, useLogout } from '@/lib/hooks/use-auth';
 import { useTheme } from 'next-themes';
 import { fetchWatchHistory, clearWatchHistory, type WatchHistoryItem } from '@/lib/api/feeds';
+import { useI18n, useTranslations, type Locale } from '@/lib/i18n';
 
 /* ═══════════════════════════════════════════════════════
    Sub-panel type & registry
@@ -57,7 +58,7 @@ function SettingsCard({ children, locked }: { children: ReactNode; locked?: bool
     );
 }
 
-function LaterPill({ className }: { className?: string }) {
+function LaterPill({ className, label = 'Later' }: { className?: string; label?: string }) {
     return (
         <span
             className={cn(
@@ -66,7 +67,7 @@ function LaterPill({ className }: { className?: string }) {
             )}
         >
             <Lock className="w-3 h-3 shrink-0 opacity-90" aria-hidden />
-            Later
+            {label}
         </span>
     );
 }
@@ -82,6 +83,7 @@ function SettingsRow({
     onClick,
     trailing,
     disabled,
+    t,
 }: {
     icon: ReactNode;
     label: string;
@@ -89,6 +91,7 @@ function SettingsRow({
     onClick?: () => void;
     trailing?: ReactNode;
     disabled?: boolean;
+    t: (key: string) => string;
 }) {
     const interactive = !!onClick && !disabled;
     const Wrapper = interactive ? 'button' : 'div';
@@ -124,7 +127,7 @@ function SettingsRow({
                 </span>
             </div>
             <div className="flex items-center gap-2 shrink-0 pl-2">
-                {disabled && <LaterPill />}
+                {disabled && <LaterPill label={t('settings.later')} />}
                 {trailing ?? (
                     <>
                         {value && <span className="text-xs text-muted-foreground">{value}</span>}
@@ -227,15 +230,15 @@ function RadioOption({
    Sub-panels
    ═══════════════════════════════════════════════════════ */
 
-function ProfilePanel({ onBack }: { onBack: () => void }) {
+function ProfilePanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
     const { user } = useAuthStore();
-    const displayName = user?.username || 'Guest';
+    const displayName = user?.username || t('misc.signInRequired');
     const displayEmail = user?.email || '—';
     const initials = displayName.slice(0, 2).toUpperCase();
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Profile" onBack={onBack} />
+            <PanelHeader title={t('settings.panel.profile')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 {/* Avatar & Name */}
                 <div className="flex flex-col items-center pt-2 pb-4">
@@ -245,15 +248,15 @@ function ProfilePanel({ onBack }: { onBack: () => void }) {
                         </div>
                     </div>
                     <h2 className="font-serif text-lg font-bold text-foreground">{displayName}</h2>
-                    <p className="text-xs text-gold font-medium tracking-wide uppercase mt-0.5">Member</p>
+                    <p className="text-xs text-gold font-medium tracking-wide uppercase mt-0.5">{t('settings.profile.member')}</p>
                 </div>
 
                 <div>
-                    <SectionTitle>Personal Info</SectionTitle>
+                    <SectionTitle>{t('settings.profile.section.personal')}</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<User className="w-4 h-4" />} label="Username" value={displayName} />
+                        <SettingsRow icon={<User className="w-4 h-4" />} label={t('settings.profile.username')} value={displayName} t={t} />
                         <Divider />
-                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Email" value={displayEmail} />
+                        <SettingsRow icon={<Shield className="w-4 h-4" />} label={t('settings.profile.email')} value={displayEmail} t={t} />
                     </SettingsCard>
                 </div>
             </div>
@@ -261,41 +264,43 @@ function ProfilePanel({ onBack }: { onBack: () => void }) {
     );
 }
 
-function AudioPanel({ onBack }: { onBack: () => void }) {
+function AudioPanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
     const [quality, setQuality] = useState('high');
     const [spatialAudio, setSpatialAudio] = useState(true);
     const [autoPlay, setAutoPlay] = useState(true);
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Audio Quality" onBack={onBack} />
+            <PanelHeader title={t('settings.panel.audio')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 <div>
-                    <SectionTitle>Streaming Quality</SectionTitle>
+                    <SectionTitle>{t('settings.audio.section.streaming')}</SectionTitle>
                     <SettingsCard>
-                        <RadioOption label="Low" description="64 kbps · Uses less data" selected={quality === 'low'} onSelect={() => setQuality('low')} />
+                        <RadioOption label={t('settings.audio.quality.low')} description={t('settings.audio.quality.low.desc')} selected={quality === 'low'} onSelect={() => setQuality('low')} />
                         <Divider />
-                        <RadioOption label="Normal" description="128 kbps · Balanced" selected={quality === 'normal'} onSelect={() => setQuality('normal')} />
+                        <RadioOption label={t('settings.audio.quality.normal')} description={t('settings.audio.quality.normal.desc')} selected={quality === 'normal'} onSelect={() => setQuality('normal')} />
                         <Divider />
-                        <RadioOption label="High Fidelity" description="256 kbps · Best sound" selected={quality === 'high'} onSelect={() => setQuality('high')} />
+                        <RadioOption label={t('settings.audio.quality.high')} description={t('settings.audio.quality.high.desc')} selected={quality === 'high'} onSelect={() => setQuality('high')} />
                         <Divider />
-                        <RadioOption label="Lossless" description="FLAC · Requires Patron plan" selected={quality === 'lossless'} onSelect={() => setQuality('lossless')} />
+                        <RadioOption label={t('settings.audio.quality.lossless')} description={t('settings.audio.quality.lossless.desc')} selected={quality === 'lossless'} onSelect={() => setQuality('lossless')} />
                     </SettingsCard>
                 </div>
 
                 <div>
-                    <SectionTitle>Playback</SectionTitle>
+                    <SectionTitle>{t('settings.audio.section.playback')}</SectionTitle>
                     <SettingsCard>
                         <SettingsRow
                             icon={<Volume2 className="w-4 h-4" />}
-                            label="Spatial Audio"
+                            label={t('settings.audio.spatial')}
                             trailing={<Toggle checked={spatialAudio} onChange={setSpatialAudio} />}
+                            t={t}
                         />
                         <Divider />
                         <SettingsRow
                             icon={<AudioLines className="w-4 h-4" />}
-                            label="Autoplay"
+                            label={t('settings.audio.autoplay')}
                             trailing={<Toggle checked={autoPlay} onChange={setAutoPlay} />}
+                            t={t}
                         />
                     </SettingsCard>
                 </div>
@@ -304,21 +309,21 @@ function AudioPanel({ onBack }: { onBack: () => void }) {
     );
 }
 
-function ThemePanel({ onBack }: { onBack: () => void }) {
+function ThemePanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
     const { theme, setTheme: setAppTheme } = useTheme();
     const [fontSize, setFontSize] = useState('medium');
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Display & Theme" onBack={onBack} />
+            <PanelHeader title={t('settings.panel.theme')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 <div>
-                    <SectionTitle>Theme</SectionTitle>
+                    <SectionTitle>{t('settings.theme.section')}</SectionTitle>
                     <div className="grid grid-cols-3 gap-3">
                         {[
-                            { key: 'dark', label: 'Dark', icon: <Moon className="w-5 h-5" /> },
-                            { key: 'light', label: 'Light', icon: <Sun className="w-5 h-5" /> },
-                            { key: 'system', label: 'System', icon: <Monitor className="w-5 h-5" /> },
+                            { key: 'dark', label: t('settings.theme.dark'), icon: <Moon className="w-5 h-5" /> },
+                            { key: 'light', label: t('settings.theme.light'), icon: <Sun className="w-5 h-5" /> },
+                            { key: 'system', label: t('settings.theme.system'), icon: <Monitor className="w-5 h-5" /> },
                         ].map((t) => (
                             <button
                                 key={t.key}
@@ -338,30 +343,30 @@ function ThemePanel({ onBack }: { onBack: () => void }) {
                 </div>
 
                 <div>
-                    <SectionTitle>Text Size</SectionTitle>
+                    <SectionTitle>{t('settings.theme.textSize')}</SectionTitle>
                     <SettingsCard>
-                        <RadioOption label="Small" description="Compact reading" selected={fontSize === 'small'} onSelect={() => setFontSize('small')} />
+                        <RadioOption label={t('settings.theme.size.small')} description={t('settings.theme.size.small.desc')} selected={fontSize === 'small'} onSelect={() => setFontSize('small')} />
                         <Divider />
-                        <RadioOption label="Medium" description="Default size" selected={fontSize === 'medium'} onSelect={() => setFontSize('medium')} />
+                        <RadioOption label={t('settings.theme.size.medium')} description={t('settings.theme.size.medium.desc')} selected={fontSize === 'medium'} onSelect={() => setFontSize('medium')} />
                         <Divider />
-                        <RadioOption label="Large" description="Easier to read" selected={fontSize === 'large'} onSelect={() => setFontSize('large')} />
+                        <RadioOption label={t('settings.theme.size.large')} description={t('settings.theme.size.large.desc')} selected={fontSize === 'large'} onSelect={() => setFontSize('large')} />
                     </SettingsCard>
                 </div>
 
                 <div>
-                    <SectionTitle>Preview</SectionTitle>
+                    <SectionTitle>{t('settings.theme.preview')}</SectionTitle>
                     <div className="bg-card rounded-xl border border-border p-5">
                         <h3 className={cn(
                             'font-serif font-bold text-foreground mb-1.5',
                             fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-2xl' : 'text-lg'
                         )}>
-                            The Art of Listening
+                            {t('settings.theme.preview.title')}
                         </h3>
                         <p className={cn(
                             'text-muted-foreground leading-relaxed',
                             fontSize === 'small' ? 'text-xs' : fontSize === 'large' ? 'text-base' : 'text-sm'
                         )}>
-                            Discover how deep listening transforms our understanding of music and spoken word.
+                            {t('settings.theme.preview.body')}
                         </p>
                     </div>
                 </div>
@@ -370,33 +375,37 @@ function ThemePanel({ onBack }: { onBack: () => void }) {
     );
 }
 
-function LanguagePanel({ onBack }: { onBack: () => void }) {
-    const [language, setLanguage] = useState('en');
+function LanguagePanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
+    const { locale, setLocale } = useI18n();
+    const [language, setLanguage] = useState<Locale>(locale);
+
+    const handleSelect = (next: Locale) => {
+        setLanguage(next);
+        setLocale(next);
+    };
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Language" onBack={onBack} />
+            <PanelHeader title={t('settings.language.title')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 <div>
-                    <SectionTitle>App Language</SectionTitle>
+                    <SectionTitle>{t('settings.language.app')}</SectionTitle>
                     <SettingsCard>
-                        <RadioOption label="English" description="English (US)" selected={language === 'en'} onSelect={() => setLanguage('en')} />
+                        <RadioOption label={t('settings.language.english')} description="English (US)" selected={language === 'en'} onSelect={() => handleSelect('en')} />
                         <Divider />
-                        <RadioOption label="العربية" description="Arabic" selected={language === 'ar'} onSelect={() => setLanguage('ar')} />
-                        <Divider />
-                        <RadioOption label="Español" description="Spanish" selected={language === 'es'} onSelect={() => setLanguage('es')} />
-                        <Divider />
-                        <RadioOption label="Français" description="French" selected={language === 'fr'} onSelect={() => setLanguage('fr')} />
+                        <RadioOption label={t('settings.language.arabic')} description="Arabic" selected={language === 'ar'} onSelect={() => handleSelect('ar')} />
                     </SettingsCard>
+                    <p className="mt-3 text-xs text-muted-foreground">{t('settings.language.help')}</p>
                 </div>
 
                 <div>
-                    <SectionTitle>Content Language</SectionTitle>
+                    <SectionTitle>{t('settings.language.content')}</SectionTitle>
                     <SettingsCard>
-                        <RadioOption label="Same as App" selected={true} onSelect={() => { }} />
+                        <RadioOption label={t('settings.language.sameAsApp')} selected={true} onSelect={() => { }} />
                         <Divider />
-                        <RadioOption label="All Languages" selected={false} onSelect={() => { }} />
+                        <RadioOption label={t('settings.language.all')} selected={false} onSelect={() => { }} />
                     </SettingsCard>
+                    <p className="mt-3 text-xs text-muted-foreground">{t('settings.language.moreSoon')}</p>
                 </div>
             </div>
         </div>
@@ -406,53 +415,58 @@ function LanguagePanel({ onBack }: { onBack: () => void }) {
 function SecurityPanel({
     onBack,
     onChangePassword,
+    t,
 }: {
     onBack: () => void;
     onChangePassword: () => void;
+    t: (key: string) => string;
 }) {
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Privacy & Security" onBack={onBack} />
+            <PanelHeader title={t('settings.panel.security')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 <div>
-                    <SectionTitle>Authentication</SectionTitle>
+                    <SectionTitle>{t('settings.section.authentication')}</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Change Password" onClick={onChangePassword} />
+                        <SettingsRow icon={<Shield className="w-4 h-4" />} label={t('settings.row.changePassword')} onClick={onChangePassword} t={t} />
                         <Divider />
                         <SettingsRow
                             icon={<Eye className="w-4 h-4" />}
-                            label="Face ID / Biometric"
+                            label={t('settings.row.faceId')}
                             disabled
                             trailing={<Toggle checked={false} onChange={() => { }} disabled />}
+                            t={t}
                         />
                         <Divider />
                         <SettingsRow
                             icon={<Shield className="w-4 h-4" />}
-                            label="Two-Factor Auth"
+                            label={t('settings.row.twoFactor')}
                             disabled
                             trailing={<Toggle checked={false} onChange={() => { }} disabled />}
+                            t={t}
                         />
                     </SettingsCard>
                 </div>
 
                 <div>
-                    <SectionTitle>Privacy</SectionTitle>
+                    <SectionTitle>{t('settings.section.privacy')}</SectionTitle>
                     <SettingsCard locked>
                         <SettingsRow
                             icon={<Eye className="w-4 h-4" />}
-                            label="Private Profile"
+                            label={t('settings.row.privateProfile')}
                             disabled
                             trailing={<Toggle checked={false} onChange={() => { }} disabled />}
+                            t={t}
                         />
                     </SettingsCard>
                 </div>
 
                 <div>
-                    <SectionTitle>Data</SectionTitle>
+                    <SectionTitle>{t('settings.section.data')}</SectionTitle>
                     <SettingsCard locked>
-                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Download My Data" disabled />
+                        <SettingsRow icon={<Download className="w-4 h-4" />} label={t('settings.row.downloadData')} disabled t={t} />
                         <Divider />
-                        <SettingsRow icon={<Trash2 className="w-4 h-4" />} label="Delete Account" disabled />
+                        <SettingsRow icon={<Trash2 className="w-4 h-4" />} label={t('settings.row.deleteAccount')} disabled t={t} />
                     </SettingsCard>
                 </div>
             </div>
@@ -493,7 +507,7 @@ function PasswordInput({
     );
 }
 
-function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
+function ChangePasswordPanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
     const { isAuthenticated } = useAuthStore();
     const changePassword = useChangePassword();
     const [currentPassword, setCurrentPassword] = useState('');
@@ -516,22 +530,22 @@ function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
         setSuccess('');
 
         if (!isAuthenticated) {
-            setError('Please sign in before changing your password.');
+            setError(t('settings.password.error.signIn'));
             return;
         }
 
         if (!passwordsMatch) {
-            setError('New passwords do not match.');
+            setError(t('settings.password.error.mismatch'));
             return;
         }
 
         if (newPassword.length < 4) {
-            setError('New password must be at least 4 characters.');
+            setError(t('settings.password.error.min'));
             return;
         }
 
         if (currentPassword === newPassword) {
-            setError('New password must be different from your current password.');
+            setError(t('settings.password.error.same'));
             return;
         }
 
@@ -540,24 +554,24 @@ function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
-            setSuccess('Password updated successfully.');
+            setSuccess(t('settings.password.success'));
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Password update failed.');
+            setError(err instanceof Error ? err.message : t('settings.password.error.failed'));
         }
     }
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Change Password" onBack={onBack} />
+            <PanelHeader title={t('settings.password.title')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 {!isAuthenticated && (
                     <div className="rounded-xl border border-gold/20 bg-gold/10 p-4">
-                        <p className="text-sm font-medium text-foreground">Sign in required</p>
+                        <p className="text-sm font-medium text-foreground">{t('settings.password.signInRequired.title')}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                            You need to be signed in to update your password.
+                            {t('settings.password.signInRequired.body')}
                         </p>
                         <Link href="/login" className="mt-3 inline-flex text-sm font-semibold text-gold hover:text-gold/80">
-                            Sign in
+                            {t('settings.password.signInRequired.action')}
                         </Link>
                     </div>
                 )}
@@ -576,29 +590,29 @@ function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <PasswordInput
-                        label="Current Password"
+                        label={t('settings.password.current')}
                         value={currentPassword}
                         onChange={setCurrentPassword}
-                        placeholder="Enter current password"
+                        placeholder={t('settings.password.placeholder.current')}
                         autoComplete="current-password"
                     />
                     <PasswordInput
-                        label="New Password"
+                        label={t('settings.password.new')}
                         value={newPassword}
                         onChange={setNewPassword}
-                        placeholder="Min 4 characters"
+                        placeholder={t('settings.password.placeholder.new')}
                         autoComplete="new-password"
                     />
                     <PasswordInput
-                        label="Confirm New Password"
+                        label={t('settings.password.confirm')}
                         value={confirmPassword}
                         onChange={setConfirmPassword}
-                        placeholder="Repeat new password"
+                        placeholder={t('settings.password.placeholder.confirm')}
                         autoComplete="new-password"
                     />
 
                     {confirmPassword && !passwordsMatch && (
-                        <p className="text-xs text-red-400 ml-1">New passwords do not match</p>
+                        <p className="text-xs text-red-400 ml-1">{t('settings.password.mismatch')}</p>
                     )}
 
                     <button
@@ -609,10 +623,10 @@ function ChangePasswordPanel({ onBack }: { onBack: () => void }) {
                         {changePassword.isPending ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Updating password...
+                                {t('settings.password.updating')}
                             </>
                         ) : (
-                            'Update Password'
+                            t('settings.password.update')
                         )}
                     </button>
                 </form>
@@ -640,7 +654,7 @@ function formatDuration(sec?: number): string {
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function HistoryPanel({ onBack }: { onBack: () => void }) {
+function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
     const queryClient = useQueryClient();
     const [confirmClear, setConfirmClear] = useState(false);
 
@@ -670,7 +684,7 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
 
     return (
         <div className="flex flex-col h-full bg-background">
-            <PanelHeader title="Watch History" onBack={onBack} />
+            <PanelHeader title={t('settings.history.title')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto">
                 {/* Clear button */}
                 {allItems.length > 0 && (
@@ -682,13 +696,13 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
                                     disabled={clearMutation.isPending}
                                     className="flex-1 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-medium border border-destructive/20 hover:bg-destructive/20 transition-colors disabled:opacity-50"
                                 >
-                                    {clearMutation.isPending ? 'Clearing…' : 'Yes, clear all'}
+                                    {clearMutation.isPending ? t('settings.history.loading') : t('settings.history.confirm')}
                                 </button>
                                 <button
                                     onClick={() => setConfirmClear(false)}
                                     className="flex-1 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
                                 >
-                                    Cancel
+                                    {t('settings.history.cancel')}
                                 </button>
                             </div>
                         ) : (
@@ -697,7 +711,7 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
                                 className="w-full py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:border-destructive/30 hover:text-destructive transition-colors flex items-center justify-center gap-2"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
-                                Clear watch history
+                                {t('settings.history.clear')}
                             </button>
                         )}
                     </div>
@@ -721,7 +735,7 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
                 {isError && (
                     <div className="flex flex-col items-center justify-center py-16 px-5 text-center gap-3">
                         <AlertCircle className="w-8 h-8 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Failed to load history</p>
+                        <p className="text-sm text-muted-foreground">{t('settings.history.failed')}</p>
                     </div>
                 )}
 
@@ -730,9 +744,9 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
                         <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
                             <Clock className="w-6 h-6 text-muted-foreground" />
                         </div>
-                        <h3 className="font-serif text-base font-semibold text-foreground">Nothing here yet</h3>
+                        <h3 className="font-serif text-base font-semibold text-foreground">{t('settings.history.empty.title')}</h3>
                         <p className="text-sm text-muted-foreground leading-relaxed max-w-[220px]">
-                            Videos you watch will appear here so you can easily find them again.
+                            {t('settings.history.empty.body')}
                         </p>
                     </div>
                 )}
@@ -792,7 +806,7 @@ function HistoryPanel({ onBack }: { onBack: () => void }) {
                                 disabled={isFetchingNextPage}
                                 className="w-full py-3 text-sm text-gold font-medium hover:text-gold/80 transition-colors disabled:opacity-50"
                             >
-                                {isFetchingNextPage ? 'Loading…' : 'Load more'}
+                                {isFetchingNextPage ? t('settings.history.loading') : t('settings.history.loadMore')}
                             </button>
                         )}
                     </div>
@@ -810,6 +824,14 @@ export default function SettingsPage() {
     const { user, isAuthenticated } = useAuthStore();
     const logout = useLogout();
     const router = useRouter();
+    const t = useTranslations();
+    const { locale } = useI18n();
+
+    const languageValue = useMemo(() => {
+        return locale === 'ar'
+            ? t('settings.language.value.arabic')
+            : t('settings.language.value.english');
+    }, [locale, t]);
 
     const goBack = () => setActivePanel('main');
 
@@ -818,13 +840,13 @@ export default function SettingsPage() {
         router.push('/');
     }
 
-    if (activePanel === 'change-password') return <ChangePasswordPanel onBack={() => setActivePanel('security')} />;
-    if (activePanel === 'profile') return <ProfilePanel onBack={goBack} />;
-    if (activePanel === 'audio') return <AudioPanel onBack={goBack} />;
-    if (activePanel === 'theme') return <ThemePanel onBack={goBack} />;
-    if (activePanel === 'language') return <LanguagePanel onBack={goBack} />;
-    if (activePanel === 'security') return <SecurityPanel onBack={goBack} onChangePassword={() => setActivePanel('change-password')} />;
-    if (activePanel === 'history') return <HistoryPanel onBack={goBack} />;
+    if (activePanel === 'change-password') return <ChangePasswordPanel onBack={() => setActivePanel('security')} t={t} />;
+    if (activePanel === 'profile') return <ProfilePanel onBack={goBack} t={t} />;
+    if (activePanel === 'audio') return <AudioPanel onBack={goBack} t={t} />;
+    if (activePanel === 'theme') return <ThemePanel onBack={goBack} t={t} />;
+    if (activePanel === 'language') return <LanguagePanel onBack={goBack} t={t} />;
+    if (activePanel === 'security') return <SecurityPanel onBack={goBack} onChangePassword={() => setActivePanel('change-password')} t={t} />;
+    if (activePanel === 'history') return <HistoryPanel onBack={goBack} t={t} />;
 
     return (
         <div className="h-full w-full overflow-y-auto bg-background text-foreground font-sans">
@@ -836,7 +858,7 @@ export default function SettingsPage() {
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                     </Link>
-                    <h1 className="font-serif text-xl font-bold tracking-wide text-foreground">Settings</h1>
+                    <h1 className="font-serif text-xl font-bold tracking-wide text-foreground">{t('settings.title')}</h1>
                     <div className="w-9" />
                 </div>
             </header>
@@ -869,8 +891,8 @@ export default function SettingsPage() {
                                 <User className="w-6 h-6 text-muted-foreground" />
                             </div>
                             <div className="flex-1 text-left min-w-0">
-                                <h2 className="font-serif text-base font-semibold text-foreground">Sign In</h2>
-                                <p className="text-xs text-muted-foreground">Personalize your experience</p>
+                                <h2 className="font-serif text-base font-semibold text-foreground">{t('settings.signIn')}</h2>
+                                <p className="text-xs text-muted-foreground">{t('auth.login.subtitle')}</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
@@ -879,33 +901,33 @@ export default function SettingsPage() {
 
                 {/* ── Account ── */}
                 <div>
-                    <SectionTitle>Account</SectionTitle>
+                    <SectionTitle>{t('settings.section.account')}</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<Clock className="w-4 h-4" />} label="Watch History" onClick={() => setActivePanel('history')} />
+                        <SettingsRow icon={<Clock className="w-4 h-4" />} label={t('settings.row.watchHistory')} onClick={() => setActivePanel('history')} t={t} />
                         <Divider />
-                        <SettingsRow icon={<Shield className="w-4 h-4" />} label="Privacy & Security" onClick={() => setActivePanel('security')} />
+                        <SettingsRow icon={<Shield className="w-4 h-4" />} label={t('settings.row.privacySecurity')} onClick={() => setActivePanel('security')} t={t} />
                     </SettingsCard>
                 </div>
 
                 {/* ── Content & Playback ── */}
                 <div>
-                    <SectionTitle>Content & Playback</SectionTitle>
+                    <SectionTitle>{t('settings.section.content')}</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<AudioLines className="w-4 h-4" />} label="Audio Quality" value="High Fidelity" onClick={() => setActivePanel('audio')} />
+                        <SettingsRow icon={<AudioLines className="w-4 h-4" />} label={t('settings.row.audioQuality')} value={t('settings.audio.quality.high')} onClick={() => setActivePanel('audio')} t={t} />
                         <Divider />
-                        <SettingsRow icon={<Download className="w-4 h-4" />} label="Downloads & Offline" disabled />
+                        <SettingsRow icon={<Download className="w-4 h-4" />} label={t('settings.row.downloads')} disabled t={t} />
                     </SettingsCard>
                 </div>
 
                 {/* ── Preferences ── */}
                 <div>
-                    <SectionTitle>Preferences</SectionTitle>
+                    <SectionTitle>{t('settings.section.preferences')}</SectionTitle>
                     <SettingsCard>
-                        <SettingsRow icon={<Bell className="w-4 h-4" />} label="Notifications" disabled />
+                        <SettingsRow icon={<Bell className="w-4 h-4" />} label={t('settings.row.notifications')} disabled t={t} />
                         <Divider />
-                        <SettingsRow icon={<Palette className="w-4 h-4" />} label="Display & Theme" onClick={() => setActivePanel('theme')} />
+                        <SettingsRow icon={<Palette className="w-4 h-4" />} label={t('settings.row.displayTheme')} onClick={() => setActivePanel('theme')} t={t} />
                         <Divider />
-                        <SettingsRow icon={<Languages className="w-4 h-4" />} label="Language" value="English" onClick={() => setActivePanel('language')} />
+                        <SettingsRow icon={<Languages className="w-4 h-4" />} label={t('settings.row.language')} value={languageValue} onClick={() => setActivePanel('language')} t={t} />
                     </SettingsCard>
                 </div>
 
@@ -922,13 +944,13 @@ export default function SettingsPage() {
                             ) : (
                                 <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                             )}
-                            <span>Log Out</span>
+                            <span>{t('settings.logout')}</span>
                         </button>
                     ) : (
                         <Link href="/login">
                             <button className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                 <User className="w-4 h-4" />
-                                <span>Sign In</span>
+                                <span>{t('settings.signIn')}</span>
                             </button>
                         </Link>
                     )}

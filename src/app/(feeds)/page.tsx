@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
-import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs } from '@/components/feed';
+import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs, PullToRefresh } from '@/components/feed';
 import type { DraggableBottomSheetHandle } from '@/components/feed/draggable-bottom-sheet';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { Search, Bookmark, User, Heart, MessageCircle, RotateCcw, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 import {
     throttleScroll,
     TokenBucket,
@@ -54,6 +55,7 @@ function ForYouPageContent() {
         isFastSwiping, setFastSwiping,
     } = useFeedStore();
     const searchParams = useSearchParams();
+    const t = useTranslations();
 
     // API hooks
     const {
@@ -351,10 +353,10 @@ function ForYouPageContent() {
     if (isError) {
         return (
             <div className="h-full w-full bg-background">
-                <FeedErrorFallback
-                    onRetry={() => refetch()}
-                    message={error?.message || 'Failed to load feed'}
-                />
+                    <FeedErrorFallback
+                        onRetry={() => refetch()}
+                        message={error?.message || t('feed.error.foryou')}
+                    />
             </div>
         );
     }
@@ -385,7 +387,7 @@ function ForYouPageContent() {
                         <Link href="/search">
                             <div
                                 className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-all"
-                                aria-label="Search"
+                                aria-label={t('search.title')}
                             >
                                 <Search className="w-4.5 h-4.5 text-white" />
                             </div>
@@ -394,32 +396,43 @@ function ForYouPageContent() {
                 </div>
             </header>
 
-            {/* Feed content */}
-            <FeedContainer ref={feedRef} onScroll={handleScroll}>
-                {showLoading ? (
-                    <>
-                        <ForYouSkeleton />
-                        <ForYouSkeleton />
-                    </>
-                ) : (
-                    forYouItems.map((item, index) => (
-                        <ViewTracker key={item.id} contentId={item.id} className="h-full w-full snap-start snap-always">
-                            <ForYouCard
-                                item={item}
-                                isActive={index === forYouActiveIndex}
-                                videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
-                            />
-                        </ViewTracker>
-                    ))
-                )}
+            {/* Feed content. PullToRefresh reads scrollTop from feedRef so it
+                doesn't add a second scroll container; pulling down at the
+                top of the first card invalidates the query and refetches. */}
+            <PullToRefresh
+                onRefresh={async () => {
+                    await refetch();
+                }}
+                isRefreshing={isLoading}
+                externalScrollRef={feedRef}
+                className="h-full"
+            >
+                <FeedContainer ref={feedRef} onScroll={handleScroll}>
+                    {showLoading ? (
+                        <>
+                            <ForYouSkeleton />
+                            <ForYouSkeleton />
+                        </>
+                    ) : (
+                        forYouItems.map((item, index) => (
+                            <ViewTracker key={item.id} contentId={item.id} className="h-full w-full snap-start snap-always">
+                                <ForYouCard
+                                    item={item}
+                                    isActive={index === forYouActiveIndex}
+                                    videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
+                                />
+                            </ViewTracker>
+                        ))
+                    )}
 
-                {/* Loading more indicator */}
-                {isFetchingNextPage && (
-                    <div className="h-20 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-                    </div>
-                )}
-            </FeedContainer>
+                    {/* Loading more indicator */}
+                    {isFetchingNextPage && (
+                        <div className="h-20 flex items-center justify-center">
+                            <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+                        </div>
+                    )}
+                </FeedContainer>
+            </PullToRefresh>
 
             {/* ── Fixed Progress Bar ─────────────────────────────── */}
             <div className="absolute bottom-[80px] left-0 right-0 h-1 bg-white/10 z-30">
@@ -457,7 +470,7 @@ function ForYouPageContent() {
                             <button
                                 onClick={handleLike}
                                 className="flex flex-col items-center gap-1"
-                                aria-label="Like"
+                                aria-label={t('profile.guest.feature.likes')}
                             >
                                 <div className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center transition-all",
@@ -472,7 +485,7 @@ function ForYouPageContent() {
                             <button
                                 onClick={handleOpenComments}
                                 className="flex flex-col items-center gap-1"
-                                aria-label="Comment"
+                                aria-label={t('news.badge.reaction')}
                             >
                                 <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
                                     <MessageCircle className="w-5 h-5 text-foreground" />
@@ -484,7 +497,7 @@ function ForYouPageContent() {
                             <button
                                 onClick={handleBookmark}
                                 className="flex flex-col items-center gap-1"
-                                aria-label="Bookmark"
+                                aria-label={t('saved.title')}
                             >
                                 <div className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center transition-all",
@@ -498,7 +511,7 @@ function ForYouPageContent() {
                             <div ref={rewindButtonRef} className="relative">
                                 <button
                                     className="flex flex-col items-center gap-1"
-                                    aria-label="Rewind"
+                                aria-label={t('foryou.seek.back')}
                                     onPointerDown={startRewindPress}
                                     onPointerUp={endRewindPress}
                                     onPointerCancel={cancelRewindPress}
@@ -513,7 +526,7 @@ function ForYouPageContent() {
                                     <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
                                         <RotateCcw className="w-4 h-4 text-foreground" />
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground">15s</span>
+                                    <span className="text-[10px] text-muted-foreground">{t('foryou.seek.forward', { count: 15 })}</span>
                                 </button>
 
                                 {showSeekMenu && (
@@ -527,7 +540,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                +1m
+                                                {t('foryou.seek.forwardMinute')}
                                             </button>
                                             <button
                                                 className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
@@ -536,7 +549,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                +15s
+                                                {t('foryou.seek.forward', { count: 15 })}
                                             </button>
                                             <button
                                                 className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
@@ -545,7 +558,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                Back 1m
+                                                {t('foryou.seek.back')}
                                             </button>
                                             </div>
                                         </div>

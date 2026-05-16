@@ -9,6 +9,7 @@ import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { shareContent } from '@/lib/utils/share';
+import { useTranslations } from '@/lib/i18n/use-translations';
 import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
@@ -72,6 +73,7 @@ function CommentsSection({ article }: { article: ContentItem }) {
     const bookmarkMutation = useBookmarkMutation();
     const isLiked = likedIds.has(article.id);
     const isBookmarked = bookmarkedIds.has(article.id);
+    const t = useTranslations();
 
     return (
         <div className="px-6 pb-20">
@@ -113,7 +115,7 @@ function CommentsSection({ article }: { article: ContentItem }) {
             </div>
 
             {/* Comments heading */}
-            <h3 className="text-sm font-bold text-foreground mb-4">Comments</h3>
+            <h3 className="text-sm font-bold text-foreground mb-4">{t('articleReader.comments')}</h3>
 
             {/* Comment input */}
             <div className="flex items-center gap-3 mb-6">
@@ -148,7 +150,8 @@ function CommentsSection({ article }: { article: ContentItem }) {
 }
 
 function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClose: () => void }) {
-
+    const t = useTranslations();
+    
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
             month: 'long',
@@ -156,26 +159,29 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
             year: 'numeric',
         });
     };
-
+    
     const getReadTime = (content?: string) => {
         if (!content) return '3m';
         const words = content.split(' ').length;
         const minutes = Math.ceil(words / 200);
         return `${minutes} min read`;
     };
-
+    
     const getCategoryLabel = (item: ContentItem) => {
-        if (item.type === 'TWEET') return 'Social';
-        if (item.type === 'COMMENT') return 'Reaction';
+        if (item.type === 'TWEET') return t('articleReader.category.social');
+        if (item.type === 'COMMENT') return t('articleReader.category.reaction');
         if (item.topic_tags && item.topic_tags.length > 0) {
             const newsTag = item.topic_tags.find(t => t.startsWith('news-'));
             if (newsTag) {
                 const cat = newsTag.replace('news-', '');
-                return cat.charAt(0).toUpperCase() + cat.slice(1);
+                return t(`articleReader.category.${cat}`);
             }
-            if (item.topic_tags.includes('news')) return 'News';
+            if (item.topic_tags.includes('news')) return t('articleReader.category.news');
         }
-        return item.source_name || 'News Article';
+        if (item.source_name) {
+            return item.source_name;
+        }
+        return t('articleReader.category.newsArticle');
     };
 
     return (
@@ -187,24 +193,26 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                 className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden w-full h-full sm:max-w-md sm:mx-auto"
             >
-                {/* Header Navbar */}
-                <div className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background border-b border-foreground/20">
-                    <button
-                        onClick={onClose}
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground transition-colors"
-                        aria-label="Close reader"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                            <Bookmark className="w-5 h-5" />
-                        </button>
-                        <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                            <Share2 className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
+                 {/* Header Navbar */}
+                 <div className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background border-b border-foreground/20">
+                     <button
+                         onClick={onClose}
+                         className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground transition-colors"
+                         aria-label={t('articleReader.close')}
+                     >
+                         <X className="w-5 h-5" />
+                     </button>
+                     <div className="flex items-center gap-2">
+                         <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                                 aria-label={t('articleReader.bookmark')}>
+                             <Bookmark className="w-5 h-5" />
+                         </button>
+                         <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                                 aria-label={t('articleReader.share')}>
+                             <Share2 className="w-5 h-5" />
+                         </button>
+                     </div>
+                 </div>
 
                 {/* Article Content - Scrollable Region */}
                 <div className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">

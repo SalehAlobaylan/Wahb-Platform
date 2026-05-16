@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 import { shareContent } from '@/lib/utils/share';
 import { useTranscript, useRequestTranscription } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
@@ -39,10 +40,10 @@ interface BottomSheetTabsProps {
     tags?: string[];
 }
 
-const TABS: { key: TabKey; label: string; icon: typeof MessageCircle }[] = [
-    { key: 'comments', label: 'Comments', icon: MessageCircle },
-    { key: 'transcript', label: 'Transcript', icon: FileText },
-    { key: 'about', label: 'About', icon: Info },
+const TABS: { key: TabKey; labelKey: string; icon: typeof MessageCircle }[] = [
+    { key: 'comments', labelKey: 'comments.title', icon: MessageCircle },
+    { key: 'transcript', labelKey: 'transcript.title', icon: FileText },
+    { key: 'about', labelKey: 'about.title', icon: Info },
 ];
 
 /**
@@ -60,6 +61,7 @@ export function BottomSheetTabs({
     author,
     tags,
 }: BottomSheetTabsProps) {
+    const t = useTranslations();
     const [activeTab, setActiveTab] = useState<TabKey>('comments');
     const [commentBuckets, setCommentBuckets] = useState<Record<string, CommentItem[]>>({});
 
@@ -129,7 +131,7 @@ export function BottomSheetTabs({
                             )}
                         >
                             <tab.icon className="w-3.5 h-3.5" />
-                            {tab.label}
+                            {t(tab.labelKey)}
                             {tab.key === 'comments' && totalComments > 0 && (
                                 <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-news-accent/20 text-news-accent">
                                     {totalComments}
@@ -143,16 +145,16 @@ export function BottomSheetTabs({
                 <button
                     onClick={() => {
                         shareContent({
-                            title: title || 'Wahb Post',
-                            text: description || 'Check out this post on Wahb',
+                            title: title || t('share.title'),
+                            text: description || t('share.description'),
                             item: contentItemId && contentType ? { id: contentItemId, type: contentType } : null,
                         }).catch(() => {});
                     }}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-muted/30 rounded-lg text-muted-foreground hover:text-foreground transition-all"
-                    aria-label="Share Post"
+                    aria-label={t('share.action')}
                 >
                     <Share2 className="w-4 h-4" />
-                    <span className="text-[10px] uppercase font-bold tracking-wider">Share</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider">{t('share.action')}</span>
                 </button>
             </div>
 
@@ -192,6 +194,7 @@ function CommentsTab({
     comments: CommentItem[];
     onAddComment: (text: string) => void;
 }) {
+    const t = useTranslations();
     const [draft, setDraft] = useState('');
     const allComments = comments;
 
@@ -210,7 +213,7 @@ function CommentsTab({
                 <div className="flex-1 relative">
                     <input
                         type="text"
-                        placeholder="Add a comment..."
+                        placeholder={t('comments.placeholder')}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -222,22 +225,22 @@ function CommentsTab({
                         className="w-full px-3 py-2 text-sm rounded-full bg-muted/50 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-news-accent/50 focus:border-news-accent/40"
                     />
                 </div>
-                <button
-                    type="button"
-                    onClick={submit}
-                    disabled={!draft.trim()}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-full bg-news-accent text-white disabled:opacity-50"
-                >
-                    Post
-                </button>
-            </div>
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={!draft.trim()}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-full bg-news-accent text-white disabled:opacity-50"
+                    >
+                        {t('comments.post')}
+                    </button>
+                </div>
 
             {/* Comments list */}
             {commentCount === 0 && allComments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessageCircle className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">No comments yet</p>
-                    <p className="text-xs mt-1">Be the first to comment</p>
+                    <p className="text-sm">{t('comments.empty')}</p>
+                    <p className="text-xs mt-1">{t('comments.emptyHint')}</p>
                 </div>
             ) : (
                 allComments.map((comment) => (
@@ -268,6 +271,7 @@ function formatTimestamp(seconds: number): string {
 }
 
 function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTranscript: boolean; transcriptId?: string; contentItemId?: string }) {
+    const t = useTranslations();
     const { isAuthenticated } = useAuthStore();
     const triggerMutation = useRequestTranscription();
     const { data: transcript, isLoading, error } = useTranscript(
@@ -278,12 +282,12 @@ function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTran
         return (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <FileText className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-sm">No transcript available</p>
+                <p className="text-sm">{t('transcript.unavailable')}</p>
 
                 {isAuthenticated && contentItemId ? (
                     triggerMutation.isSuccess ? (
                         <p className="text-xs mt-2 text-news-accent">
-                            Transcript is being generated. Check back shortly.
+                            {t('transcript.generating')}
                         </p>
                     ) : (
                         <button
@@ -294,20 +298,20 @@ function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTran
                             {triggerMutation.isPending ? (
                                 <span className="flex items-center gap-2">
                                     <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Generating...
+                                    {t('transcript.generating')}
                                 </span>
                             ) : (
-                                'Generate Transcript'
+                                t('transcript.generate')
                             )}
                         </button>
                     )
                 ) : (
-                    <p className="text-xs mt-1">Sign in to generate a transcript</p>
+                    <p className="text-xs mt-1">{t('transcript.signIn')}</p>
                 )}
 
                 {triggerMutation.isError && (
                     <p className="text-xs mt-2 text-destructive">
-                        {(triggerMutation.error as Error)?.message || 'Failed to generate. Try again later.'}
+                        {(triggerMutation.error as Error)?.message || t('transcript.failed')}
                     </p>
                 )}
             </div>
@@ -318,7 +322,7 @@ function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTran
         return (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <div className="w-6 h-6 border-2 border-news-accent/30 border-t-news-accent rounded-full animate-spin mb-3" />
-                <p className="text-sm">Loading transcript...</p>
+                <p className="text-sm">{t('transcript.loading')}</p>
             </div>
         );
     }
@@ -327,7 +331,7 @@ function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTran
         return (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <FileText className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-sm">Could not load transcript</p>
+                <p className="text-sm">{t('transcript.failed')}</p>
             </div>
         );
     }
@@ -335,7 +339,7 @@ function TranscriptTab({ hasTranscript, transcriptId, contentItemId }: { hasTran
     return (
         <div className="space-y-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">
-                Auto-generated transcript
+                {t('transcript.autoGenerated')}
                 {transcript.language && (
                     <span className="ml-2 normal-case">({transcript.language})</span>
                 )}
@@ -374,32 +378,33 @@ function AboutTab({
     author?: string;
     tags?: string[];
 }) {
+    const t = useTranslations();
     return (
         <div className="space-y-4">
             {title && (
                 <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Title</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{t('about.titleLabel')}</p>
                     <h3 dir="auto" className="text-sm font-bold text-foreground leading-snug">{title}</h3>
                 </div>
             )}
 
             {author && (
                 <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">By</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{t('about.by')}</p>
                     <p className="text-sm text-foreground">{author}</p>
                 </div>
             )}
 
             {description && (
                 <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Description</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{t('about.description')}</p>
                     <p dir="auto" className="text-sm text-foreground/80 leading-relaxed">{description}</p>
                 </div>
             )}
 
             {tags && tags.length > 0 && (
                 <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">Topics</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1.5">{t('about.topics')}</p>
                     <div className="flex flex-wrap gap-1.5">
                         {tags.map((tag) => (
                             <span

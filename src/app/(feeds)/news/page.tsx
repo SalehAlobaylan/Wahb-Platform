@@ -20,11 +20,13 @@ import { FeedErrorFallback } from '@/components/error-boundary';
 import { NowPlayingBar } from '@/components/now-playing-bar';
 import { User, Search, Plus } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
+import { useTranslations } from '@/lib/i18n';
 
 export default function NewsPage() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore();
     const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
+    const t = useTranslations();
     
     // Reader Overlay State
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
@@ -85,37 +87,51 @@ export default function NewsPage() {
     const activeSlide = newsSlides[newsActiveIndex];
     const activeFeatured = activeSlide?.featured;
 
-    // Handle scroll to detect active item and load more
+    // Throttle infinite-scroll triggers: the previous implementation called
+    // fetchNextPage on every scroll event once the viewport entered the
+    // bottom band, which caused redundant calls during fast swipes. The
+    // bucket allows at most one fetch every 800 ms regardless of how often
+    // the scroll handler fires.
+    const fetchBucketRef = useRef<number>(0);
+
     const handleScroll = useCallback(() => {
-        if (feedRef.current) {
-            const scrollPosition = feedRef.current.scrollTop;
-            const height = feedRef.current.clientHeight;
-            const scrollHeight = feedRef.current.scrollHeight;
-            const newIndex = Math.round(scrollPosition / height);
+        if (!feedRef.current) return;
+        const scrollPosition = feedRef.current.scrollTop;
+        const height = feedRef.current.clientHeight;
+        const scrollHeight = feedRef.current.scrollHeight;
+        const newIndex = Math.round(scrollPosition / height);
 
-            if (newsActiveIndex !== newIndex) {
-                setNewsActiveIndex(newIndex);
-                resetProgress();
-            }
+        if (newsActiveIndex !== newIndex) {
+            setNewsActiveIndex(newIndex);
+            resetProgress();
+        }
 
-            if (
-                hasNextPage &&
-                !isFetchingNextPage &&
-                scrollPosition + height >= scrollHeight - height * 2
-            ) {
+        if (
+            hasNextPage &&
+            !isFetchingNextPage &&
+            scrollPosition + height >= scrollHeight - height * 2
+        ) {
+            const now = Date.now();
+            if (now - fetchBucketRef.current > 800) {
+                fetchBucketRef.current = now;
                 fetchNextPage();
             }
         }
     }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    // Reset scroll on mount
+    // Restore scroll position to the last viewed slide on mount.
+    // newsActiveIndex is persisted by the feed-store, so this survives
+    // navigation away and back. Only runs once after slides are first
+    // available so we don't fight the user while they scroll.
+    const restoredRef = useRef(false);
     useEffect(() => {
-        if (feedRef.current) {
-            feedRef.current.scrollTop = 0;
-            setNewsActiveIndex(0);
-            resetProgress();
+        if (restoredRef.current || newsSlides.length === 0 || !feedRef.current) return;
+        restoredRef.current = true;
+        const target = Math.min(newsActiveIndex, newsSlides.length - 1);
+        if (target > 0) {
+            feedRef.current.scrollTop = target * feedRef.current.clientHeight;
         }
-    }, [setNewsActiveIndex, resetProgress]);
+    }, [newsSlides.length, newsActiveIndex]);
 
     const handleOpenArticle = (item: ContentItem) => {
         setSelectedArticle(item);
@@ -128,7 +144,7 @@ export default function NewsPage() {
             <div className="h-full w-full bg-background">
                 <FeedErrorFallback
                     onRetry={() => refetch()}
-                    message={error?.message || 'Failed to load news feed'}
+                    message={error?.message || t('feed.error.news')}
                 />
             </div>
         );
@@ -152,7 +168,7 @@ export default function NewsPage() {
                     </div>
                     <div className="pointer-events-auto">
                         <Link href="/search">
-                            <div className="w-9 h-9 rounded-sm bg-secondary flex items-center justify-center hover:bg-foreground/10 transition-all" aria-label="Search">
+                            <div className="w-9 h-9 rounded-sm bg-secondary flex items-center justify-center hover:bg-foreground/10 transition-all" aria-label={t('search.title')}>
                                 <Search className="w-4.5 h-4.5 text-foreground" />
                             </div>
                         </Link>
@@ -205,7 +221,7 @@ export default function NewsPage() {
                 <Link
                     href="/create"
                     className="flex items-center justify-center w-12 h-12 rounded-sm bg-news-accent hover:bg-news-accent/90 transition-all active:scale-95"
-                    aria-label="Create Post"
+                    aria-label={t('create.publish')}
                 >
                     <Plus className="w-6 h-6 text-white" />
                 </Link>

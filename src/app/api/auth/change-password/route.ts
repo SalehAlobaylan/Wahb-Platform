@@ -46,45 +46,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'New password must be different from your current password.' }, { status: 400 });
   }
 
-  const payload = {
-    current_password: currentPassword,
-    new_password: newPassword,
-    currentPassword,
-    newPassword,
-  };
+  const res = await fetch(`${IAM_URL}/users/profile/password`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
 
-  const endpoints = [
-    { method: 'PUT', path: '/users/profile/password' },
-    { method: 'PUT', path: '/users/password' },
-    { method: 'POST', path: '/auth/change-password' },
-  ] as const;
-
-  let lastError: { message: string } = { message: 'Password update failed' };
-
-  for (const endpoint of endpoints) {
-    const res = await fetch(`${IAM_URL}${endpoint.path}`, {
-      method: endpoint.method,
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      return NextResponse.json({ success: true });
-    }
-
-    if (res.status !== 404 && res.status !== 405) {
-      const error = await parseError(res, 'Password update failed');
-      return NextResponse.json(error, { status: res.status });
-    }
-
-    lastError = await parseError(res, lastError.message);
+  if (res.ok) {
+    return NextResponse.json({ success: true });
   }
-
-  return NextResponse.json(
-    { message: 'Password change is not available from the configured IAM service.' },
-    { status: 501 },
-  );
+  const error = await parseError(res, 'Password update failed');
+  return NextResponse.json(error, { status: res.status });
 }

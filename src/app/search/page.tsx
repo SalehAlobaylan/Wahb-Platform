@@ -8,6 +8,7 @@ import { useBookmarkMutation } from '@/lib/hooks/use-feed';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
+import { useI18n, useTranslations } from '@/lib/i18n';
 import {
     ArrowLeft, Search, X, Clock, TrendingUp,
     FileText, Video, Mic, MessageCircle, Bookmark, Rss,
@@ -20,12 +21,12 @@ import type { ContentItem, ContentType } from '@/types';
 
 type FilterKey = 'ALL' | ContentType;
 
-const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'ALL', label: 'All', icon: <Search className="w-3.5 h-3.5" /> },
-    { key: 'ARTICLE', label: 'Articles', icon: <FileText className="w-3.5 h-3.5" /> },
-    { key: 'PODCAST', label: 'Podcasts', icon: <Mic className="w-3.5 h-3.5" /> },
-    { key: 'VIDEO', label: 'Videos', icon: <Video className="w-3.5 h-3.5" /> },
-    { key: 'TWEET', label: 'Tweets', icon: <MessageCircle className="w-3.5 h-3.5" /> },
+const FILTERS: { key: FilterKey; labelKey: string; icon: React.ReactNode }[] = [
+    { key: 'ALL', labelKey: 'search.filters.all', icon: <Search className="w-3.5 h-3.5" /> },
+    { key: 'ARTICLE', labelKey: 'search.filters.articles', icon: <FileText className="w-3.5 h-3.5" /> },
+    { key: 'PODCAST', labelKey: 'search.filters.podcasts', icon: <Mic className="w-3.5 h-3.5" /> },
+    { key: 'VIDEO', labelKey: 'search.filters.videos', icon: <Video className="w-3.5 h-3.5" /> },
+    { key: 'TWEET', labelKey: 'search.filters.tweets', icon: <MessageCircle className="w-3.5 h-3.5" /> },
 ];
 
 const TRENDING_TOPICS = [
@@ -38,25 +39,25 @@ const RECENT_SEARCHES_KEY = 'wahb_recent_searches';
 /* ══════════════════════════════════════════════════════════
    Helpers
    ══════════════════════════════════════════════════════════ */
-function formatRelativeDate(dateStr: string) {
+function formatRelativeDate(dateStr: string, t: (key: string, vars?: Record<string, string | number>) => string, locale: string) {
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (diffDays === 0) return t('saved.relative.today');
+    if (diffDays === 1) return t('saved.relative.yesterday');
+    if (diffDays < 7) return t('saved.relative.days', { count: diffDays });
+    if (diffDays < 30) return t('saved.relative.weeks', { count: Math.floor(diffDays / 7) });
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function getTypeBadge(type: ContentType) {
+function getTypeBadge(type: ContentType, t: (key: string) => string) {
     const map: Record<ContentType, { label: string; color: string }> = {
-        ARTICLE: { label: 'Article', color: 'bg-gold/20 text-gold border-gold/30' },
-        PODCAST: { label: 'Podcast', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
-        VIDEO: { label: 'Video', color: 'bg-gold/15 text-gold border-gold/25' },
-        TWEET: { label: 'Tweet', color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
-        COMMENT: { label: 'Comment', color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
+        ARTICLE: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
+        PODCAST: { label: t('saved.badge.podcast'), color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
+        VIDEO: { label: t('saved.badge.video'), color: 'bg-gold/15 text-gold border-gold/25' },
+        TWEET: { label: t('saved.badge.tweet'), color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
+        COMMENT: { label: t('saved.badge.comment'), color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };
     return map[type] || { label: type, color: 'bg-muted text-muted-foreground border-border' };
 }
@@ -93,6 +94,8 @@ export default function SearchPage() {
     const [hasSearched, setHasSearched] = useState(false);
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
+    const t = useTranslations();
+    const { locale } = useI18n();
 
     const { bookmarkedIds } = useFeedStore();
     const bookmarkMutation = useBookmarkMutation();
@@ -198,7 +201,7 @@ export default function SearchPage() {
                     <button
                         onClick={() => router.back()}
                         className="w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-all shrink-0"
-                        aria-label="Go back"
+                        aria-label={t('profile.title')}
                     >
                         <ArrowLeft className="w-4.5 h-4.5 text-foreground" />
                     </button>
@@ -219,7 +222,7 @@ export default function SearchPage() {
                                     executeSearch(query);
                                 }
                             }}
-                            placeholder="Search content..."
+                            placeholder={t('search.placeholder')}
                             className={cn(
                                 'w-full h-10 pl-9 pr-9 rounded-xl text-sm text-foreground placeholder:text-muted-foreground',
                                 'bg-muted border border-border',
@@ -231,7 +234,7 @@ export default function SearchPage() {
                             <button
                                 onClick={handleClear}
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted-foreground/20 flex items-center justify-center hover:bg-muted-foreground/30 transition-colors"
-                                aria-label="Clear search"
+                                aria-label={t('search.clear')}
                             >
                                 <X className="w-3 h-3 text-foreground" />
                             </button>
@@ -242,11 +245,11 @@ export default function SearchPage() {
                 {/* Filter chips — only shown when we have results */}
                 {hasSearched && results.length > 0 && (
                     <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
-                        {FILTERS.map((filter) => {
-                            const isActive = activeFilter === filter.key;
-                            const count = filter.key === 'ALL'
-                                ? results.length
-                                : results.filter((i) => i.type === filter.key).length;
+                    {FILTERS.map((filter) => {
+                        const isActive = activeFilter === filter.key;
+                        const count = filter.key === 'ALL'
+                            ? results.length
+                            : results.filter((i) => i.type === filter.key).length;
                             if (filter.key !== 'ALL' && count === 0) return null;
                             return (
                                 <button
@@ -260,7 +263,7 @@ export default function SearchPage() {
                                     )}
                                 >
                                     {filter.icon}
-                                    {filter.label}
+                                    {t(filter.labelKey)}
                                     <span className={cn(
                                         'text-[10px] min-w-[16px] h-[16px] rounded-full flex items-center justify-center font-bold',
                                         isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
@@ -283,7 +286,7 @@ export default function SearchPage() {
                         <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp className="w-4 h-4 text-gold" />
-                                <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">Trending</h2>
+                                <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">{t('search.trending')}</h2>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {TRENDING_TOPICS.map((topic) => (
@@ -304,13 +307,13 @@ export default function SearchPage() {
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
                                         <Clock className="w-4 h-4 text-muted-foreground" />
-                                        <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">Recent</h2>
+                                        <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">{t('search.recent')}</h2>
                                     </div>
                                     <button
                                         onClick={handleClearAllRecent}
                                         className="text-[11px] text-gold hover:text-gold/70 transition-colors font-semibold uppercase tracking-wider"
                                     >
-                                        Clear All
+                                        {t('search.clearAll')}
                                     </button>
                                 </div>
                                 <div className="space-y-1">
@@ -328,8 +331,8 @@ export default function SearchPage() {
                                                     handleRemoveRecent(term);
                                                 }}
                                                 className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all opacity-0 group-hover:opacity-100"
-                                                aria-label={`Remove ${term}`}
-                                            >
+                                        aria-label={`${t('search.clear')} ${term}`}
+                                    >
                                                 <X className="w-3 h-3" />
                                             </button>
                                         </div>
@@ -361,25 +364,27 @@ export default function SearchPage() {
                                 <Search className="w-8 h-8 text-muted-foreground" />
                             </div>
                         </div>
-                        <h2 className="text-xl font-serif text-foreground mb-2 font-medium">No results found</h2>
+                        <h2 className="text-xl font-serif text-foreground mb-2 font-medium">{t('search.noResults')}</h2>
                         <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-[260px]">
-                            Try a different search term or browse the trending topics.
+                            {t('search.noResultsBody')}
                         </p>
                         <button
                             onClick={handleClear}
                             className="mt-4 px-4 py-2 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30 hover:bg-gold/30 transition-colors"
                         >
-                            Clear Search
+                            {t('search.clear')}
                         </button>
                     </div>
                 ) : (
                     /* ── Results List ── */
                     <div className="px-5 pt-4 space-y-3 pb-4">
                         <p className="text-xs text-muted-foreground font-mono mb-2">
-                            {filteredResults.length} {filteredResults.length === 1 ? 'result' : 'results'}
+                            {filteredResults.length === 1
+                                ? t('search.resultsSingle')
+                                : t('search.results', { count: filteredResults.length })}
                         </p>
                         {filteredResults.map((item) => {
-                            const badge = getTypeBadge(item.type);
+                            const badge = getTypeBadge(item.type, t);
                             const duration = formatDuration(item.duration_sec);
                             return (
                                 <article
@@ -431,7 +436,7 @@ export default function SearchPage() {
                                             )}
                                         </div>
                                         <h3 className="text-sm font-serif text-foreground leading-snug line-clamp-2 group-hover:text-foreground transition-colors">
-                                            {item.title || item.body_text?.slice(0, 80) || 'Untitled'}
+                                            {item.title || item.body_text?.slice(0, 80) || t('saved.item.untitled')}
                                         </h3>
                                         <div className="flex items-center gap-2 mt-1">
                                             {item.author && (
@@ -440,7 +445,7 @@ export default function SearchPage() {
                                                 </span>
                                             )}
                                             <span className="text-[11px] text-muted-foreground">
-                                                {formatRelativeDate(item.published_at)}
+                                                {formatRelativeDate(item.published_at, t, locale)}
                                             </span>
                                         </div>
                                     </div>

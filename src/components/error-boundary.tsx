@@ -3,6 +3,7 @@
 import { Component, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslations } from '@/lib/i18n';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -88,6 +89,10 @@ export function FeedErrorFallback({
     onRetry: () => void;
     message?: string;
 }) {
+    const t = useTranslations();
+    const resolvedMessage = message === 'Failed to load feed'
+        ? t('feed.error.title')
+        : message;
     return (
         <div className="flex flex-col items-center justify-center h-full w-full p-6">
             <div className="flex flex-col items-center gap-4 max-w-sm text-center">
@@ -95,15 +100,15 @@ export function FeedErrorFallback({
                     <AlertTriangle className="w-8 h-8 text-destructive" />
                 </div>
 
-                <h2 className="text-xl font-bold">Oops!</h2>
-                <p className="text-muted-foreground text-sm">{message}</p>
+                <h2 className="text-xl font-bold">{t('feed.error.title')}</h2>
+                <p className="text-muted-foreground text-sm">{resolvedMessage}</p>
 
                 <Button
                     onClick={onRetry}
                     className="gap-2 mt-2 bg-gold text-white hover:bg-gold/90"
                 >
                     <RefreshCw className="w-4 h-4" />
-                    Retry
+                    {t('feed.error.retry')}
                 </Button>
             </div>
         </div>

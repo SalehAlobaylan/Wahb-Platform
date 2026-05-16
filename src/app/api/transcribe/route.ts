@@ -1,7 +1,14 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const CMS_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL || 'http://localhost:8080/api/v1';
+const CMS_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL;
+
+if (!CMS_URL) {
+  // Surface misconfiguration at build/boot, not at first user request.
+  throw new Error(
+    'CMS base URL is not configured: set NEXT_PUBLIC_API_URL or CMS_BASE_URL'
+  );
+}
 
 /**
  * Proxy route for triggering transcription.

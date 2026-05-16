@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Mail, Lock, Zap } from 'lucide-react';
 import { useLogin } from '@/lib/hooks/use-auth';
+import { isValidEmail } from '@/lib/validation/email';
+import { useTranslations } from '@/lib/i18n';
 
 export default function LoginPage() {
     return (
@@ -18,14 +20,21 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const registered = searchParams.get('registered') === 'true';
+    const t = useTranslations();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [emailTouched, setEmailTouched] = useState(false);
+    const [passwordTouched, setPasswordTouched] = useState(false);
 
     const login = useLogin();
 
-    const isValid = email.includes('@') && password.length >= 4;
+    const emailValid = isValidEmail(email);
+    const passwordValid = password.length >= 4;
+    const isValid = emailValid && passwordValid;
+    const emailError = emailTouched && email.length > 0 && !emailValid;
+    const passwordError = passwordTouched && password.length > 0 && !passwordValid;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -37,7 +46,7 @@ function LoginContent() {
             await login.mutateAsync({ email, password });
             router.push('/');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            setError(err instanceof Error ? err.message : t('auth.login.error'));
         }
     }
 
@@ -55,14 +64,14 @@ function LoginContent() {
             <main className="flex-1 px-5 flex flex-col">
                 {/* Branding */}
                 <div className="pt-8 pb-10 text-center">
-                    <h1 className="font-serif text-3xl font-bold text-foreground tracking-wide">Wahb</h1>
-                    <p className="text-sm text-muted-foreground mt-2">Sign in to personalize your feed</p>
+                    <h1 className="font-serif text-3xl font-bold text-foreground tracking-wide">{t('auth.login.title')}</h1>
+                    <p className="text-sm text-muted-foreground mt-2">{t('auth.login.subtitle')}</p>
                 </div>
 
                 {/* Success message from registration */}
                 {registered && (
                     <div className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-center">
-                        <p className="text-sm text-green-400">Account created! Sign in to continue.</p>
+                        <p className="text-sm text-green-400">{t('auth.login.success')}</p>
                     </div>
                 )}
 
@@ -77,7 +86,7 @@ function LoginContent() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-2">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">
-                            Email
+                            {t('auth.login.email')}
                         </label>
                         <div className="relative">
                             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -85,16 +94,21 @@ function LoginContent() {
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
+                                onBlur={() => setEmailTouched(true)}
+                            placeholder={t('auth.login.emailPlaceholder')}
                                 autoComplete="email"
-                                className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-gold focus:ring-1 focus:ring-gold/30 outline-none transition-all text-sm"
+                                aria-invalid={emailError || undefined}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${emailError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
                             />
                         </div>
+                        {emailError && (
+                            <p className="text-xs text-red-400 ml-1">{t('auth.login.emailError')}</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider ml-1">
-                            Password
+                            {t('auth.login.password')}
                         </label>
                         <div className="relative">
                             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -102,11 +116,16 @@ function LoginContent() {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Min 4 characters"
+                                onBlur={() => setPasswordTouched(true)}
+                            placeholder={t('auth.login.passwordPlaceholder')}
                                 autoComplete="current-password"
-                                className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-gold focus:ring-1 focus:ring-gold/30 outline-none transition-all text-sm"
+                                aria-invalid={passwordError || undefined}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${passwordError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
                             />
                         </div>
+                        {passwordError && (
+                            <p className="text-xs text-red-400 ml-1">{t('auth.login.passwordError')}</p>
+                        )}
                     </div>
 
                     <button
@@ -117,10 +136,10 @@ function LoginContent() {
                         {login.isPending ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Signing in...
+                                {t('auth.login.submitting')}
                             </>
                         ) : (
-                            'Sign In'
+                            t('auth.login.submit')
                         )}
                     </button>
                 </form>
@@ -129,7 +148,7 @@ function LoginContent() {
                 <div className="pt-6">
                     <div className="relative flex items-center py-3">
                         <div className="flex-grow border-t border-border"></div>
-                        <span className="mx-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">or</span>
+                        <span className="mx-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{t('auth.login.or')}</span>
                         <div className="flex-grow border-t border-border"></div>
                     </div>
                     <button
@@ -140,24 +159,24 @@ function LoginContent() {
                                 await login.mutateAsync({ email: 'admin@gmail.com', password: 'admin' });
                                 router.push('/');
                             } catch (err) {
-                                setError(err instanceof Error ? err.message : 'Quick sign in failed');
+                                setError(err instanceof Error ? err.message : t('auth.login.quickFail'));
                             }
                         }}
                         disabled={login.isPending}
                         className="w-full h-12 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                     >
                         <Zap className="w-4 h-4 text-gold" />
-                        Quick Sign In
+                        {t('auth.login.quick')}
                     </button>
-                    <p className="text-[10px] text-muted-foreground/40 text-center mt-2">admin@gmail.com</p>
+                    <p className="text-[10px] text-muted-foreground/40 text-center mt-2">{t('auth.login.quickHint')}</p>
                 </div>
 
                 {/* Register link */}
                 <div className="pt-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                        Don&apos;t have an account?{' '}
+                        {t('auth.login.registerPrompt')}{' '}
                         <Link href="/register" className="text-gold font-medium hover:underline">
-                            Register
+                            {t('auth.login.registerAction')}
                         </Link>
                     </p>
                 </div>
@@ -165,7 +184,7 @@ function LoginContent() {
                 {/* Skip */}
                 <div className="pt-4 pb-8 text-center">
                     <Link href="/" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                        Continue without signing in
+                        {t('auth.login.skip')}
                     </Link>
                 </div>
             </main>

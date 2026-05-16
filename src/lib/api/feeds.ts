@@ -39,6 +39,46 @@ function getIdentityBody(): Record<string, string> {
 }
 
 /**
+ * Fetch the authenticated user's own content (PODCAST or ARTICLE).
+ * Hits CMS /api/v1/content/mine. Cursor pagination matches the For You feed.
+ */
+export interface MyContentItem {
+  id: string;
+  type: string;
+  status: string;
+  title?: string;
+  excerpt?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  duration_sec?: number;
+  like_count: number;
+  comment_count: number;
+  published_at?: string;
+}
+
+export interface MyContentResponse {
+  cursor: string | null;
+  items: MyContentItem[];
+}
+
+export async function fetchMyContent(
+  type: 'PODCAST' | 'ARTICLE' | 'VIDEO',
+  cursor?: string | null,
+): Promise<MyContentResponse> {
+  const params = new URLSearchParams();
+  params.set('type', type);
+  params.set('limit', '20');
+  if (cursor) params.set('cursor', cursor);
+
+  const response = await fetch(`${API_BASE}/content/mine?${params}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user content: ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.data || data;
+}
+
+/**
  * Fetch For You feed items
  */
 export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouResponse> {

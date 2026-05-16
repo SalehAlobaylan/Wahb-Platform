@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Prefer public API base for platform proxy. `CMS_BASE_URL` is commonly used
@@ -23,6 +24,19 @@ async function proxyRequest(
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.delete('host');
+
+    // Forward the user's access token (kept in an httpOnly cookie) as a
+    // standard Bearer header so CMS UserAuthMiddleware-protected routes
+    // (e.g. /content/mine, /content/submit) authenticate transparently.
+    // If the caller already set an Authorization header (rare in this app)
+    // we leave it alone.
+    if (!requestHeaders.has('authorization')) {
+        const cookieStore = await cookies();
+        const accessToken = cookieStore.get('wahb_access_token')?.value;
+        if (accessToken) {
+            requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+        }
+    }
 
     const body = request.method === 'GET' || request.method === 'HEAD'
       ? undefined

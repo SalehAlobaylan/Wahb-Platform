@@ -3,6 +3,7 @@
 import { Pause, Play, X, SkipBack, SkipForward, Volume2, ListMusic } from 'lucide-react';
 import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n/use-translations';
 
 interface NowPlayingBarProps {
     /** When true, renders inline (no fixed positioning) — for use inside the bottom sheet */
@@ -22,6 +23,7 @@ interface NowPlayingBarProps {
  */
 export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBarProps) {
     const { currentItem, isPlaying, togglePlayPause, stop } = useNowPlayingStore();
+    const t = useTranslations();
 
     if (!currentItem) return null;
 
@@ -34,7 +36,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                     <div className="flex justify-between text-[10px] text-muted-foreground font-mono mb-2">
                         <span>12:45</span>
                         <span className="text-news-accent/80 text-[9px] uppercase tracking-wider font-bold">
-                            Live Sync
+                            {t('nowPlaying.liveSync')}
                         </span>
                         <span>34:20</span>
                     </div>
@@ -57,7 +59,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                         <button
                             onClick={togglePlayPause}
                             className="w-14 h-14 rounded-full bg-gradient-to-b from-news-accent/90 to-news-accent flex items-center justify-center shadow-lg shadow-news-accent/20 hover:scale-105 active:scale-95 transition-all"
-                            aria-label={isPlaying ? 'Pause' : 'Play'}
+                            aria-label={isPlaying ? t('nowPlaying.pause') : t('nowPlaying.play')}
                         >
                             {isPlaying ? (
                                 <Pause className="w-7 h-7 text-white fill-white" />
@@ -117,7 +119,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate leading-tight">
-                        {currentItem.title || 'Now Playing'}
+                        {currentItem.title || t('nowPlaying.nowPlaying')}
                     </p>
                     <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
                         {currentItem.author || currentItem.source_name || 'Unknown'}
@@ -128,7 +130,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                 <button
                     onClick={togglePlayPause}
                     className="w-9 h-9 rounded-full bg-news-accent flex items-center justify-center shrink-0 hover:bg-news-accent/80 active:scale-95 transition-all"
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    aria-label={isPlaying ? t('nowPlaying.pause') : t('nowPlaying.play')}
                 >
                     {isPlaying ? (
                         <Pause className="w-4 h-4 text-white fill-white" />
@@ -141,7 +143,7 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
                 <button
                     onClick={stop}
                     className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Dismiss"
+                    aria-label={t('nowPlaying.dismiss')}
                 >
                     <X className="w-4 h-4" />
                 </button>

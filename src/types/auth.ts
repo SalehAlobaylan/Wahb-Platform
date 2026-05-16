@@ -4,6 +4,16 @@ export interface AuthUser {
   email: string;
   tenant_id: string;
   created_at: string;
+  bio?: string | null;
+  avatar_url?: string | null;
+  interests?: string[] | null;
+}
+
+export interface UpdateProfileRequest {
+  username?: string;
+  bio?: string;
+  avatar_url?: string;
+  interests?: string[];
 }
 
 export interface LoginRequest {

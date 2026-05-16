@@ -9,6 +9,7 @@ import { requestRestore } from '@/lib/api/feeds';
 import { useRequestTranscription, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 import type { ContentItem, TranscriptSegment } from '@/types';
 import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
 
@@ -25,6 +26,7 @@ interface ForYouCardProps {
  * Action buttons and bottom sheet are rendered at the page level.
  */
 export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
+    const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
     const wasActiveRef = useRef(false);
     const {
@@ -232,7 +234,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                 <div className="flex items-center gap-2">
                     <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-gold/90 text-white backdrop-blur-md flex items-center gap-1">
                         <Headphones className="w-3 h-3" />
-                        {item.type === 'PODCAST' ? 'Podcast' : 'Audio'}
+                        {item.type === 'PODCAST' ? t('foryou.badge.podcast') : t('foryou.badge.audio')}
                     </span>
                     {item.source_name && (
                         <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase border border-white/30 text-white/90 backdrop-blur-sm">
@@ -286,7 +288,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             {isActive && globalPaused && !renderTranscriptSurface && (
                 <div className="absolute top-20 left-4 z-10 pointer-events-none">
                     <span className="px-2.5 py-1 rounded-full bg-black/55 border border-white/15 text-white/90 text-[11px] font-semibold tracking-wide">
-                        Paused
+                        {t('foryou.paused')}
                     </span>
                 </div>
             )}
@@ -299,9 +301,9 @@ const DISPLAY_MODES: Array<{
     label: string;
     icon: typeof Minimize2;
 }> = [
-    { mode: 'fit', label: 'Fit video', icon: Minimize2 },
-    { mode: 'fill', label: 'Fill screen', icon: Maximize2 },
-    { mode: 'transcript', label: 'Transcript', icon: FileText },
+    { mode: 'fit', label: 'foryou.display.fit', icon: Minimize2 },
+    { mode: 'fill', label: 'foryou.display.fill', icon: Maximize2 },
+    { mode: 'transcript', label: 'foryou.display.transcript', icon: FileText },
 ];
 
 function DisplayModeSelector({
@@ -311,6 +313,7 @@ function DisplayModeSelector({
     mode: ForYouDisplayMode;
     onChange: (mode: ForYouDisplayMode) => void;
 }) {
+    const t = useTranslations();
     return (
         <div
             className="absolute right-4 top-24 z-20 rounded-full border border-white/15 bg-black/45 p-1 shadow-lg backdrop-blur-md"
@@ -322,9 +325,9 @@ function DisplayModeSelector({
                     <button
                         key={option}
                         type="button"
-                        aria-label={label}
+                        aria-label={t(label)}
                         aria-pressed={mode === option}
-                        title={label}
+                        title={t(label)}
                         onClick={() => onChange(option)}
                         className={cn(
                             'flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-all hover:bg-white/15 hover:text-white',
@@ -350,6 +353,7 @@ function TranscriptSurface({
     isPlaying: boolean;
     onTogglePlay: () => void;
 }) {
+    const t = useTranslations();
     const { isAuthenticated } = useAuthStore();
     const triggerMutation = useRequestTranscription();
     const hasTranscript = !!item.transcript_id;
@@ -368,7 +372,7 @@ function TranscriptSurface({
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
                     <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-black/30 px-2.5 py-1 backdrop-blur-sm">
                         <FileText className="h-3 w-3" />
-                        Live Transcript
+                        {t('transcript.live')}
                     </span>
                     {item.source_name && (
                         <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-white/70 backdrop-blur-sm">
@@ -401,14 +405,14 @@ function TranscriptSurface({
                 {hasTranscript && isLoading ? (
                     <div className="mx-auto flex flex-col items-center justify-center py-8 text-white/70">
                         <div className="mb-3 h-6 w-6 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-                        <p className="text-sm">Loading transcript...</p>
+                        <p className="text-sm">{t('transcript.loading')}</p>
                     </div>
                 ) : null}
 
                 {hasTranscript && (error || !transcript) && !isLoading ? (
                     <div className="mx-auto flex flex-col items-center justify-center py-8 text-white/70">
                         <FileText className="mb-2 h-8 w-8 opacity-50" />
-                        <p className="text-sm">Could not load transcript</p>
+                        <p className="text-sm">{t('transcript.failed')}</p>
                     </div>
                 ) : null}
 
@@ -425,7 +429,7 @@ function TranscriptSurface({
             {!isPlaying && (
                 <div className="pointer-events-none absolute bottom-24 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-md">
                     <PauseCircle className="h-4 w-4 text-gold" />
-                    Paused
+                    {t('foryou.paused')}
                 </div>
             )}
         </div>
@@ -449,14 +453,15 @@ function NoTranscriptState({
     errorMessage?: string;
     onGenerate: () => void;
 }) {
+    const t = useTranslations();
     return (
         <div className="mx-auto flex max-w-sm flex-col items-center justify-center rounded-lg border border-white/10 bg-black/35 px-5 py-8 text-center text-white/70 backdrop-blur-md">
             <FileText className="mb-2 h-8 w-8 opacity-50" />
-            <p className="text-sm">No transcript available</p>
+            <p className="text-sm">{t('transcript.unavailable')}</p>
             {isAuthenticated ? (
                 isSuccess ? (
                     <p className="mt-2 text-xs text-gold">
-                        Transcript is being generated. Check back shortly.
+                        {t('transcript.generating')}
                     </p>
                 ) : (
                     <button
@@ -471,19 +476,19 @@ function NoTranscriptState({
                         {isPending ? (
                             <span className="flex items-center gap-2">
                                 <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                Generating...
+                                {t('transcript.generating')}
                             </span>
                         ) : (
-                            'Generate Transcript'
+                            t('transcript.generate')
                         )}
                     </button>
                 )
             ) : (
-                <p className="mt-1 text-xs">Sign in to generate a transcript</p>
+                <p className="mt-1 text-xs">{t('transcript.signIn')}</p>
             )}
             {isError && (
                 <p className="mt-2 text-xs text-red-300">
-                    {errorMessage || 'Failed to generate. Try again later.'}
+                    {errorMessage || t('transcript.failed')}
                 </p>
             )}
         </div>
@@ -501,6 +506,7 @@ function TranscriptText({
     language?: string;
     currentTime: number;
 }) {
+    const t = useTranslations();
     const listRef = useRef<HTMLDivElement>(null);
     const activeRef = useRef<HTMLDivElement>(null);
     const activeIndex = getActiveSegmentIndex(segments, currentTime);
@@ -516,7 +522,7 @@ function TranscriptText({
     return (
         <div className="w-full" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
-                <span>Auto-generated captions</span>
+                <span>{t('transcript.autoGenerated')}</span>
                 {language && <span className="normal-case">{language}</span>}
             </div>
             <div
@@ -565,6 +571,7 @@ function TranscriptText({
 }
 
 function TranscriptReader({ text, language }: { text: string; language?: string }) {
+    const t = useTranslations();
     return (
         <div
             className="w-full rounded-lg border border-white/10 bg-black/35 p-5 backdrop-blur-md"
@@ -572,7 +579,7 @@ function TranscriptReader({ text, language }: { text: string; language?: string 
             data-testid="transcript-reader"
         >
             <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
-                <span>Transcript</span>
+                <span>{t('transcript.title')}</span>
                 {language && <span className="normal-case">{language}</span>}
             </div>
             <div className="max-h-[54vh] overflow-y-auto overscroll-contain pr-1">
@@ -603,6 +610,7 @@ function formatTimestamp(seconds: number): string {
 }
 
 function ArchivedOverlay({ item }: { item: ContentItem }) {
+    const t = useTranslations();
     const [state, setState] = useState<'idle' | 'pending' | 'throttled' | 'error'>('idle');
     const [message, setMessage] = useState<string | null>(null);
     const [requesting, setRequesting] = useState(false);
@@ -618,11 +626,11 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                 setMessage(res.message);
             } else {
                 setState('pending');
-                setMessage('Restore requested — refresh in a minute or two');
+                setMessage(t('foryou.archived.requested'));
             }
         } catch (err) {
             setState('error');
-            setMessage(err instanceof Error ? err.message : 'Could not request restore');
+            setMessage(err instanceof Error ? err.message : t('foryou.archived.failed'));
         } finally {
             setRequesting(false);
         }
@@ -637,9 +645,9 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                 <div className="rounded-full bg-white/10 p-4">
                     <Archive className="h-10 w-10 text-white/80" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Video archived to save storage</h3>
+                <h3 className="text-lg font-semibold text-white">{t('foryou.archived.title')}</h3>
                 <p className="max-w-xs text-sm text-white/70">
-                    {state === 'idle' && 'Tap to request a re-fetch — usually ready in a couple of minutes.'}
+                    {state === 'idle' && t('foryou.archived.tap')}
                     {state === 'pending' && message}
                     {state === 'throttled' && message}
                     {state === 'error' && message}
@@ -651,13 +659,13 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                     className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-50"
                 >
                     {requesting ? (
-                        <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Requesting…</span>
+                        <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {t('foryou.archived.requesting')}</span>
                     ) : state === 'pending' ? (
-                        'Restore queued'
+                        t('foryou.archived.restoreQueued')
                     ) : state === 'throttled' ? (
-                        'Already requested'
+                        t('foryou.archived.already')
                     ) : (
-                        'Restore video'
+                        t('foryou.archived.restore')
                     )}
                 </button>
             </div>
