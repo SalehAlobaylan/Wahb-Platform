@@ -42,6 +42,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
     const startHeight = useRef(0);
     const sheetRef = useRef<HTMLDivElement>(null);
     const lastTapTime = useRef(0);
+    const lastTouchTapAt = useRef(0);
 
     const isExpanded = height > minHeight + 20;
 
@@ -99,17 +100,26 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
         }
     }, [minHeight, maxHeight]);
 
-    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const handleTouchEnd = useCallback(() => {
         setIsDragging(false);
         setHeight((h) => snapToNearest(h));
 
-        // Let's determine if this was a quick tap or a real drag
-        const endHeight = snapToNearest(height);
-        // If height barely changed during the touch interaction, it was likely a tap.
+        // If height barely changed during the touch interaction, it was a tap.
         if (Math.abs(height - startHeight.current) < 5) {
+            // Record the touch tap so the click synthesized right after it on
+            // touch devices is ignored (see handleClick) — otherwise a single tap
+            // is counted twice and mis-read as a double-tap toggle.
+            lastTouchTapAt.current = Date.now();
             handleDoubleTap();
         }
     }, [snapToNearest, handleDoubleTap, height]);
+
+    const handleClick = useCallback(() => {
+        // Ignore the click synthesized immediately after a touch tap (already
+        // handled in handleTouchEnd); only respond to genuine mouse clicks.
+        if (Date.now() - lastTouchTapAt.current < 500) return;
+        handleDoubleTap();
+    }, [handleDoubleTap]);
 
     // ── Mouse handlers (desktop) ────────────────────────────
     const handleMouseDown = useCallback(
@@ -131,13 +141,11 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
             setHeight(newHeight);
         };
 
-        const handleMouseUp = (e: MouseEvent) => {
+        const handleMouseUp = () => {
             setIsDragging(false);
             setHeight((h) => snapToNearest(h));
-            // Let's check for tap again based on drag diff to keep parity
-            if (Math.abs(height - startHeight.current) < 5) {
-                // The click event is natively sent by the browser so we don't need to manually invoke handleDoubleTap here unless clicking was explicitly preventDefault, but mouse interaction generally handles `onClick` naturally without touch issues. 
-            }
+            // A genuine mouse click fires onClick natively (handled by
+            // handleClick), so no tap detection is needed here.
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -146,7 +154,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, minHeight, maxHeight, snapToNearest, height]);
+    }, [isDragging, minHeight, maxHeight, snapToNearest]);
 
     return (
         <div
@@ -178,13 +186,9 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
                 style={{ touchAction: 'none' }} // Prevent scrolling while interacting with handle
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
-                onTouchEnd={(e) => {
-                    handleTouchEnd(e);
-                    // Let the double-tap handler work by not fully preventing defaults unless dragging heavily,
-                    // but we ensure touchend allows a click event to synthesize if it was just a tap.
-                }}
+                onTouchEnd={handleTouchEnd}
                 onMouseDown={handleMouseDown}
-                onClick={handleDoubleTap}
+                onClick={handleClick}
                 role="slider"
                 aria-label="Drag to expand"
                 aria-valuenow={height}

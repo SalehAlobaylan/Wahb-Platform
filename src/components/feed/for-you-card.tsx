@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
+import { useShallow } from 'zustand/react/shallow';
 import { requestRestore } from '@/lib/api/feeds';
 import { useRequestTranscription, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
@@ -29,6 +30,8 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
     const wasActiveRef = useRef(false);
+    const lastPersistRef = useRef(0);
+    const latestPlaybackRef = useRef<{ time: number; percent: number } | null>(null);
     const {
         isPlaying,
         globalPaused,
@@ -36,12 +39,25 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         togglePlay,
         setProgress,
         setForYouPlayback,
-        forYouPlaybackById,
         playbackSpeed,
         forYouDisplayMode,
         setForYouDisplayMode,
-    } = useFeedStore();
-    const savedPlayback = forYouPlaybackById[item.id];
+    } = useFeedStore(
+        useShallow((s) => ({
+            isPlaying: s.isPlaying,
+            globalPaused: s.globalPaused,
+            setPlaying: s.setPlaying,
+            togglePlay: s.togglePlay,
+            setProgress: s.setProgress,
+            setForYouPlayback: s.setForYouPlayback,
+            playbackSpeed: s.playbackSpeed,
+            forYouDisplayMode: s.forYouDisplayMode,
+            setForYouDisplayMode: s.setForYouDisplayMode,
+        }))
+    );
+    // Subscribe to only this item's saved position so the active card writing
+    // its playback every tick doesn't re-render every other card.
+    const savedPlayback = useFeedStore((s) => s.forYouPlaybackById[item.id]);
     const [currentTime, setCurrentTime] = useState(savedPlayback?.timeSec ?? 0);
     const effectiveDisplayMode: ForYouDisplayMode = item.media_url ? forYouDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
@@ -123,20 +139,40 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         };
     }, [isActive, item.id, applySavedTime]);
 
+    // Flush the latest position to the store on unmount (e.g. navigating away)
+    // so the throttle window below doesn't drop the last few seconds. Guarded by
+    // latestPlaybackRef so a card that never played can't overwrite a saved
+    // position with 0.
+    useEffect(() => {
+        return () => {
+            const latest = latestPlaybackRef.current;
+            if (latest) {
+                setForYouPlayback(item.id, latest.time, latest.percent);
+            }
+        };
+    }, [item.id, setForYouPlayback]);
+
     const handleTimeUpdate = () => {
-        if (videoRef.current) {
-            const nextTime = videoRef.current.currentTime;
-            const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-            const safePercent = Number.isFinite(percent) ? percent : 0;
-            if (isActive) {
-                setProgress(safePercent);
-                setCurrentTime(nextTime);
-            }
+        if (!videoRef.current) return;
+        const nextTime = videoRef.current.currentTime;
+        const percent = (nextTime / videoRef.current.duration) * 100;
+        const safePercent = Number.isFinite(percent) ? percent : 0;
+        if (isActive) {
+            setProgress(safePercent);
+            setCurrentTime(nextTime);
+        }
+        // Report current time to parent for now-playing handoff
+        if (videoTimeRef) {
+            videoTimeRef.current = nextTime;
+        }
+        latestPlaybackRef.current = { time: nextTime, percent: safePercent };
+        // Persist the resume position at most once per ~5s. Previously this ran
+        // on every timeupdate (~4×/s); since forYouPlaybackById is persisted,
+        // that serialized + wrote the whole store to localStorage every tick.
+        const now = Date.now();
+        if (now - lastPersistRef.current >= 5000) {
+            lastPersistRef.current = now;
             setForYouPlayback(item.id, nextTime, safePercent);
-            // Report current time to parent for now-playing handoff
-            if (videoTimeRef) {
-                videoTimeRef.current = nextTime;
-            }
         }
     };
 

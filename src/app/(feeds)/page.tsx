@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
+import { useShallow } from 'zustand/react/shallow';
 import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs, PullToRefresh } from '@/components/feed';
 import type { DraggableBottomSheetHandle } from '@/components/feed/draggable-bottom-sheet';
 import { FeedSwitcher } from '@/components/layout';
@@ -53,7 +54,22 @@ function ForYouPageContent() {
         lastActiveForYouItemId, setLastActiveForYouItemId,
         likedIds, bookmarkedIds,
         isFastSwiping, setFastSwiping,
-    } = useFeedStore();
+    } = useFeedStore(
+        useShallow((s) => ({
+            forYouActiveIndex: s.forYouActiveIndex,
+            setForYouActiveIndex: s.setForYouActiveIndex,
+            resetProgress: s.resetProgress,
+            progress: s.progress,
+            isPlaying: s.isPlaying,
+            globalPaused: s.globalPaused,
+            lastActiveForYouItemId: s.lastActiveForYouItemId,
+            setLastActiveForYouItemId: s.setLastActiveForYouItemId,
+            likedIds: s.likedIds,
+            bookmarkedIds: s.bookmarkedIds,
+            isFastSwiping: s.isFastSwiping,
+            setFastSwiping: s.setFastSwiping,
+        }))
+    );
     const searchParams = useSearchParams();
     const t = useTranslations();
 

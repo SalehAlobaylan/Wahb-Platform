@@ -21,12 +21,20 @@ export function useViewTracking({
     const ref = useRef<HTMLDivElement>(null);
     const trackMutation = useTrackingMutation();
 
+    // Keep the latest mutate in a ref so handleIntersection (and the observer
+    // effect below) keeps a stable identity — otherwise the IntersectionObserver
+    // would disconnect + re-observe on most renders as the mutation object churns.
+    const mutateRef = useRef(trackMutation.mutate);
+    useEffect(() => {
+        mutateRef.current = trackMutation.mutate;
+    }, [trackMutation.mutate]);
+
     const handleIntersection = useCallback(
         (entries: IntersectionObserverEntry[]) => {
             entries.forEach((entry) => {
                 if (entry.isIntersecting && (!trackOnce || !hasTracked.current)) {
                     hasTracked.current = true;
-                    trackMutation.mutate({
+                    mutateRef.current({
                         contentId,
                         type: 'view',
                         metadata: {
@@ -37,7 +45,7 @@ export function useViewTracking({
                 }
             });
         },
-        [contentId, trackOnce, trackMutation]
+        [contentId, trackOnce]
     );
 
     useEffect(() => {

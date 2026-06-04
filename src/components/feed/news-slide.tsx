@@ -7,10 +7,8 @@ import { useTranslations } from '@/lib/i18n';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { shareContent } from '@/lib/utils/share';
+import { isHtml, sanitizeHtml, stripHtml } from '@/lib/utils/html';
 import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
-
-/** Detect if text contains HTML tags */
-const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
 
 /**
  * Collapse newlines and multiple whitespace into a single space for
@@ -51,22 +49,6 @@ const getRelatedDisplayTitle = (item: ContentItem): string => {
     if (body) return normalizeForTitle(body);
     return title || 'Untitled';
 };
-
-/** Strip dangerous tags and attributes, keep safe markup */
-function sanitizeHtml(html: string): string {
-    return html
-        .replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
-        .replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
-        .replace(/\s+on\w+="[^"]*"/gi, '')
-        .replace(/\s+on\w+='[^']*'/gi, '')
-        .replace(/\s+style="[^"]*"/gi, '')
-        .replace(/\s+style='[^']*'/gi, '');
-}
-
-/** Strip all HTML tags to get plain text */
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-}
 
 interface NewsSlideProps {
     slide: NewsSlideType;
@@ -139,7 +121,6 @@ function RelatedItem({
     onToggleExpand: () => void;
 }) {
     const t = useTranslations();
-    const { likedIds, bookmarkedIds } = useFeedStore();
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
     const expandableText = getExpandableText(item);
@@ -155,8 +136,8 @@ function RelatedItem({
         nonEmptyLines > 2 ||                      // structured / multi-line content
         expandMeaningful - titleMeaningful > 30    // genuinely more prose than shown
     );
-    const isLiked = likedIds.has(item.id);
-    const isBookmarked = bookmarkedIds.has(item.id);
+    const isLiked = useFeedStore((s) => s.likedIds.has(item.id));
+    const isBookmarked = useFeedStore((s) => s.bookmarkedIds.has(item.id));
 
     const handleCardClick = () => {
         if (canExpand) {
@@ -288,11 +269,10 @@ function RelatedItem({
 export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
     const t = useTranslations();
-    const { likedIds, bookmarkedIds } = useFeedStore();
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
-    const isFeaturedLiked = likedIds.has(featured.id);
-    const isFeaturedBookmarked = bookmarkedIds.has(featured.id);
+    const isFeaturedLiked = useFeedStore((s) => s.likedIds.has(featured.id));
+    const isFeaturedBookmarked = useFeedStore((s) => s.bookmarkedIds.has(featured.id));
 
     const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 

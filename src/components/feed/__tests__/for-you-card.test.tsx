@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderWithProviders } from '@/lib/test-utils';
 import { ForYouCard } from '@/components/feed/for-you-card';
 import { useFeedStore } from '@/lib/stores';
 import type { ContentItem } from '@/types';
@@ -63,7 +64,7 @@ describe('ForYouCard', () => {
     });
 
     it('renders video in fit mode by default', () => {
-        const { container } = render(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
 
         expect(screen.getByText('Test Video Title')).toBeInTheDocument();
         expect(screen.getByText('Test Source')).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe('ForYouCard', () => {
     it('renders video in fill mode when selected', () => {
         useFeedStore.setState({ forYouDisplayMode: 'fill' });
 
-        const { container } = render(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
 
         expect(container.querySelector('video')).toHaveClass('object-cover');
     });
@@ -96,7 +97,7 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        const { container } = render(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
 
         expect(screen.getByTestId('transcript-surface')).toBeInTheDocument();
         expect(screen.getByText('Live Transcript')).toBeInTheDocument();
@@ -126,7 +127,7 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        const { container } = render(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
         const video = container.querySelector('video')!;
 
         Object.defineProperty(video, 'currentTime', { configurable: true, value: 3 });
@@ -151,7 +152,7 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        render(<ForYouCard item={mockItem} isActive />);
+        renderWithProviders(<ForYouCard item={mockItem} isActive />);
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Plain full transcript without timestamps.')).toBeInTheDocument();
@@ -166,7 +167,7 @@ describe('ForYouCard', () => {
             excerpt: undefined,
         };
 
-        render(<ForYouCard item={itemWithoutTranscript} isActive />);
+        renderWithProviders(<ForYouCard item={itemWithoutTranscript} isActive />);
 
         expect(screen.getByText('No transcript available')).toBeInTheDocument();
         expect(screen.getByText('Sign in to generate a transcript')).toBeInTheDocument();
@@ -182,7 +183,7 @@ describe('ForYouCard', () => {
             excerpt: undefined,
         };
 
-        render(<ForYouCard item={itemWithoutTranscript} isActive />);
+        renderWithProviders(<ForYouCard item={itemWithoutTranscript} isActive />);
         fireEvent.click(screen.getByRole('button', { name: 'Generate Transcript' }));
 
         expect(mutate).toHaveBeenCalledWith('test-1');
@@ -198,7 +199,7 @@ describe('ForYouCard', () => {
             body_text: 'Audio transcript fallback text.',
         };
 
-        render(<ForYouCard item={audioOnlyItem} isActive />);
+        renderWithProviders(<ForYouCard item={audioOnlyItem} isActive />);
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Audio transcript fallback text.')).toBeInTheDocument();
@@ -207,7 +208,7 @@ describe('ForYouCard', () => {
     it('does not fetch transcript content for inactive offscreen cards', () => {
         useFeedStore.setState({ forYouDisplayMode: 'transcript' });
 
-        render(<ForYouCard item={mockItem} isActive={false} />);
+        renderWithProviders(<ForYouCard item={mockItem} isActive={false} />);
 
         expect(mockUseTranscript).not.toHaveBeenCalled();
         expect(screen.queryByText('Transcript')).not.toBeInTheDocument();

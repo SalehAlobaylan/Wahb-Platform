@@ -10,28 +10,13 @@ import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { shareContent } from '@/lib/utils/share';
 import { useTranslations } from '@/lib/i18n/use-translations';
+import { isHtml, sanitizeHtml } from '@/lib/utils/html';
+import { readComments, addComment, type LocalComment } from '@/lib/utils/comments';
 import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
     article: ContentItem | null;
     onClose: () => void;
-}
-
-/** Detect if text contains HTML tags */
-const isHtml = (text: string) => /<[a-z][\s\S]*>/i.test(text);
-
-/** Strip dangerous tags and attributes, keep safe markup */
-function sanitizeHtml(html: string): string {
-    return html
-        // Remove script, iframe, object, embed, form tags entirely
-        .replace(/<(script|iframe|object|embed|form)[^>]*>[\s\S]*?<\/\1>/gi, '')
-        .replace(/<(script|iframe|object|embed|form)[^>]*\/?>/gi, '')
-        // Remove on* event handlers
-        .replace(/\s+on\w+="[^"]*"/gi, '')
-        .replace(/\s+on\w+='[^']*'/gi, '')
-        // Remove style attributes (prevents injected styles)
-        .replace(/\s+style="[^"]*"/gi, '')
-        .replace(/\s+style='[^']*'/gi, '');
 }
 
 function BodyContent({ text }: { text: string }) {
@@ -61,19 +46,30 @@ function BodyContent({ text }: { text: string }) {
 }
 
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
-    if (!article) return null;
-
-    return <ArticleReaderInner article={article} onClose={onClose} />;
+    // AnimatePresence must stay mounted across open/close for the exit
+    // (slide-down) animation to run, so it lives above the conditional and the
+    // inner element is keyed by article id.
+    return (
+        <AnimatePresence>
+            {article && <ArticleReaderInner key={article.id} article={article} onClose={onClose} />}
+        </AnimatePresence>
+    );
 }
 
 function CommentsSection({ article }: { article: ContentItem }) {
     const [commentText, setCommentText] = useState('');
-    const { likedIds, bookmarkedIds } = useFeedStore();
+    const [comments, setComments] = useState<LocalComment[]>(() => readComments(article.id));
+    const isLiked = useFeedStore((s) => s.likedIds.has(article.id));
+    const isBookmarked = useFeedStore((s) => s.bookmarkedIds.has(article.id));
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
-    const isLiked = likedIds.has(article.id);
-    const isBookmarked = bookmarkedIds.has(article.id);
     const t = useTranslations();
+
+    const submitComment = () => {
+        if (!commentText.trim()) return;
+        setComments(addComment(article.id, commentText));
+        setCommentText('');
+    };
 
     return (
         <div className="px-6 pb-20">
@@ -127,13 +123,20 @@ function CommentsSection({ article }: { article: ContentItem }) {
                         type="text"
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Add a comment..."
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                submitComment();
+                            }
+                        }}
+                        placeholder={t('comments.placeholder')}
                         className="w-full bg-muted/50 border border-foreground/10 rounded-full px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-news-accent/50 transition-colors"
                     />
                     {commentText.trim() && (
                         <button
+                            onClick={submitComment}
                             className="absolute end-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-news-accent flex items-center justify-center"
-                            aria-label="Send comment"
+                            aria-label={t('comments.post')}
                         >
                             <Send className="w-3.5 h-3.5 text-white" />
                         </button>
@@ -141,17 +144,36 @@ function CommentsSection({ article }: { article: ContentItem }) {
                 </div>
             </div>
 
-            {/* Placeholder comments */}
-            <div className="space-y-4">
-                <p className="text-xs text-muted-foreground text-center py-6">No comments yet. Be the first to share your thoughts!</p>
-            </div>
+            {/* Comments list */}
+            {comments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">{t('comments.empty')}</p>
+            ) : (
+                <div className="space-y-4">
+                    {comments.map((c) => (
+                        <div key={c.id} className="flex gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-news-accent/20 flex items-center justify-center text-[10px] font-bold text-news-accent shrink-0 mt-0.5">
+                                {c.avatar}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-foreground">{c.author}</span>
+                                    <span className="text-[10px] text-muted-foreground">{c.time}</span>
+                                </div>
+                                <p dir="auto" className="text-sm text-foreground/80 mt-0.5 leading-relaxed">{c.text}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
 
 function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClose: () => void }) {
     const t = useTranslations();
-    
+    const isBookmarked = useFeedStore((s) => s.bookmarkedIds.has(article.id));
+    const bookmarkMutation = useBookmarkMutation();
+
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
             month: 'long',
@@ -185,14 +207,13 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
     };
 
     return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden w-full h-full sm:max-w-md sm:mx-auto"
-            >
+        <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden w-full h-full sm:max-w-md sm:mx-auto"
+        >
                  {/* Header Navbar */}
                  <div className="flex items-center justify-between p-4 sticky top-0 z-10 bg-background border-b border-foreground/20">
                      <button
@@ -203,11 +224,21 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
                          <X className="w-5 h-5" />
                      </button>
                      <div className="flex items-center gap-2">
-                         <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                         <button
+                                 onClick={() => bookmarkMutation.mutate({ contentId: article.id, isBookmarked })}
+                                 className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
                                  aria-label={t('articleReader.bookmark')}>
-                             <Bookmark className="w-5 h-5" />
+                             <Bookmark className={cn('w-5 h-5', isBookmarked && 'text-news-accent fill-news-accent')} />
                          </button>
-                         <button className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                         <button
+                                 onClick={() => {
+                                     shareContent({
+                                         title: article.title,
+                                         text: article.excerpt || article.body_text,
+                                         item: article,
+                                     }).catch(() => {});
+                                 }}
+                                 className="w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
                                  aria-label={t('articleReader.share')}>
                              <Share2 className="w-5 h-5" />
                          </button>
@@ -278,7 +309,6 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
                     {/* Comments Section */}
                     <CommentsSection article={article} />
                 </div>
-            </motion.div>
-        </AnimatePresence>
+        </motion.div>
     );
 }

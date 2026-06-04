@@ -5,19 +5,14 @@ import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
 import { shareContent } from '@/lib/utils/share';
+import { readComments, addComment as persistComment, type LocalComment } from '@/lib/utils/comments';
 import { useTranscript, useRequestTranscription } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import type { ContentType } from '@/types';
 
 type TabKey = 'comments' | 'transcript' | 'about';
 
-type CommentItem = {
-    id: string;
-    author: string;
-    text: string;
-    time: string;
-    avatar: string;
-};
+type CommentItem = LocalComment;
 
 interface BottomSheetTabsProps {
     /** Number of comments to display in the tab badge */
@@ -63,55 +58,21 @@ export function BottomSheetTabs({
 }: BottomSheetTabsProps) {
     const t = useTranslations();
     const [activeTab, setActiveTab] = useState<TabKey>('comments');
-    const [commentBuckets, setCommentBuckets] = useState<Record<string, CommentItem[]>>({});
+    // Derive comments from storage during render (recomputed when the active
+    // item changes, or when commentVersion bumps after adding one) — no effect,
+    // no setState-in-render.
+    const [commentVersion, setCommentVersion] = useState(0);
+    const comments = useMemo<CommentItem[]>(
+        () => (contentItemId ? readComments(contentItemId) : []),
+        [contentItemId, commentVersion]
+    );
 
-    const comments = useMemo(() => {
-        if (!contentItemId) return [];
-
-        const fromMemory = commentBuckets[contentItemId];
-        if (fromMemory) return fromMemory;
-
-        if (typeof window === 'undefined') return [];
-
-        const raw = window.localStorage.getItem(`wahb_comments_${contentItemId}`);
-        if (!raw) return [];
-
-        try {
-            const parsed = JSON.parse(raw) as CommentItem[];
-            return Array.isArray(parsed) ? parsed : [];
-        } catch {
-            return [];
-        }
-    }, [contentItemId, commentBuckets]);
-
-    const totalComments = useMemo(() => commentCount + comments.length, [commentCount, comments.length]);
+    const totalComments = commentCount + comments.length;
 
     const addComment = (text: string) => {
-        const value = text.trim();
-        if (!value) return;
         if (!contentItemId) return;
-
-        const newComment: CommentItem = {
-            id: `${Date.now()}`,
-            author: 'You',
-            text: value,
-            time: 'now',
-            avatar: 'Y',
-        };
-
-        setCommentBuckets((prev) => {
-            const existing = prev[contentItemId] ?? comments;
-            const next = [newComment, ...existing];
-
-            if (typeof window !== 'undefined') {
-                window.localStorage.setItem(`wahb_comments_${contentItemId}`, JSON.stringify(next));
-            }
-
-            return {
-                ...prev,
-                [contentItemId]: next,
-            };
-        });
+        persistComment(contentItemId, text);
+        setCommentVersion((v) => v + 1);
     };
 
     return (

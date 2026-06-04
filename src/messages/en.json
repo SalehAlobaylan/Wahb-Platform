@@ -333,5 +333,20 @@
   "create.draft.restored": "Draft restored.",
   "create.draft.deleted": "Draft deleted.",
 
-  "misc.signInRequired": "Sign in required"
+  "misc.signInRequired": "Sign in required",
+
+  "nowPlaying.play": "Play",
+  "nowPlaying.pause": "Pause",
+  "nowPlaying.dismiss": "Dismiss",
+  "nowPlaying.nowPlaying": "Now Playing",
+
+  "upNext.title": "Up Next",
+  "upNext.featured": "Featured",
+  "upNext.queueSoon": "A full listening queue is coming soon.",
+
+  "tts.title": "TTS",
+  "tts.heading": "Text-to-Speech",
+  "tts.description": "Generate professional narration of any article using AI voices.",
+
+  "common.comingSoon": "Coming Soon"
 }

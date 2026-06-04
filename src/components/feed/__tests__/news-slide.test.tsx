@@ -1,9 +1,8 @@
-
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderWithProviders } from '@/lib/test-utils';
 import { NewsSlide } from '@/components/feed/news-slide';
 import { NewsSlide as NewsSlideType } from '@/types';
 
-// Mock interaction handlers
 const mockOnOpenArticle = jest.fn();
 
 const mockSlide: NewsSlideType = {
@@ -13,6 +12,9 @@ const mockSlide: NewsSlideType = {
         type: 'ARTICLE',
         title: 'Featured Article Title',
         excerpt: 'Detailed excerpt of the featured article.',
+        // Long enough that hasEnoughContent() treats the hero as openable.
+        body_text:
+            'A longer body so the featured hero is treated as having enough content to open in the reader. '.repeat(3),
         author: 'Main Author',
         source_name: 'Main Source',
         thumbnail_url: 'http://example.com/feat.jpg',
@@ -21,7 +23,7 @@ const mockSlide: NewsSlideType = {
         like_count: 100,
         comment_count: 50,
         share_count: 20,
-        status: 'READY'
+        status: 'READY',
     },
     related: [
         {
@@ -34,7 +36,7 @@ const mockSlide: NewsSlideType = {
             like_count: 10,
             comment_count: 5,
             share_count: 2,
-            status: 'READY'
+            status: 'READY',
         },
         {
             id: 'rel-2',
@@ -46,7 +48,7 @@ const mockSlide: NewsSlideType = {
             like_count: 5,
             comment_count: 1,
             share_count: 0,
-            status: 'READY'
+            status: 'READY',
         },
         {
             id: 'rel-3',
@@ -58,9 +60,9 @@ const mockSlide: NewsSlideType = {
             like_count: 15,
             comment_count: 3,
             share_count: 1,
-            status: 'READY'
-        }
-    ]
+            status: 'READY',
+        },
+    ],
 };
 
 describe('NewsSlide', () => {
@@ -68,59 +70,39 @@ describe('NewsSlide', () => {
         jest.clearAllMocks();
     });
 
-    it('renders featured article title', () => {
-        render(
-            <NewsSlide
-                slide={mockSlide}
-                isActive={true}
-                onOpenArticle={mockOnOpenArticle}
-            />
+    it('renders the featured article title', () => {
+        renderWithProviders(
+            <NewsSlide slide={mockSlide} isActive onOpenArticle={mockOnOpenArticle} />
         );
 
         expect(screen.getByText('Featured Article Title')).toBeInTheDocument();
     });
 
-    it('renders author info', () => {
-        render(
-            <NewsSlide
-                slide={mockSlide}
-                isActive={true}
-                onOpenArticle={mockOnOpenArticle}
-            />
+    it('renders the featured source name', () => {
+        renderWithProviders(
+            <NewsSlide slide={mockSlide} isActive onOpenArticle={mockOnOpenArticle} />
         );
 
-        expect(screen.getByText(/Main Author/)).toBeInTheDocument();
+        // The featured byline shows source_name (falling back to author).
+        expect(screen.getByText('Main Source')).toBeInTheDocument();
     });
 
-    it('renders related tab and items', () => {
-        render(
-            <NewsSlide
-                slide={mockSlide}
-                isActive={true}
-                onOpenArticle={mockOnOpenArticle}
-            />
+    it('renders the related section heading and a related article title', () => {
+        renderWithProviders(
+            <NewsSlide slide={mockSlide} isActive onOpenArticle={mockOnOpenArticle} />
         );
 
-        // Tab should be visible
         expect(screen.getByText('Related')).toBeInTheDocument();
-        expect(screen.getByText('Discussion')).toBeInTheDocument();
-
-        // Related article title should be visible
         expect(screen.getByText('Related Article Title')).toBeInTheDocument();
     });
 
-    it('calls onOpenArticle when clicking a related item', () => {
-        render(
-            <NewsSlide
-                slide={mockSlide}
-                isActive={true}
-                onOpenArticle={mockOnOpenArticle}
-            />
+    it('opens the featured article in the reader when the hero is clicked', () => {
+        renderWithProviders(
+            <NewsSlide slide={mockSlide} isActive onOpenArticle={mockOnOpenArticle} />
         );
 
-        const relatedTitle = screen.getByText('Related Article Title');
-        fireEvent.click(relatedTitle);
+        fireEvent.click(screen.getByText('Featured Article Title'));
 
-        expect(mockOnOpenArticle).toHaveBeenCalledWith(mockSlide.related[2]);
+        expect(mockOnOpenArticle).toHaveBeenCalledWith(mockSlide.featured);
     });
 });

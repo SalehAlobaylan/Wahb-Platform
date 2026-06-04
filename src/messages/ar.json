@@ -333,5 +333,20 @@
   "create.draft.restored": "تمت استعادة المسودة.",
   "create.draft.deleted": "تم حذف المسودة.",
 
-  "misc.signInRequired": "سجّل الدخول للمتابعة"
+  "misc.signInRequired": "سجّل الدخول للمتابعة",
+
+  "nowPlaying.play": "تشغيل",
+  "nowPlaying.pause": "إيقاف مؤقت",
+  "nowPlaying.dismiss": "إغلاق",
+  "nowPlaying.nowPlaying": "قيد التشغيل",
+
+  "upNext.title": "التالي",
+  "upNext.featured": "مميّز",
+  "upNext.queueSoon": "قائمة استماع كاملة قادمة قريبًا.",
+
+  "tts.title": "نص إلى كلام",
+  "tts.heading": "تحويل النص إلى كلام",
+  "tts.description": "أنشئ تعليقًا صوتيًا احترافيًا لأي مقال باستخدام أصوات الذكاء الاصطناعي.",
+
+  "common.comingSoon": "قريبًا"
 }

@@ -77,12 +77,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
     const expiresAt = request.cookies.get(TOKEN_EXPIRES_COOKIE)?.value;
 
-    if (accessToken && refreshToken) {
+    if (refreshToken) {
         const now = Date.now();
         const expires = Number(expiresAt || 0);
-        const expiringSoon = Number.isFinite(expires) && expires - now <= 60_000;
+        const expiringSoon = Number.isFinite(expires) && expires > 0 && expires - now <= 60_000;
+        // Refresh when the access token is gone (its cookie's maxAge matches the
+        // JWT lifetime, so the browser drops it at expiry) OR is within 60s of
+        // expiring. Previously this was gated on `accessToken` being present,
+        // which meant that once the access cookie was dropped the session could
+        // never refresh — leaving a valid refresh token stuck half-signed-in.
+        const needsRefresh = !accessToken || expiringSoon;
 
-        if (expiringSoon) {
+        if (needsRefresh) {
             try {
                 const iamUrl = process.env.IAM_API_URL;
                 if (iamUrl) {

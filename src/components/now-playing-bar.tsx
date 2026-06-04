@@ -1,6 +1,6 @@
 'use client';
 
-import { Pause, Play, X, SkipBack, SkipForward, Volume2, ListMusic } from 'lucide-react';
+import { Pause, Play, X } from 'lucide-react';
 import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n/use-translations';
@@ -31,48 +31,46 @@ export function NowPlayingBar({ inline = false, expanded = false }: NowPlayingBa
     if (expanded) {
         return (
             <div className="mb-5">
-                {/* Progress bar */}
-                <div className="w-full mb-4">
-                    <div className="flex justify-between text-[10px] text-muted-foreground font-mono mb-2">
-                        <span>12:45</span>
-                        <span className="text-news-accent/80 text-[9px] uppercase tracking-wider font-bold">
-                            {t('nowPlaying.liveSync')}
-                        </span>
-                        <span>34:20</span>
+                {/* Track info */}
+                <div className="flex items-center gap-3 mb-4 px-1">
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        {currentItem.thumbnail_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- remote CDN URLs vary; object-fit normalizes crop
+                            <img
+                                src={currentItem.thumbnail_url}
+                                alt=""
+                                className="absolute inset-0 h-full w-full object-cover object-center"
+                                draggable={false}
+                                loading="lazy"
+                            />
+                        ) : (
+                            <div className="flex size-full items-center justify-center">
+                                <span className="text-base opacity-30">🎵</span>
+                            </div>
+                        )}
                     </div>
-                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full w-[35%] bg-news-accent rounded-full relative">
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-foreground rounded-full shadow-lg" />
-                        </div>
+                    <div className="flex-1 min-w-0">
+                        <p dir="auto" className="text-sm font-semibold text-foreground truncate leading-tight">
+                            {currentItem.title || t('nowPlaying.nowPlaying')}
+                        </p>
+                        <p dir="auto" className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
+                            {currentItem.author || currentItem.source_name || ''}
+                        </p>
                     </div>
                 </div>
 
-                {/* Transport controls */}
-                <div className="flex items-center justify-between px-4 mb-2">
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
-                        <Volume2 className="w-5 h-5" />
-                    </button>
-                    <div className="flex items-center gap-6">
-                        <button className="text-muted-foreground hover:text-foreground transition-colors">
-                            <SkipBack className="w-6 h-6" />
-                        </button>
-                        <button
-                            onClick={togglePlayPause}
-                            className="w-14 h-14 rounded-full bg-gradient-to-b from-news-accent/90 to-news-accent flex items-center justify-center shadow-lg shadow-news-accent/20 hover:scale-105 active:scale-95 transition-all"
-                            aria-label={isPlaying ? t('nowPlaying.pause') : t('nowPlaying.play')}
-                        >
-                            {isPlaying ? (
-                                <Pause className="w-7 h-7 text-white fill-white" />
-                            ) : (
-                                <Play className="w-7 h-7 text-white fill-white ml-0.5" />
-                            )}
-                        </button>
-                        <button className="text-muted-foreground hover:text-foreground transition-colors">
-                            <SkipForward className="w-6 h-6" />
-                        </button>
-                    </div>
-                    <button className="text-news-accent hover:text-foreground transition-colors">
-                        <ListMusic className="w-5 h-5" />
+                {/* Play/Pause */}
+                <div className="flex items-center justify-center mb-2">
+                    <button
+                        onClick={togglePlayPause}
+                        className="w-14 h-14 rounded-full bg-gradient-to-b from-news-accent/90 to-news-accent flex items-center justify-center shadow-lg shadow-news-accent/20 hover:scale-105 active:scale-95 transition-all"
+                        aria-label={isPlaying ? t('nowPlaying.pause') : t('nowPlaying.play')}
+                    >
+                        {isPlaying ? (
+                            <Pause className="w-7 h-7 text-white fill-white" />
+                        ) : (
+                            <Play className="w-7 h-7 text-white fill-white ml-0.5" />
+                        )}
                     </button>
                 </div>
             </div>

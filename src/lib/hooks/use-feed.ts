@@ -56,9 +56,8 @@ export function useBookmarks() {
  * Hook for liking/unliking content with optimistic updates
  */
 export function useLikeMutation() {
-  const queryClient = useQueryClient();
-  const { toggleLike, likedIds } = useFeedStore();
-  
+  const toggleLike = useFeedStore((s) => s.toggleLike);
+
   return useMutation({
     mutationFn: async ({ contentId, isLiked }: { contentId: string; isLiked: boolean }) => {
       if (isLiked) {
@@ -67,6 +66,10 @@ export function useLikeMutation() {
         await recordInteraction(contentId, 'like');
       }
     },
+    // Like state is driven by the optimistic feed-store toggle (likedIds). We do
+    // NOT invalidate ['feed'] here — that refetched every loaded page of both
+    // feeds on every tap and disrupted scroll. Counts refresh on the next
+    // natural refetch (staleTime / window focus).
     onMutate: async ({ contentId }) => {
       // Optimistic update
       toggleLike(contentId);
@@ -74,10 +77,6 @@ export function useLikeMutation() {
     onError: (_, { contentId }) => {
       // Rollback on error
       toggleLike(contentId);
-    },
-    onSettled: () => {
-      // Invalidate feeds to refresh counts
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
     },
   });
 }
@@ -87,8 +86,8 @@ export function useLikeMutation() {
  */
 export function useBookmarkMutation() {
   const queryClient = useQueryClient();
-  const { toggleBookmark, bookmarkedIds } = useFeedStore();
-  
+  const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+
   return useMutation({
     mutationFn: async ({ contentId, isBookmarked }: { contentId: string; isBookmarked: boolean }) => {
       if (isBookmarked) {

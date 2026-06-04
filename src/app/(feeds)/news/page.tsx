@@ -18,13 +18,26 @@ import {
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { NowPlayingBar } from '@/components/now-playing-bar';
+import { throttleScroll } from '@/lib/scroll-optimizer';
 import { User, Search, Plus } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
 import { useTranslations } from '@/lib/i18n';
+import { useShallow } from 'zustand/react/shallow';
+
+// Module-level throttle for infinite-scroll fetches: at most one fetch per
+// 800 ms regardless of how often the scroll handler fires. Module scope (not a
+// React ref) keeps the read/write out of render-time ref access.
+let lastNewsFetchAt = 0;
 
 export default function NewsPage() {
     const feedRef = useRef<HTMLDivElement>(null);
-    const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore();
+    const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore(
+        useShallow((s) => ({
+            newsActiveIndex: s.newsActiveIndex,
+            setNewsActiveIndex: s.setNewsActiveIndex,
+            resetProgress: s.resetProgress,
+        }))
+    );
     const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
     const t = useTranslations();
     
@@ -49,52 +62,32 @@ export default function NewsPage() {
         isFetchingNextPage,
     } = useNewsFeed();
 
-    // Combine all pages of data and regroup into 1 featured + up to 3 related per slide
+    // The CMS already returns editorially-grouped slides (1 featured ARTICLE +
+    // up to 3 related TWEET/COMMENT/ARTICLE). Consume them as-is — re-deriving the
+    // grouping client-side corrupts it whenever a slide has fewer than 3 related
+    // items. Only dedupe by slide_id so cursor overlap across pages does not
+    // produce duplicate React keys.
     const newsSlides = useMemo(() => {
         if (!data?.pages) return [];
-        
-        const allItems: ContentItem[] = [];
-        data.pages.forEach((page) => {
-            page.slides.forEach((slide) => {
-                if (slide.featured) allItems.push(slide.featured);
-                if (slide.related && slide.related.length > 0) {
-                    allItems.push(...slide.related);
-                }
-            });
-        });
-
-        const groupedSlides: NewsSlideType[] = [];
-        const chunkSize = 4;
-        
-        for (let i = 0; i < allItems.length; i += chunkSize) {
-            const chunk = allItems.slice(i, i + chunkSize);
-            if (chunk.length === 0) continue;
-            
-            const featured = chunk[0];
-            const related = chunk.slice(1);
-            
-            groupedSlides.push({
-                slide_id: `slide-${featured.id}-${i}`,
-                featured,
-                related,
-            });
+        const seen = new Set<string>();
+        const out: NewsSlideType[] = [];
+        for (const page of data.pages) {
+            for (const slide of page.slides) {
+                if (!slide?.featured) continue;
+                const key = slide.slide_id || slide.featured.id;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(slide);
+            }
         }
-        
-        return groupedSlides;
+        return out;
     }, [data]);
 
     // Active slide data
     const activeSlide = newsSlides[newsActiveIndex];
     const activeFeatured = activeSlide?.featured;
 
-    // Throttle infinite-scroll triggers: the previous implementation called
-    // fetchNextPage on every scroll event once the viewport entered the
-    // bottom band, which caused redundant calls during fast swipes. The
-    // bucket allows at most one fetch every 800 ms regardless of how often
-    // the scroll handler fires.
-    const fetchBucketRef = useRef<number>(0);
-
-    const handleScroll = useCallback(() => {
+    const rawHandleScroll = useCallback(() => {
         if (!feedRef.current) return;
         const scrollPosition = feedRef.current.scrollTop;
         const height = feedRef.current.clientHeight;
@@ -112,12 +105,31 @@ export default function NewsPage() {
             scrollPosition + height >= scrollHeight - height * 2
         ) {
             const now = Date.now();
-            if (now - fetchBucketRef.current > 800) {
-                fetchBucketRef.current = now;
+            if (now - lastNewsFetchAt > 800) {
+                lastNewsFetchAt = now;
                 fetchNextPage();
             }
         }
     }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    // Throttle to at most once per 200 ms (matches the For You feed) so we don't
+    // read layout / force a reflow on every scroll frame during snap scrolling.
+    // The throttled wrapper is built inside an effect (never at render) and
+    // delegates to the latest rawHandleScroll via a ref, so the stable
+    // handleScroll passed to onScroll never touches a ref during render.
+    const rawHandleScrollRef = useRef(rawHandleScroll);
+    useEffect(() => {
+        rawHandleScrollRef.current = rawHandleScroll;
+    }, [rawHandleScroll]);
+
+    const throttledScrollRef = useRef<(() => void) | null>(null);
+    useEffect(() => {
+        throttledScrollRef.current = throttleScroll(() => rawHandleScrollRef.current(), 200);
+    }, []);
+
+    const handleScroll = useCallback(() => {
+        throttledScrollRef.current?.();
+    }, []);
 
     // Restore scroll position to the last viewed slide on mount.
     // newsActiveIndex is persisted by the feed-store, so this survives
@@ -185,7 +197,7 @@ export default function NewsPage() {
                     </>
                 ) : (
                     newsSlides.map((slide, index) => (
-                        <ViewTracker key={slide.slide_id} contentId={slide.featured.id} className="h-full w-full snap-start">
+                        <ViewTracker key={slide.slide_id || slide.featured.id} contentId={slide.featured.id} className="h-full w-full snap-start">
                             <NewsSlide
                                 slide={slide}
                                 isActive={index === newsActiveIndex}
