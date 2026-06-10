@@ -1,6 +1,6 @@
 // Feed API Types
 
-export type ContentType = 'ARTICLE' | 'VIDEO' | 'TWEET' | 'COMMENT' | 'PODCAST';
+export type ContentType = 'NEWS' | 'ARTICLE' | 'VIDEO' | 'TWEET' | 'COMMENT' | 'PODCAST';
 export type SourceType = 'RSS' | 'PODCAST' | 'YOUTUBE' | 'UPLOAD' | 'MANUAL' | 'TELEGRAM';
 
 export interface ContentItem {
@@ -39,6 +39,65 @@ export interface ContentItem {
   is_archived?: boolean;
 }
 
+// Phase 13 — NEWS-first stories feed. A News slide is one featured story (a
+// cluster of same-event posts) plus up to 3 related stories. The featured
+// headline + image come from the story's highest-engagement member.
+
+export interface StoryMember {
+  id: string;
+  type: ContentType;
+  format?: string;
+  title?: string;
+  excerpt?: string;
+  body_text?: string;
+  author?: string;
+  source_name?: string;
+  thumbnail_url?: string;
+  published_at: string;
+  like_count: number;
+  comment_count: number;
+  share_count: number;
+  view_count: number;
+}
+
+export interface StorySummary {
+  story_id: string;
+  // lead_id is the headline member's content id — interactions (open / like /
+  // bookmark) target THIS, not story_id (a topic id with no content row).
+  lead_id: string;
+  label: string;
+  title?: string;
+  excerpt?: string;
+  thumbnail_url?: string;
+  source_name?: string;
+  published_at: string;
+  member_count: number;
+  like_count: number;
+  comment_count: number;
+  share_count: number;
+  view_count: number;
+}
+
+export interface StoryFeatured extends StorySummary {
+  members: StoryMember[];
+}
+
+// Wire types: exactly what GET /feed/news returns. feeds.ts adapts these into
+// the editorial NewsSlide shape below, so the News UI is unchanged.
+export interface StoryNewsSlide {
+  slide_id: string;
+  featured: StoryFeatured;
+  related: StorySummary[];
+}
+
+export interface StoryNewsResponse {
+  cursor: string | null;
+  slides: StoryNewsSlide[];
+}
+
+// Editorial slide shape consumed by the News UI: 1 featured item + related
+// items. Built from a StoryNewsSlide (featured = the story's top member; related
+// = the story's other members + related-story headlines).
 export interface NewsSlide {
   slide_id: string;
   featured: ContentItem;

@@ -1,5 +1,17 @@
 
-import type { ForYouResponse, NewsResponse, ContentItem, Interaction, Transcript } from '@/types';
+import type {
+  ForYouResponse,
+  NewsResponse,
+  NewsSlide,
+  ContentItem,
+  ContentType,
+  Interaction,
+  Transcript,
+  StoryNewsResponse,
+  StoryNewsSlide,
+  StoryMember,
+  StorySummary,
+} from '@/types';
 import {
   mockFetchForYouFeed,
   mockFetchNewsFeed,
@@ -101,6 +113,96 @@ export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouRes
   return data.data || data;
 }
 
+// ─── Phase 13: story → editorial slide adapter ─────────────────────────────
+// The CMS News feed returns story-slides (a featured story + its members +
+// related stories). The News UI renders the editorial NewsSlide shape, so we
+// map at the fetch boundary: featured = the story's top member (it already
+// carries the headline/image), related = the story's other members (same-event
+// coverage) + the related-story headlines.
+
+function memberToContentItem(m: StoryMember): ContentItem {
+  return {
+    id: m.id,
+    // The member's format (ARTICLE/TWEET/COMMENT) carries the content shape the
+    // magazine badges key off; fall back to the kind (NEWS) when absent.
+    type: (m.format as ContentType) || m.type,
+    title: m.title,
+    body_text: m.body_text,
+    excerpt: m.excerpt,
+    thumbnail_url: m.thumbnail_url,
+    author: m.author,
+    source_name: m.source_name,
+    like_count: m.like_count,
+    comment_count: m.comment_count,
+    share_count: m.share_count,
+    view_count: m.view_count,
+    published_at: m.published_at,
+    created_at: m.published_at,
+  };
+}
+
+function storySummaryToContentItem(s: StorySummary): ContentItem {
+  return {
+    // Target the lead member's content id, NOT story_id (a topic id) — so
+    // open / like / bookmark hit a real content row instead of 404ing.
+    id: s.lead_id || s.story_id,
+    type: 'NEWS',
+    title: s.title || s.label,
+    excerpt: s.excerpt,
+    thumbnail_url: s.thumbnail_url,
+    source_name: s.source_name,
+    topic_tags: s.label ? [s.label] : undefined,
+    like_count: s.like_count,
+    comment_count: s.comment_count,
+    share_count: s.share_count,
+    view_count: s.view_count,
+    published_at: s.published_at,
+    created_at: s.published_at,
+  };
+}
+
+function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
+  const f = slide.featured;
+  // The headline/image/engagement come from the lead (top-engagement) member,
+  // which may differ from members[0] (newest). Resolve it for id/body/author.
+  const lead = f.members?.find((m) => m.id === f.lead_id) ?? f.members?.[0];
+  const featured: ContentItem = {
+    id: f.lead_id || lead?.id || f.story_id,
+    type: (lead?.format as ContentType) || lead?.type || 'NEWS',
+    title: f.title || f.label,
+    excerpt: f.excerpt,
+    body_text: lead?.body_text,
+    thumbnail_url: f.thumbnail_url,
+    author: lead?.author,
+    source_name: f.source_name,
+    topic_tags: f.label ? [f.label] : undefined,
+    like_count: f.like_count,
+    comment_count: f.comment_count,
+    share_count: f.share_count,
+    view_count: f.view_count,
+    published_at: f.published_at,
+    created_at: f.published_at,
+  };
+  // Other members (the story's remaining coverage), excluding the lead shown as
+  // featured, then the related-story headlines.
+  const otherMembers = (f.members ?? [])
+    .filter((m) => m.id !== f.lead_id)
+    .map(memberToContentItem);
+  const relatedStories = (slide.related ?? []).map(storySummaryToContentItem);
+  return {
+    slide_id: slide.slide_id,
+    featured,
+    related: [...otherMembers, ...relatedStories],
+  };
+}
+
+function storyNewsResponseToNews(raw: StoryNewsResponse): NewsResponse {
+  return {
+    cursor: raw.cursor ?? null,
+    slides: (raw.slides ?? []).map(storySlideToNewsSlide),
+  };
+}
+
 /**
  * Fetch News feed slides
  */
@@ -121,7 +223,8 @@ export async function fetchNewsFeed(cursor?: string | null): Promise<NewsRespons
   }
 
   const data = await response.json();
-  return data.data || data;
+  const raw = (data.data || data) as StoryNewsResponse;
+  return storyNewsResponseToNews(raw);
 }
 
 /**

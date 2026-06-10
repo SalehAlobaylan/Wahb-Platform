@@ -53,6 +53,7 @@ function formatRelativeDate(dateStr: string, t: (key: string, vars?: Record<stri
    ══════════════════════════════════════════════════════════ */
 function getTypeBadge(type: ContentType, t: (key: string) => string) {
     const map: Record<ContentType, { label: string; color: string }> = {
+        NEWS: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
         ARTICLE: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
         PODCAST: { label: t('saved.badge.podcast'), color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
         VIDEO: { label: t('saved.badge.video'), color: 'bg-gold/15 text-gold border-gold/25' },
