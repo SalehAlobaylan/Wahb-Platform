@@ -24,6 +24,16 @@ async function proxyRequest(
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.delete('host');
+    // Hop-by-hop / length headers must NOT be forwarded: we re-buffer the body
+    // below, and undici hard-fails the whole fetch when a forwarded
+    // content-length doesn't match the re-measured body ("Request body length
+    // does not match content-length header" → every POST 502'd). fetch
+    // computes correct values itself.
+    requestHeaders.delete('content-length');
+    requestHeaders.delete('connection');
+    requestHeaders.delete('transfer-encoding');
+    requestHeaders.delete('keep-alive');
+    requestHeaders.delete('accept-encoding');
 
     // Forward the user's access token (kept in an httpOnly cookie) as a
     // standard Bearer header so CMS UserAuthMiddleware-protected routes
@@ -62,10 +72,17 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
+    // Surface the underlying cause — undici wraps real errors ("connection
+    // refused", "body length mismatch", …) in a generic "fetch failed".
+    const cause =
+      error instanceof Error && error.cause instanceof Error
+        ? error.cause.message
+        : undefined;
     return NextResponse.json(
       {
         message: 'Proxy request failed',
         error: error instanceof Error ? error.message : 'Unknown error',
+        ...(cause ? { cause } : {}),
       },
       { status: 502 }
     );

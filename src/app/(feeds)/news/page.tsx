@@ -99,10 +99,14 @@ export default function NewsPage() {
             resetProgress();
         }
 
+        // Prefetch the next page while the user still has 5 slides to read —
+        // past the cached slides the server assembles pages live (seconds on a
+        // remote DB), so the fetch must start well before the user hits the
+        // end or they stare at an empty loading slide.
         if (
             hasNextPage &&
             !isFetchingNextPage &&
-            scrollPosition + height >= scrollHeight - height * 2
+            scrollPosition + height >= scrollHeight - height * 5
         ) {
             const now = Date.now();
             if (now - lastNewsFetchAt > 800) {
