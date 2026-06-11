@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-
-import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle, Send } from 'lucide-react';
+import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
 import { useFeedStore } from '@/lib/stores';
-import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
+import { useLikeMutation, useBookmarkMutation, useContentItem } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { shareContent } from '@/lib/utils/share';
+import { adjustedLikeCount } from '@/lib/utils/engagement';
+import { formatArticleDate } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n/use-translations';
+import { useI18n } from '@/lib/i18n/context';
 import { isHtml, sanitizeHtml } from '@/lib/utils/html';
-import { readComments, addComment, type LocalComment } from '@/lib/utils/comments';
+import { CommentsPanel } from './comments-panel';
 import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
@@ -45,6 +45,17 @@ function BodyContent({ text }: { text: string }) {
     );
 }
 
+const sourceImageFromName = (sourceName?: string): string | undefined => {
+    const value = sourceName?.trim();
+    if (!value || value.includes(' ')) return undefined;
+    const domain = value.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    if (!domain || !domain.includes('.')) return undefined;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+};
+
+const getDisplayImageUrl = (item: ContentItem): string | undefined =>
+    item.thumbnail_url || item.source_image_url || sourceImageFromName(item.source_name);
+
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     // AnimatePresence must stay mounted across open/close for the exit
     // (slide-down) animation to run, so it lives above the conditional and the
@@ -57,19 +68,11 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
 }
 
 function CommentsSection({ article }: { article: ContentItem }) {
-    const [commentText, setCommentText] = useState('');
-    const [comments, setComments] = useState<LocalComment[]>(() => readComments(article.id));
     const isLiked = useFeedStore((s) => s.likedIds.has(article.id));
     const isBookmarked = useFeedStore((s) => s.bookmarkedIds.has(article.id));
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
     const t = useTranslations();
-
-    const submitComment = () => {
-        if (!commentText.trim()) return;
-        setComments(addComment(article.id, commentText));
-        setCommentText('');
-    };
 
     return (
         <div className="px-6 pb-20">
@@ -81,7 +84,7 @@ function CommentsSection({ article }: { article: ContentItem }) {
                         className="flex items-center gap-1.5 text-muted-foreground hover:text-news-accent transition-colors"
                     >
                         <Heart className={cn('w-5 h-5', isLiked && 'text-news-accent fill-news-accent')} />
-                        <span className="text-xs font-medium">{article.like_count || 0}</span>
+                        <span className="text-xs font-medium">{adjustedLikeCount(article.like_count, article.is_liked, isLiked)}</span>
                     </button>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                         <MessageCircle className="w-5 h-5" />
@@ -113,75 +116,37 @@ function CommentsSection({ article }: { article: ContentItem }) {
             {/* Comments heading */}
             <h3 className="text-sm font-bold text-foreground mb-4">{t('articleReader.comments')}</h3>
 
-            {/* Comment input */}
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-news-accent/20 flex items-center justify-center shrink-0 border border-foreground/10">
-                    <span className="text-xs font-bold text-news-accent">Y</span>
-                </div>
-                <div className="flex-1 relative">
-                    <input
-                        type="text"
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                submitComment();
-                            }
-                        }}
-                        placeholder={t('comments.placeholder')}
-                        className="w-full bg-muted/50 border border-foreground/10 rounded-full px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-news-accent/50 transition-colors"
-                    />
-                    {commentText.trim() && (
-                        <button
-                            onClick={submitComment}
-                            className="absolute end-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-news-accent flex items-center justify-center"
-                            aria-label={t('comments.post')}
-                        >
-                            <Send className="w-3.5 h-3.5 text-white" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Comments list */}
-            {comments.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">{t('comments.empty')}</p>
-            ) : (
-                <div className="space-y-4">
-                    {comments.map((c) => (
-                        <div key={c.id} className="flex gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-news-accent/20 flex items-center justify-center text-[10px] font-bold text-news-accent shrink-0 mt-0.5">
-                                {c.avatar}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-foreground">{c.author}</span>
-                                    <span className="text-[10px] text-muted-foreground">{c.time}</span>
-                                </div>
-                                <p dir="auto" className="text-sm text-foreground/80 mt-0.5 leading-relaxed">{c.text}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+            <CommentsPanel contentItemId={article.id} />
         </div>
     );
 }
 
-function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClose: () => void }) {
+function ArticleReaderInner({ article: feedItem, onClose }: { article: ContentItem; onClose: () => void }) {
     const t = useTranslations();
+    const { locale } = useI18n();
+    // Feed payloads truncate body_text (news feed caps it at 600 chars), so
+    // fetch the full item and overlay it on the feed item. The feed copy
+    // renders immediately; the complete body swaps in when the fetch lands.
+    const { data: fullItem } = useContentItem(feedItem.id);
+    const article: ContentItem = fullItem
+        ? {
+              ...feedItem,
+              ...fullItem,
+              // Never let an omitted field from the detail response blank out
+              // text we already had from the feed.
+              title: fullItem.title || feedItem.title,
+              body_text: fullItem.body_text || feedItem.body_text,
+              excerpt: fullItem.excerpt || feedItem.excerpt,
+              thumbnail_url: fullItem.thumbnail_url || feedItem.thumbnail_url || feedItem.source_image_url,
+              source_image_url: fullItem.source_image_url || feedItem.source_image_url,
+              published_at: fullItem.published_at || feedItem.published_at,
+          }
+        : feedItem;
     const isBookmarked = useFeedStore((s) => s.bookmarkedIds.has(article.id));
     const bookmarkMutation = useBookmarkMutation();
+    const publishedDate = formatArticleDate(article.published_at, locale);
+    const articleImageUrl = getDisplayImageUrl(article);
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
-    
     const getReadTime = (content?: string) => {
         if (!content) return '3m';
         const words = content.split(' ').length;
@@ -248,11 +213,11 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
                 {/* Article Content - Scrollable Region */}
                 <div className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
                     {/* Hero Image (if available) */}
-                    {article.thumbnail_url && (
+                    {articleImageUrl && (
                         <div className="w-full aspect-[16/9] relative">
                             <div
                                 className="w-full h-full bg-cover bg-center"
-                                style={{ backgroundImage: `url(${article.thumbnail_url})` }}
+                                style={{ backgroundImage: `url(${articleImageUrl})` }}
                             />
                         </div>
                     )}
@@ -282,10 +247,12 @@ function ArticleReaderInner({ article, onClose }: { article: ContentItem; onClos
                                     {article.author || article.source_name || 'Unknown Author'}
                                 </p>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                                    <span className="flex items-center gap-1">
-                                        <CalendarDays className="w-3 h-3" />
-                                        {formatDate(article.published_at)}
-                                    </span>
+                                    {publishedDate && (
+                                        <span className="flex items-center gap-1">
+                                            <CalendarDays className="w-3 h-3" />
+                                            {publishedDate}
+                                        </span>
+                                    )}
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         {getReadTime(article.body_text)}

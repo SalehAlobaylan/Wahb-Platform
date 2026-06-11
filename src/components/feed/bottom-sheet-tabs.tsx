@@ -1,18 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MessageCircle, FileText, Info, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
 import { shareContent } from '@/lib/utils/share';
-import { readComments, addComment as persistComment, type LocalComment } from '@/lib/utils/comments';
-import { useTranscript, useRequestTranscription } from '@/lib/hooks';
+import { useComments, useTranscript, useRequestTranscription } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { CommentsPanel } from './comments-panel';
 import type { ContentType } from '@/types';
 
 type TabKey = 'comments' | 'transcript' | 'about';
-
-type CommentItem = LocalComment;
 
 interface BottomSheetTabsProps {
     /** Number of comments to display in the tab badge */
@@ -58,22 +56,11 @@ export function BottomSheetTabs({
 }: BottomSheetTabsProps) {
     const t = useTranslations();
     const [activeTab, setActiveTab] = useState<TabKey>('comments');
-    // Derive comments from storage during render (recomputed when the active
-    // item changes, or when commentVersion bumps after adding one) — no effect,
-    // no setState-in-render.
-    const [commentVersion, setCommentVersion] = useState(0);
-    const comments = useMemo<CommentItem[]>(
-        () => (contentItemId ? readComments(contentItemId) : []),
-        [contentItemId, commentVersion]
-    );
-
-    const totalComments = commentCount + comments.length;
-
-    const addComment = (text: string) => {
-        if (!contentItemId) return;
-        persistComment(contentItemId, text);
-        setCommentVersion((v) => v + 1);
-    };
+    // Badge count: prefer the live fetched total (includes optimistic posts)
+    // over the feed item's possibly-stale comment_count.
+    const { data: commentsData } = useComments(contentItemId);
+    const fetchedCount = commentsData?.pages.reduce((sum, page) => sum + page.items.length, 0) ?? 0;
+    const totalComments = Math.max(commentCount, fetchedCount);
 
     return (
         <div className="flex flex-col h-full">
@@ -122,11 +109,7 @@ export function BottomSheetTabs({
             {/* Tab content */}
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'comments' && (
-                    <CommentsTab
-                        commentCount={commentCount}
-                        comments={comments}
-                        onAddComment={addComment}
-                    />
+                    <CommentsPanel contentItemId={contentItemId} />
                 )}
                 {activeTab === 'transcript' && (
                     <TranscriptTab hasTranscript={hasTranscript} transcriptId={transcriptId} contentItemId={contentItemId} />
@@ -140,85 +123,6 @@ export function BottomSheetTabs({
                     />
                 )}
             </div>
-        </div>
-    );
-}
-
-// ── Comments Tab ────────────────────────────────────────────
-
-function CommentsTab({
-    commentCount,
-    comments,
-    onAddComment,
-}: {
-    commentCount: number;
-    comments: CommentItem[];
-    onAddComment: (text: string) => void;
-}) {
-    const t = useTranslations();
-    const [draft, setDraft] = useState('');
-    const allComments = comments;
-
-    const submit = () => {
-        onAddComment(draft);
-        setDraft('');
-    };
-
-    return (
-        <div className="space-y-3">
-            {/* Comment input */}
-            <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-full bg-news-accent/30 flex items-center justify-center text-xs font-bold text-news-accent shrink-0">
-                    Y
-                </div>
-                <div className="flex-1 relative">
-                    <input
-                        type="text"
-                        placeholder={t('comments.placeholder')}
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                submit();
-                            }
-                        }}
-                        className="w-full px-3 py-2 text-sm rounded-full bg-muted/50 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-news-accent/50 focus:border-news-accent/40"
-                    />
-                </div>
-                    <button
-                        type="button"
-                        onClick={submit}
-                        disabled={!draft.trim()}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-full bg-news-accent text-white disabled:opacity-50"
-                    >
-                        {t('comments.post')}
-                    </button>
-                </div>
-
-            {/* Comments list */}
-            {commentCount === 0 && allComments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <MessageCircle className="w-8 h-8 mb-2 opacity-40" />
-                    <p className="text-sm">{t('comments.empty')}</p>
-                    <p className="text-xs mt-1">{t('comments.emptyHint')}</p>
-                </div>
-            ) : (
-                allComments.map((comment) => (
-                    <div key={comment.id} className="flex gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
-                            {comment.avatar}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-foreground">{comment.author}</span>
-                                <span className="text-[10px] text-muted-foreground">{comment.time}</span>
-                            </div>
-                            <p dir="auto" className="text-sm text-foreground/80 mt-0.5 leading-relaxed">{comment.text}</p>
-                        </div>
-                    </div>
-                ))
-            )}
         </div>
     );
 }

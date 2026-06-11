@@ -1,7 +1,18 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
+import { useNowPlayingStore, audioPlaybackTime } from '@/lib/stores/now-playing-store';
+import { useFeedStore } from '@/lib/stores/feed-store';
+
+/** Write the audio position into the feed store so For You can resume from it. */
+function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
+    const duration = audio.duration;
+    const percent =
+        Number.isFinite(duration) && duration > 0
+            ? (audio.currentTime / duration) * 100
+            : 0;
+    useFeedStore.getState().setForYouPlayback(itemId, audio.currentTime, percent);
+}
 
 /**
  * Renders a hidden <audio> element that is controlled by the global
@@ -15,18 +26,36 @@ import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
  */
 export function NowPlayingProvider() {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const lastPersistRef = useRef(0);
     const { audioSrc, isPlaying, videoActive, seekTo, stop, clearSeek } =
         useNowPlayingStore();
 
-    // Sync audio source (always keep it loaded so handoff is instant)
+    // Sync audio source (always keep it loaded so handoff is instant).
+    // Compare the attribute, not `audio.src` — the property returns the
+    // browser-resolved absolute URL, which never matches a relative
+    // media_url and would reload (restart) the audio on every run.
     useEffect(() => {
         if (!audioRef.current) return;
 
-        if (audioSrc && audioRef.current.src !== audioSrc) {
+        if (audioSrc && audioRef.current.getAttribute('src') !== audioSrc) {
             audioRef.current.src = audioSrc;
             audioRef.current.load();
         }
     }, [audioSrc]);
+
+    // Flush the position on pagehide — unmount cleanups don't run on a hard
+    // refresh or tab close, so without this the last few seconds are lost.
+    useEffect(() => {
+        const flush = () => {
+            const audio = audioRef.current;
+            const { currentItem, videoActive: videoOwns } =
+                useNowPlayingStore.getState();
+            if (!audio || !currentItem || videoOwns || audio.currentTime <= 0) return;
+            persistAudioPosition(audio, currentItem.id);
+        };
+        window.addEventListener('pagehide', flush);
+        return () => window.removeEventListener('pagehide', flush);
+    }, []);
 
     // Drive play / pause, and apply the handoff resume position.
     //
@@ -93,10 +122,30 @@ export function NowPlayingProvider() {
         stop();
     };
 
+    // Track the exact position while the <audio> owns playback so For You can
+    // resume from it (audioPlaybackTime is read once by the card on return),
+    // and persist a resume point at most every 5s — same cadence as the
+    // <video> — so a reload mid-listen doesn't lose much.
+    const handleTimeUpdate = () => {
+        const audio = audioRef.current;
+        const { currentItem, videoActive: videoOwns } = useNowPlayingStore.getState();
+        if (!audio || !currentItem || videoOwns) return;
+
+        audioPlaybackTime.itemId = currentItem.id;
+        audioPlaybackTime.time = audio.currentTime;
+
+        const now = Date.now();
+        if (now - lastPersistRef.current >= 5000) {
+            lastPersistRef.current = now;
+            persistAudioPosition(audio, currentItem.id);
+        }
+    };
+
     return (
         <audio
             ref={audioRef}
             onEnded={handleEnded}
+            onTimeUpdate={handleTimeUpdate}
             preload="auto"
             className="hidden"
         />

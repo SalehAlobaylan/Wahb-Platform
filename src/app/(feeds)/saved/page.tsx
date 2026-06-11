@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useBookmarks, useBookmarkMutation } from '@/lib/hooks';
+import { useFeedStore } from '@/lib/stores';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils/time';
 import { useI18n, useTranslations } from '@/lib/i18n';
 import {
     User, Search, Bookmark, ArrowUpDown,
@@ -31,22 +33,6 @@ const FILTERS: { key: FilterKey; labelKey: string; icon: React.ReactNode }[] = [
 ];
 
 type SortOrder = 'newest' | 'oldest';
-
-/* ══════════════════════════════════════════════════════════
-   Helper: format relative date
-   ══════════════════════════════════════════════════════════ */
-function formatRelativeDate(dateStr: string, t: (key: string, vars?: Record<string, string | number>) => string, locale: string) {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return t('saved.relative.today');
-    if (diffDays === 1) return t('saved.relative.yesterday');
-    if (diffDays < 7) return t('saved.relative.days', { count: diffDays });
-    if (diffDays < 30) return t('saved.relative.weeks', { count: Math.floor(diffDays / 7) });
-    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-}
 
 /* ══════════════════════════════════════════════════════════
    Helper: type badge colors
@@ -91,6 +77,7 @@ export default function SavedPage() {
         error,
         refetch,
         hasNextPage,
+        isFetching,
         isFetchingNextPage,
         fetchNextPage,
     } = useBookmarks();
@@ -105,7 +92,7 @@ export default function SavedPage() {
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+                if (entries[0]?.isIntersecting && !isFetching && !isFetchingNextPage) {
                     fetchNextPage();
                 }
             },
@@ -113,12 +100,32 @@ export default function SavedPage() {
         );
         observer.observe(node);
         return () => observer.disconnect();
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [hasNextPage, isFetching, isFetchingNextPage, fetchNextPage]);
 
     const allItems = useMemo(() => {
         if (!data?.pages) return [];
-        return data.pages.flatMap((page) => page.items);
+        const seen = new Set<string>();
+        const out: ContentItem[] = [];
+        for (const page of data.pages) {
+            for (const item of page.items) {
+                if (!item?.id || seen.has(item.id)) continue;
+                seen.add(item.id);
+                out.push(item);
+            }
+        }
+        return out;
     }, [data]);
+
+    // Everything served by the bookmarks endpoint is bookmarked — seed the
+    // local set so the icons reflect server state (e.g. saves from another
+    // session that the locally-persisted set has never seen).
+    useEffect(() => {
+        if (allItems.length === 0) return;
+        useFeedStore.getState().seedInteractions(
+            allItems.filter((i) => i.is_liked).map((i) => i.id),
+            allItems.map((i) => i.id)
+        );
+    }, [allItems]);
 
     const handleOpenItem = (item: ContentItem) => {
         if (item.type === 'VIDEO' || item.type === 'PODCAST') {
@@ -139,13 +146,19 @@ export default function SavedPage() {
         return allItems.filter((item) => item.type === activeFilter);
     }, [allItems, activeFilter]);
 
-    // Sort
+    // Sort — NaN-safe: items without a parseable published_at fall back to
+    // created_at, then to 0, instead of poisoning the comparator with NaN
+    // (which makes Array.sort order undefined).
     const sortedItems = useMemo(() => {
-        return [...filteredItems].sort((a, b) => {
-            const dateA = new Date(a.published_at).getTime();
-            const dateB = new Date(b.published_at).getTime();
-            return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-        });
+        const ts = (item: ContentItem) => {
+            const published = new Date(item.published_at).getTime();
+            if (!Number.isNaN(published)) return published;
+            const created = new Date(item.created_at).getTime();
+            return Number.isNaN(created) ? 0 : created;
+        };
+        return [...filteredItems].sort((a, b) =>
+            sortOrder === 'newest' ? ts(b) - ts(a) : ts(a) - ts(b)
+        );
     }, [filteredItems, sortOrder]);
 
     // Error state
@@ -355,9 +368,11 @@ export default function SavedPage() {
                                                     {item.author}
                                                 </span>
                                             )}
-                                            <span className="text-[11px] text-muted-foreground">
-                                                {formatRelativeDate(item.published_at, t, locale)}
-                                            </span>
+                                            {formatRelativeTime(item.published_at, locale) && (
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    {formatRelativeTime(item.published_at, locale)}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 

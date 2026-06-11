@@ -11,6 +11,7 @@ import type {
   StoryNewsSlide,
   StoryMember,
   StorySummary,
+  CommentsResponse,
 } from '@/types';
 import {
   mockFetchForYouFeed,
@@ -129,9 +130,10 @@ function memberToContentItem(m: StoryMember): ContentItem {
     title: m.title,
     body_text: m.body_text,
     excerpt: m.excerpt,
-    thumbnail_url: m.thumbnail_url,
+    thumbnail_url: m.thumbnail_url || m.source_image_url,
     author: m.author,
     source_name: m.source_name,
+    source_image_url: m.source_image_url,
     like_count: m.like_count,
     comment_count: m.comment_count,
     share_count: m.share_count,
@@ -149,8 +151,9 @@ function storySummaryToContentItem(s: StorySummary): ContentItem {
     type: 'NEWS',
     title: s.title || s.label,
     excerpt: s.excerpt,
-    thumbnail_url: s.thumbnail_url,
+    thumbnail_url: s.thumbnail_url || s.source_image_url,
     source_name: s.source_name,
+    source_image_url: s.source_image_url,
     topic_tags: s.label ? [s.label] : undefined,
     like_count: s.like_count,
     comment_count: s.comment_count,
@@ -172,9 +175,10 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
     title: f.title || f.label,
     excerpt: f.excerpt,
     body_text: lead?.body_text,
-    thumbnail_url: f.thumbnail_url,
+    thumbnail_url: f.thumbnail_url || f.source_image_url,
     author: lead?.author,
     source_name: f.source_name,
+    source_image_url: f.source_image_url,
     topic_tags: f.label ? [f.label] : undefined,
     like_count: f.like_count,
     comment_count: f.comment_count,
@@ -243,6 +247,43 @@ export async function fetchContentItem(id: string): Promise<ContentItem> {
 
   const data = await response.json();
   return data.data || data;
+}
+
+/**
+ * Fetch comments for a content item (newest first, cursor-paginated).
+ * Identity params let the server mark the caller's own comments (is_mine).
+ */
+export async function fetchComments(
+  contentId: string,
+  cursor?: string | null
+): Promise<CommentsResponse> {
+  const params = getIdentityParams();
+  if (cursor) params.set('cursor', cursor);
+  params.set('limit', '20');
+
+  const response = await fetch(`${API_BASE}/content/${contentId}/comments?${params}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch comments: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || data;
+}
+
+/**
+ * Post a comment on a content item. Comments ride the generic interactions
+ * endpoint with the text (and optional display name) in metadata.
+ */
+export async function postComment(
+  contentId: string,
+  text: string,
+  author?: string
+): Promise<Interaction> {
+  return recordInteraction(contentId, 'comment', {
+    text,
+    ...(author ? { author } : {}),
+  });
 }
 
 /**

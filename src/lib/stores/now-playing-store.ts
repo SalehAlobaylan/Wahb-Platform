@@ -34,6 +34,18 @@ interface NowPlayingState {
 }
 
 /**
+ * Non-reactive bridge carrying the exact position of the global <audio>
+ * element. Updated on every audio timeupdate; consumed (read once, then
+ * cleared) by ForYouCard when the <video> takes playback back, so progress
+ * made while listening via the bar is never lost. Kept outside the store on
+ * purpose — it changes ~4×/s and must not trigger re-renders.
+ */
+export const audioPlaybackTime: { itemId: string | null; time: number } = {
+    itemId: null,
+    time: 0,
+};
+
+/**
  * Global store for "Now Playing" audio that persists across page navigations.
  * Separate from feed-store because it must survive route changes.
  */

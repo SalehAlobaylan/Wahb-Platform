@@ -38,6 +38,12 @@ interface FeedState {
   setLastActiveForYouItemId: (id: string | null) => void;
   toggleBookmark: (id: string) => void;
   toggleLike: (id: string) => void;
+  /**
+   * Merge server-side interaction flags (is_liked / is_bookmarked from feed
+   * responses) into the local sets. Additive only — never removes ids — so a
+   * concurrent optimistic un-like isn't clobbered by an in-flight refetch.
+   */
+  seedInteractions: (likedIds: string[], bookmarkedIds: string[]) => void;
   resetProgress: () => void;
   setFastSwiping: (fast: boolean) => void;
   setBackoffUntil: (until: number) => void;
@@ -118,6 +124,20 @@ export const useFeedStore = create<FeedState>()(
           newSet.add(id);
         }
         return { bookmarkedIds: newSet };
+      }),
+
+      seedInteractions: (liked, bookmarked) => set((state) => {
+        const newLiked = liked.filter((id) => !state.likedIds.has(id));
+        const newBookmarked = bookmarked.filter((id) => !state.bookmarkedIds.has(id));
+        if (newLiked.length === 0 && newBookmarked.length === 0) return {};
+        return {
+          ...(newLiked.length > 0 && {
+            likedIds: new Set([...state.likedIds, ...newLiked]),
+          }),
+          ...(newBookmarked.length > 0 && {
+            bookmarkedIds: new Set([...state.bookmarkedIds, ...newBookmarked]),
+          }),
+        };
       }),
 
       toggleLike: (id) => set((state) => {

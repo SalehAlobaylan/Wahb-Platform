@@ -5,13 +5,18 @@ import {
   fetchForYouFeed,
   fetchNewsFeed,
   fetchBookmarks,
+  fetchComments,
+  fetchContentItem,
   fetchTranscript,
+  postComment,
   requestTranscription,
   recordInteraction,
   removeInteraction,
 } from '@/lib/api';
 import { useFeedStore } from '@/lib/stores';
-import type { Interaction } from '@/types';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import type { CommentsResponse, ContentComment, Interaction } from '@/types';
+import type { InfiniteData } from '@tanstack/react-query';
 
 /**
  * Hook for infinite scrolling For You feed
@@ -96,18 +101,128 @@ export function useBookmarkMutation() {
         await recordInteraction(contentId, 'bookmark');
       }
     },
-    onMutate: async ({ contentId }) => {
-      // Optimistic update
+    onMutate: async ({ contentId, isBookmarked }) => {
+      // Optimistic update of the local id set
       toggleBookmark(contentId);
+
+      // Optimistically remove from the saved-page list too — invalidation
+      // alone leaves the item visible (and looking bookmarked) until the
+      // refetch lands, and a second tap would fire a bogus DELETE.
+      let previous: InfiniteData<{ cursor: string | null; items: { id: string }[] }> | undefined;
+      if (isBookmarked) {
+        await queryClient.cancelQueries({ queryKey: ['bookmarks'] });
+        previous = queryClient.getQueryData(['bookmarks']);
+        if (previous) {
+          queryClient.setQueryData(['bookmarks'], {
+            ...previous,
+            pages: previous.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => item.id !== contentId),
+            })),
+          });
+        }
+      }
+      return { previous };
     },
-    onError: (_, { contentId }) => {
+    onError: (_, { contentId }, context) => {
       // Rollback on error
       toggleBookmark(contentId);
+      if (context?.previous) {
+        queryClient.setQueryData(['bookmarks'], context.previous);
+      }
     },
     onSettled: () => {
       // Invalidate bookmarks query
       queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
     },
+  });
+}
+
+/**
+ * Hook for fetching a content item's comments (newest first, paginated).
+ */
+export function useComments(contentId?: string | null) {
+  return useInfiniteQuery({
+    queryKey: ['comments', contentId],
+    queryFn: ({ pageParam }) => fetchComments(contentId!, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.cursor,
+    enabled: !!contentId,
+    staleTime: 1000 * 30,
+  });
+}
+
+/**
+ * Hook for posting a comment with an optimistic prepend into the comments
+ * cache, rolled back on error.
+ */
+export function useAddCommentMutation(contentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ text }: { text: string }) => {
+      const { user } = useAuthStore.getState();
+      return postComment(contentId, text, user?.username || undefined);
+    },
+    onMutate: async ({ text }) => {
+      await queryClient.cancelQueries({ queryKey: ['comments', contentId] });
+      const previous = queryClient.getQueryData<InfiniteData<CommentsResponse>>([
+        'comments',
+        contentId,
+      ]);
+
+      const { user } = useAuthStore.getState();
+      const optimistic: ContentComment = {
+        id: `optimistic-${Date.now()}`,
+        text,
+        author: user?.username || undefined,
+        is_mine: true,
+        created_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<InfiniteData<CommentsResponse>>(
+        ['comments', contentId],
+        (old) => {
+          if (!old || old.pages.length === 0) {
+            return {
+              pages: [{ cursor: null, items: [optimistic] }],
+              pageParams: [null],
+            };
+          }
+          const [first, ...rest] = old.pages;
+          return {
+            ...old,
+            pages: [{ ...first, items: [optimistic, ...first.items] }, ...rest],
+          };
+        }
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['comments', contentId], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', contentId] });
+    },
+  });
+}
+
+/**
+ * Hook for fetching the full content item by ID.
+ *
+ * Feed endpoints cap body_text (the news feed truncates it to 600 chars in
+ * SQL to keep payloads small), so anything that renders the whole article —
+ * the reader — must fetch the item itself.
+ */
+export function useContentItem(contentId?: string | null) {
+  return useQuery({
+    queryKey: ['content', contentId],
+    queryFn: () => fetchContentItem(contentId!),
+    enabled: !!contentId,
+    staleTime: 1000 * 60 * 10, // 10 min — article bodies rarely change
   });
 }
 

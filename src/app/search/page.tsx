@@ -8,6 +8,7 @@ import { useBookmarkMutation } from '@/lib/hooks/use-feed';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader } from '@/components/feed';
 import { cn } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils/time';
 import { useI18n, useTranslations } from '@/lib/i18n';
 import {
     ArrowLeft, Search, X, Clock, TrendingUp,
@@ -39,18 +40,6 @@ const RECENT_SEARCHES_KEY = 'wahb_recent_searches';
 /* ══════════════════════════════════════════════════════════
    Helpers
    ══════════════════════════════════════════════════════════ */
-function formatRelativeDate(dateStr: string, t: (key: string, vars?: Record<string, string | number>) => string, locale: string) {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return t('saved.relative.today');
-    if (diffDays === 1) return t('saved.relative.yesterday');
-    if (diffDays < 7) return t('saved.relative.days', { count: diffDays });
-    if (diffDays < 30) return t('saved.relative.weeks', { count: Math.floor(diffDays / 7) });
-    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-}
-
 function getTypeBadge(type: ContentType, t: (key: string) => string) {
     const map: Record<ContentType, { label: string; color: string }> = {
         NEWS: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
@@ -125,6 +114,17 @@ export default function SearchPage() {
 
     // Debounced search
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Monotonic id per request: a slow response for an older query must not
+    // overwrite the results of a newer one (debounce alone doesn't prevent
+    // out-of-order responses).
+    const searchSeqRef = useRef(0);
+
+    // Clear any pending debounce on unmount so it can't fire afterwards
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        };
+    }, []);
 
     const executeSearch = useCallback(async (q: string) => {
         if (!q.trim()) {
@@ -133,16 +133,18 @@ export default function SearchPage() {
             return;
         }
 
+        const seq = ++searchSeqRef.current;
         setIsSearching(true);
         setHasSearched(true);
 
         try {
             const data = await searchContent(q.trim());
+            if (seq !== searchSeqRef.current) return; // stale response
             setResults(data);
         } catch {
-            setResults([]);
+            if (seq === searchSeqRef.current) setResults([]);
         } finally {
-            setIsSearching(false);
+            if (seq === searchSeqRef.current) setIsSearching(false);
         }
 
         // Save to recent
@@ -445,9 +447,11 @@ export default function SearchPage() {
                                                     {item.author}
                                                 </span>
                                             )}
-                                            <span className="text-[11px] text-muted-foreground">
-                                                {formatRelativeDate(item.published_at, t, locale)}
-                                            </span>
+                                            {formatRelativeTime(item.published_at, locale) && (
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    {formatRelativeTime(item.published_at, locale)}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 

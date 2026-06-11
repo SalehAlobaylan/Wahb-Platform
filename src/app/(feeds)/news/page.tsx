@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useNewsFeed } from '@/lib/hooks';
+import { useSearchParams } from 'next/navigation';
+import { useNewsFeed, useContentItem } from '@/lib/hooks';
 import { useFeedStore } from '@/lib/stores';
 import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
 import {
@@ -30,6 +31,25 @@ import { useShallow } from 'zustand/react/shallow';
 let lastNewsFetchAt = 0;
 
 export default function NewsPage() {
+    // useSearchParams must live under a Suspense boundary (same pattern as the
+    // For You page).
+    return (
+        <Suspense
+            fallback={
+                <div className="h-full w-full overflow-hidden relative bg-background news-page">
+                    <FeedContainer>
+                        <NewsSlideSkeleton />
+                        <NewsSlideSkeleton />
+                    </FeedContainer>
+                </div>
+            }
+        >
+            <NewsPageContent />
+        </Suspense>
+    );
+}
+
+function NewsPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
     const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore(
         useShallow((s) => ({
@@ -43,6 +63,22 @@ export default function NewsPage() {
     
     // Reader Overlay State
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
+
+    // Deep-link support: /news?item=<content_id> (this is what shareContent
+    // generates for ARTICLE/TWEET/COMMENT items). The deep-linked article is
+    // derived at render — no effect — and closing the reader marks the id
+    // dismissed so it doesn't reopen.
+    const searchParams = useSearchParams();
+    const deepLinkId = searchParams.get('item');
+    const [dismissedDeepLinkId, setDismissedDeepLinkId] = useState<string | null>(null);
+    const { data: deepLinkItem } = useContentItem(deepLinkId);
+    const deepLinkArticle =
+        deepLinkItem && deepLinkItem.id !== dismissedDeepLinkId ? deepLinkItem : null;
+    const openArticle = selectedArticle ?? deepLinkArticle;
+    const handleCloseArticle = () => {
+        setSelectedArticle(null);
+        if (deepLinkArticle) setDismissedDeepLinkId(deepLinkArticle.id);
+    };
 
     // Tell global store a bottom-sheet lives here
     useEffect(() => {
@@ -245,8 +281,8 @@ export default function NewsPage() {
 
             {/* ── Full Screen Reader Overlay ───────────── */}
             <ArticleReader
-                article={selectedArticle}
-                onClose={() => setSelectedArticle(null)}
+                article={openArticle}
+                onClose={handleCloseArticle}
             />
         </div>
     );

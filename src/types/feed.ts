@@ -15,6 +15,7 @@ export interface ContentItem {
   duration_sec?: number;
   author?: string;
   source_name?: string;
+  source_image_url?: string;
 
   // Interaction/Engagement stats
   like_count: number;
@@ -53,6 +54,7 @@ export interface StoryMember {
   author?: string;
   source_name?: string;
   thumbnail_url?: string;
+  source_image_url?: string;
   published_at: string;
   like_count: number;
   comment_count: number;
@@ -70,6 +72,7 @@ export interface StorySummary {
   excerpt?: string;
   thumbnail_url?: string;
   source_name?: string;
+  source_image_url?: string;
   published_at: string;
   member_count: number;
   like_count: number;
@@ -117,8 +120,21 @@ export interface NewsResponse {
 export interface Interaction {
   id: string;
   content_item_id: string;
-  interaction_type: 'like' | 'bookmark' | 'share' | 'view' | 'complete';
+  interaction_type: 'like' | 'bookmark' | 'share' | 'view' | 'complete' | 'comment';
   created_at: string;
+}
+
+export interface ContentComment {
+  id: string;
+  text: string;
+  author?: string;
+  is_mine: boolean;
+  created_at: string;
+}
+
+export interface CommentsResponse {
+  cursor: string | null;
+  items: ContentComment[];
 }
 
 export interface Transcript {

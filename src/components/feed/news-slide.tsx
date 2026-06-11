@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { adjustedLikeCount } from '@/lib/utils/engagement';
+import { formatRelativeTime } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { shareContent } from '@/lib/utils/share';
@@ -17,6 +20,48 @@ import type { NewsSlide as NewsSlideType, ContentItem } from '@/types';
  */
 const normalizeForTitle = (text: string): string =>
     text.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+const normalizeForCompare = (text: string): string =>
+    normalizeForTitle(isHtml(text) ? stripHtml(text) : text)
+        .replace(/[\u200e\u200f\u061c]/g, '')
+        .replace(/[^\p{L}\p{N}]+/gu, '')
+        .toLowerCase();
+
+const isSameDisplayText = (a: string, b: string): boolean => {
+    const left = normalizeForCompare(a);
+    const right = normalizeForCompare(b);
+    return left.length > 0 && left === right;
+};
+
+const firstMeaningfulLine = (text: string): string => {
+    const plain = isHtml(text) ? stripHtml(text) : text;
+    return plain
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .find(line => meaningfulCharCount(line) > 8) || plain.trim();
+};
+
+const compactBodyTitle = (text: string): string => {
+    const line = firstMeaningfulLine(text);
+    const bulletIndex = line.search(/[•▪●◦-]\s*/u);
+    const colonIndex = line.search(/[:：]\s*/u);
+    const cutAt = [bulletIndex, colonIndex]
+        .filter(index => index > 20)
+        .sort((a, b) => a - b)[0];
+    const compact = cutAt ? line.slice(0, cutAt + 1) : line;
+    return normalizeForTitle(compact).slice(0, 180).trim();
+};
+
+const sourceImageFromName = (sourceName?: string): string | undefined => {
+    const value = sourceName?.trim();
+    if (!value || value.includes(' ')) return undefined;
+    const domain = value.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    if (!domain || !domain.includes('.')) return undefined;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+};
+
+const getDisplayImageUrl = (item: ContentItem): string | undefined =>
+    item.thumbnail_url || item.source_image_url || sourceImageFromName(item.source_name);
 
 /**
  * Count meaningful characters: letters + digits only, no spaces, punctuation,
@@ -37,16 +82,18 @@ const meaningfulCharCount = (text: string): number =>
  */
 const getRelatedDisplayTitle = (item: ContentItem): string => {
     const title = item.title?.trim() ?? '';
+    const body = item.body_text ?? item.excerpt ?? '';
     const HEADER_SUFFIXES = [':', '،', '..', '…'];
     const isHeaderSuffix = HEADER_SUFFIXES.some(s => title.endsWith(s));
     const isTooShort = meaningfulCharCount(title) < 20;
+    const titleDuplicatesBody = Boolean(body) && isSameDisplayText(title, body);
 
-    if (title && !isHeaderSuffix && !isTooShort) {
+    if (title && !isHeaderSuffix && !isTooShort && !titleDuplicatesBody) {
         return normalizeForTitle(title);
     }
-    // Fall through to body_text — it contains the complete content
-    const body = item.body_text ?? item.excerpt ?? '';
-    if (body) return normalizeForTitle(body);
+    // Fall through to body_text — but render only a compact headline so the
+    // expanded panel can reveal the full structured text without duplication.
+    if (body) return compactBodyTitle(body);
     return title || 'Untitled';
 };
 
@@ -93,7 +140,14 @@ const hasEnoughContent = (item: ContentItem) => {
 };
 
 const getExpandableText = (item: ContentItem) => {
-    return item.excerpt || item.body_text?.slice(0, 400) || '';
+    const title = getRelatedDisplayTitle(item);
+    const candidates = [item.excerpt, item.body_text].filter(
+        (value): value is string => Boolean(value?.trim())
+    );
+    return candidates.find((value) => {
+        const plain = isHtml(value) ? stripHtml(value) : value;
+        return !isSameDisplayText(plain, title) || meaningfulCharCount(plain) - meaningfulCharCount(title) > 30;
+    }) || '';
 };
 
 /** Plain text version for length checks */
@@ -121,11 +175,14 @@ function RelatedItem({
     onToggleExpand: () => void;
 }) {
     const t = useTranslations();
+    const { locale } = useI18n();
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
+    const publishedAgo = formatRelativeTime(item.published_at, locale);
     const expandableText = getExpandableText(item);
     const plainExpand = getPlainExpandableText(item);
     const displayedTitle = getRelatedDisplayTitle(item);
+    const imageUrl = getDisplayImageUrl(item);
     const expandMeaningful = meaningfulCharCount(plainExpand);
     const titleMeaningful = meaningfulCharCount(displayedTitle);
     // Count non-empty lines in the raw text — multi-line content (bullet lists,
@@ -162,10 +219,10 @@ function RelatedItem({
             <div className="flex gap-3 items-center">
                 {/* Thumbnail or icon */}
                 <div className="w-14 h-14 shrink-0 overflow-hidden rounded-sm bg-secondary">
-                    {item.thumbnail_url ? (
+                    {imageUrl ? (
                         <div
                             className="w-full h-full bg-cover bg-center opacity-90 group-hover:opacity-100 transition-opacity"
-                            style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+                            style={{ backgroundImage: `url(${imageUrl})` }}
                         />
                     ) : item.type === 'COMMENT' ? (
                         <div className="w-full h-full flex items-center justify-center bg-secondary">
@@ -185,17 +242,17 @@ function RelatedItem({
                                 {t(getRelatedBadge(item))}
                             </span>
                         <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                            {item.type === 'ARTICLE' ? (
+                            {publishedAgo ? (
+                                <>
+                                    <Clock className="w-[10px] h-[10px]" />
+                                    {publishedAgo}
+                                </>
+                            ) : item.type === 'ARTICLE' ? (
                                 <>
                                     <TrendingUp className="w-[10px] h-[10px]" />
                                     {getRelatedMeta(item, t)}
                                 </>
-                            ) : (
-                                <>
-                                    <Clock className="w-[10px] h-[10px]" />
-                                    {getRelatedMeta(item, t)}
-                                </>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                     <h4 dir="auto" className={cn(
@@ -226,7 +283,7 @@ function RelatedItem({
                     aria-label="Like"
                 >
                     <Heart className={cn('w-3.5 h-3.5', isLiked && 'text-news-accent fill-news-accent')} />
-                    <span className="text-[10px]">{item.like_count || 0}</span>
+                    <span className="text-[10px]">{adjustedLikeCount(item.like_count, item.is_liked, isLiked)}</span>
                 </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: item.id, isBookmarked }); }}
@@ -266,11 +323,16 @@ function RelatedItem({
  * Cinematic news slide with a top-half hero area and
  * a bottom-half section showing related articles.
  */
-export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
+// `isActive` stays in the props contract (callers pass it; future
+// active-slide behaviors will need it) but is currently unused.
+export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     const { featured, related } = slide;
     const t = useTranslations();
+    const { locale } = useI18n();
+    const featuredPublishedAgo = formatRelativeTime(featured.published_at, locale);
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
+    const featuredImageUrl = getDisplayImageUrl(featured);
     const isFeaturedLiked = useFeedStore((s) => s.likedIds.has(featured.id));
     const isFeaturedBookmarked = useFeedStore((s) => s.bookmarkedIds.has(featured.id));
 
@@ -292,13 +354,13 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
             >
                 {/* Hero Image */}
                 <div className="w-full aspect-[2/1] rounded-sm overflow-hidden mb-3 border border-foreground/20 relative group">
-                    {featured.thumbnail_url ? (
+                    {featuredImageUrl ? (
                         <div
                             className={cn(
                                 "w-full h-full bg-cover bg-center transition-transform duration-500",
                                 hasEnoughContent(featured) && "group-hover/hero:scale-[1.02]"
                             )}
-                            style={{ backgroundImage: `url(${featured.thumbnail_url})` }}
+                            style={{ backgroundImage: `url(${featuredImageUrl})` }}
                         />
                     ) : (
                         <div className={cn(
@@ -334,6 +396,12 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                             <span className="text-xs text-muted-foreground font-light italic">
                                 {featured.source_name || featured.author || t('saved.item.untitled')}
                             </span>
+                            {featuredPublishedAgo && (
+                                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <Clock className="w-3 h-3" />
+                                    {featuredPublishedAgo}
+                                </span>
+                            )}
                         </div>
                         {/* Featured action buttons */}
                         <div className="flex items-center gap-3">
@@ -343,7 +411,7 @@ export function NewsSlide({ slide, isActive, onOpenArticle }: NewsSlideProps) {
                                 aria-label={t('profile.guest.feature.likes')}
                             >
                                 <Heart className={cn('w-4 h-4', isFeaturedLiked && 'text-news-accent fill-news-accent')} />
-                                <span className="text-[11px]">{featured.like_count || 0}</span>
+                                <span className="text-[11px]">{adjustedLikeCount(featured.like_count, featured.is_liked, isFeaturedLiked)}</span>
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: featured.id, isBookmarked: isFeaturedBookmarked }); }}

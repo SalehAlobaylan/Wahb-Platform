@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
+import { audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useShallow } from 'zustand/react/shallow';
 import { requestRestore } from '@/lib/api/feeds';
 import { useRequestTranscription, useTranscript } from '@/lib/hooks';
@@ -32,6 +33,10 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     const wasActiveRef = useRef(false);
     const lastPersistRef = useRef(0);
     const latestPlaybackRef = useRef<{ time: number; percent: number } | null>(null);
+    // Resume target applied on activation; re-applied on loadedmetadata in case
+    // the seek landed before the element could honor it. Cleared on the first
+    // timeupdate, when the playing video becomes the source of truth.
+    const pendingResumeRef = useRef<number | null>(null);
     const {
         isPlaying,
         globalPaused,
@@ -55,16 +60,15 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             setForYouDisplayMode: s.setForYouDisplayMode,
         }))
     );
-    // Subscribe to only this item's saved position so the active card writing
-    // its playback every tick doesn't re-render every other card.
-    const savedPlayback = useFeedStore((s) => s.forYouPlaybackById[item.id]);
-    const [currentTime, setCurrentTime] = useState(savedPlayback?.timeSec ?? 0);
+    const [currentTime, setCurrentTime] = useState(
+        () => useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec ?? 0
+    );
     const effectiveDisplayMode: ForYouDisplayMode = item.media_url ? forYouDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
     const videoFitClass = effectiveDisplayMode === 'fill' ? 'object-cover' : 'object-contain';
 
-    const applySavedTime = useCallback((timeSec?: number) => {
+    const applyTime = useCallback((timeSec?: number) => {
         if (!videoRef.current || typeof timeSec !== 'number') return;
 
         const duration = Number.isFinite(videoRef.current.duration) ? videoRef.current.duration : null;
@@ -77,18 +81,38 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         }
     }, [videoTimeRef]);
 
+    // Where to resume from when this card becomes active, in order of freshness:
+    //   1. The global <audio>'s exact position (the user kept listening via the
+    //      now-playing bar while away) — consumed once, then the video owns time.
+    //   2. The <video>'s own position — the card stayed mounted, so seeking to
+    //      the throttled store snapshot would rewind up to 5s. Keep as-is.
+    //   3. The persisted position (fresh mount / reload).
+    const resolveResumeTime = useCallback((): number | null => {
+        if (audioPlaybackTime.itemId === item.id) {
+            const time = audioPlaybackTime.time;
+            audioPlaybackTime.itemId = null;
+            return time;
+        }
+        if (videoRef.current && videoRef.current.currentTime > 0.5) {
+            return null;
+        }
+        const saved = useFeedStore.getState().forYouPlaybackById[item.id];
+        return typeof saved?.timeSec === 'number' ? saved.timeSec : null;
+    }, [item.id]);
+
     // Handle autoplay based on active state
     useEffect(() => {
         if (!videoRef.current) return;
 
         if (isActive) {
             if (!wasActiveRef.current) {
-                applySavedTime(savedPlayback?.timeSec);
-                if (savedPlayback) {
-                    setProgress(savedPlayback.progress);
-                } else {
-                    setProgress(0);
+                const resume = resolveResumeTime();
+                if (resume !== null) {
+                    pendingResumeRef.current = resume;
+                    applyTime(resume);
                 }
+                const saved = useFeedStore.getState().forYouPlaybackById[item.id];
+                setProgress(saved?.progress ?? 0);
             }
 
             if (globalPaused || !isPlaying) {
@@ -100,9 +124,19 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             }
         } else {
             videoRef.current.pause();
+            // Flush the exact position when the card deactivates so the next
+            // activation (or another device of truth) doesn't rewind to the
+            // throttled 5s snapshot.
+            if (wasActiveRef.current) {
+                const latest = latestPlaybackRef.current;
+                if (latest) {
+                    setForYouPlayback(item.id, latest.time, latest.percent);
+                    lastPersistRef.current = Date.now();
+                }
+            }
         }
         wasActiveRef.current = isActive;
-    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, savedPlayback, applySavedTime]);
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setForYouPlayback, item.id, resolveResumeTime, applyTime]);
 
     // Handle playback speed
     useEffect(() => {
@@ -122,14 +156,18 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         }
     }, [isPlaying, globalPaused, isActive, setPlaying]);
 
-    // Apply seek after metadata is loaded when duration becomes known
+    // Apply seek after metadata is loaded when duration becomes known. Prefer
+    // the pending resume target (it may come from the global <audio>, which is
+    // fresher than the persisted snapshot).
     useEffect(() => {
         if (!videoRef.current) return;
 
         const onLoadedMetadata = () => {
             if (!isActive) return;
-            const playback = useFeedStore.getState().forYouPlaybackById[item.id];
-            applySavedTime(playback?.timeSec);
+            const target =
+                pendingResumeRef.current ??
+                useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec;
+            applyTime(target);
         };
 
         const el = videoRef.current;
@@ -137,7 +175,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         return () => {
             el.removeEventListener('loadedmetadata', onLoadedMetadata);
         };
-    }, [isActive, item.id, applySavedTime]);
+    }, [isActive, item.id, applyTime]);
 
     // Flush the latest position to the store on unmount (e.g. navigating away)
     // so the throttle window below doesn't drop the last few seconds. Guarded by
@@ -152,8 +190,23 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         };
     }, [item.id, setForYouPlayback]);
 
+    // Unmount cleanups never run on a hard refresh or tab close, so also flush
+    // the exact position on pagehide (active card only — it's the one playing).
+    useEffect(() => {
+        if (!isActive) return;
+        const flush = () => {
+            const latest = latestPlaybackRef.current;
+            if (latest) {
+                setForYouPlayback(item.id, latest.time, latest.percent);
+            }
+        };
+        window.addEventListener('pagehide', flush);
+        return () => window.removeEventListener('pagehide', flush);
+    }, [isActive, item.id, setForYouPlayback]);
+
     const handleTimeUpdate = () => {
         if (!videoRef.current) return;
+        pendingResumeRef.current = null;
         const nextTime = videoRef.current.currentTime;
         const percent = (nextTime / videoRef.current.duration) * 100;
         const safePercent = Number.isFinite(percent) ? percent : 0;

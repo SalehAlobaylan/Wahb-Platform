@@ -13,6 +13,7 @@ import { FeedErrorFallback } from '@/components/error-boundary';
 import { Search, Bookmark, User, Heart, MessageCircle, RotateCcw, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
+import { adjustedLikeCount } from '@/lib/utils/engagement';
 import {
     throttleScroll,
     TokenBucket,
@@ -114,6 +115,16 @@ function ForYouPageContent() {
             setLastActiveForYouItemId(activeItem.id);
         }
     }, [activeItem?.id, setLastActiveForYouItemId]);
+
+    // Sync server-side interaction flags into the local sets so like/bookmark
+    // icons reflect reality (e.g. interactions made in a previous session).
+    useEffect(() => {
+        if (forYouItems.length === 0) return;
+        useFeedStore.getState().seedInteractions(
+            forYouItems.filter((i) => i.is_liked).map((i) => i.id),
+            forYouItems.filter((i) => i.is_bookmarked).map((i) => i.id)
+        );
+    }, [forYouItems]);
 
     // Now Playing — register metadata so the bar shows on other pages
     const setCurrentFromVideo = useNowPlayingStore((s) => s.setCurrentFromVideo);
@@ -494,7 +505,7 @@ function ForYouPageContent() {
                                 )}>
                                     <Heart className={cn("w-5 h-5", isLiked ? "text-white fill-white" : "text-foreground")} />
                                 </div>
-                                <span className="text-[10px] text-muted-foreground font-medium">{activeItem.like_count}</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">{adjustedLikeCount(activeItem.like_count, activeItem.is_liked, isLiked)}</span>
                             </button>
 
                             {/* Comment */}
@@ -527,7 +538,7 @@ function ForYouPageContent() {
                             <div ref={rewindButtonRef} className="relative">
                                 <button
                                     className="flex flex-col items-center gap-1"
-                                aria-label={t('foryou.seek.back')}
+                                    aria-label={t('foryou.seek.backSeconds', { count: 15 })}
                                     onPointerDown={startRewindPress}
                                     onPointerUp={endRewindPress}
                                     onPointerCancel={cancelRewindPress}
@@ -542,7 +553,7 @@ function ForYouPageContent() {
                                     <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
                                         <RotateCcw className="w-4 h-4 text-foreground" />
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground">{t('foryou.seek.forward', { count: 15 })}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t('foryou.seek.backSeconds', { count: 15 })}</span>
                                 </button>
 
                                 {showSeekMenu && (
