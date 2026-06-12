@@ -16,6 +16,7 @@ import {
 import { useFeedStore } from '@/lib/stores';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import type { CommentsResponse, ContentComment, Interaction } from '@/types';
+import type { BookmarkFeedFilter, BookmarkSort } from '@/lib/api/feeds';
 import type { InfiniteData } from '@tanstack/react-query';
 
 /**
@@ -47,10 +48,19 @@ export function useNewsFeed() {
 /**
  * Hook for fetching bookmarked items
  */
-export function useBookmarks() {
+export function useBookmarks({
+  feed = 'all',
+  sort = 'saved_desc',
+  q = '',
+}: {
+  feed?: BookmarkFeedFilter;
+  sort?: BookmarkSort;
+  q?: string;
+} = {}) {
+  const search = q.trim();
   return useInfiniteQuery({
-    queryKey: ['bookmarks'],
-    queryFn: ({ pageParam }) => fetchBookmarks(pageParam),
+    queryKey: ['bookmarks', { feed, sort, q: search }],
+    queryFn: ({ pageParam }) => fetchBookmarks({ cursor: pageParam, feed, sort, q: search }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
     staleTime: 1000 * 60, // 1 minute
@@ -108,27 +118,33 @@ export function useBookmarkMutation() {
       // Optimistically remove from the saved-page list too — invalidation
       // alone leaves the item visible (and looking bookmarked) until the
       // refetch lands, and a second tap would fire a bogus DELETE.
-      let previous: InfiniteData<{ cursor: string | null; items: { id: string }[] }> | undefined;
+      let previousEntries: Array<[readonly unknown[], InfiniteData<{ cursor: string | null; items: { id: string }[] }> | undefined]> = [];
       if (isBookmarked) {
         await queryClient.cancelQueries({ queryKey: ['bookmarks'] });
-        previous = queryClient.getQueryData(['bookmarks']);
-        if (previous) {
-          queryClient.setQueryData(['bookmarks'], {
-            ...previous,
-            pages: previous.pages.map((page) => ({
-              ...page,
-              items: page.items.filter((item) => item.id !== contentId),
-            })),
-          });
-        }
+        previousEntries = queryClient.getQueriesData<InfiniteData<{ cursor: string | null; items: { id: string }[] }>>({
+          queryKey: ['bookmarks'],
+        });
+        queryClient.setQueriesData<InfiniteData<{ cursor: string | null; items: { id: string }[] }>>(
+          { queryKey: ['bookmarks'] },
+          (current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              pages: current.pages.map((page) => ({
+                ...page,
+                items: page.items.filter((item) => item.id !== contentId),
+              })),
+            };
+          }
+        );
       }
-      return { previous };
+      return { previousEntries };
     },
     onError: (_, { contentId }, context) => {
       // Rollback on error
       toggleBookmark(contentId);
-      if (context?.previous) {
-        queryClient.setQueryData(['bookmarks'], context.previous);
+      for (const [queryKey, previous] of context?.previousEntries ?? []) {
+        queryClient.setQueryData(queryKey, previous);
       }
     },
     onSettled: () => {

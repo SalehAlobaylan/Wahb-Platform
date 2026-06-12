@@ -31,6 +31,7 @@ export interface ContentItem {
   status?: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED';
 
   published_at: string;
+  bookmarked_at?: string;
   created_at: string;
   updated_at?: string; // Added from schema
 

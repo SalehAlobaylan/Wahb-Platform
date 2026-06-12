@@ -27,6 +27,25 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 
 const API_BASE = '/api/v1';
 
+function getAnonymousSessionId(): string {
+  if (typeof window === 'undefined') return '';
+
+  try {
+    const stored = sessionStorage.getItem('wahb_session_id');
+    if (stored) return stored;
+
+    const newId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    sessionStorage.setItem('wahb_session_id', newId);
+    return newId;
+  } catch {
+    return '';
+  }
+}
+
 // Identity for interaction/feed calls. For authenticated users we send NO
 // identity field: the /api/v1 proxy injects the user's JWT from the httpOnly
 // cookie and CMS derives the user id from that verified token. Sending a
@@ -37,7 +56,7 @@ function getIdentityParams(): URLSearchParams {
   const params = new URLSearchParams();
   const { user, isAuthenticated } = useAuthStore.getState();
   if (!(isAuthenticated && user) && typeof window !== 'undefined') {
-    const sessionId = sessionStorage.getItem('wahb_session_id') || '';
+    const sessionId = getAnonymousSessionId();
     if (sessionId) params.set('session_id', sessionId);
   }
   return params;
@@ -49,7 +68,7 @@ function getIdentityBody(): Record<string, string> {
     return {};
   }
   if (typeof window !== 'undefined') {
-    const sessionId = sessionStorage.getItem('wahb_session_id') || '';
+    const sessionId = getAnonymousSessionId();
     if (sessionId) return { session_id: sessionId };
   }
   return {};
@@ -359,13 +378,26 @@ export async function removeInteraction(
 /**
  * Fetch user's bookmarked items
  */
-export async function fetchBookmarks(cursor?: string): Promise<ForYouResponse> {
+export type BookmarkFeedFilter = 'all' | 'foryou' | 'news';
+export type BookmarkSort = 'saved_desc' | 'saved_asc';
+
+export interface FetchBookmarksOptions {
+  cursor?: string;
+  feed?: BookmarkFeedFilter;
+  sort?: BookmarkSort;
+  q?: string;
+}
+
+export async function fetchBookmarks(options: FetchBookmarksOptions = {}): Promise<ForYouResponse> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-    return mockFetchBookmarks(cursor);
+    return mockFetchBookmarks(options.cursor);
   }
 
   const params = getIdentityParams();
-  if (cursor) params.set('cursor', cursor);
+  if (options.cursor) params.set('cursor', options.cursor);
+  if (options.feed && options.feed !== 'all') params.set('feed', options.feed);
+  if (options.sort) params.set('sort', options.sort);
+  if (options.q?.trim()) params.set('q', options.q.trim());
   params.set('limit', '20');
 
   const response = await fetch(`${API_BASE}/interactions/bookmarks?${params}`);

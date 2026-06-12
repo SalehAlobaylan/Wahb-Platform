@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Mail, Lock, Zap } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Lock, Zap, Settings } from 'lucide-react';
 import { useLogin } from '@/lib/hooks/use-auth';
 import { isValidEmail } from '@/lib/validation/email';
 import { useTranslations } from '@/lib/i18n';
@@ -53,12 +53,23 @@ function LoginContent() {
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col">
             {/* Header */}
-            <header className="pt-12 pb-4 px-5">
-                <Link href="/">
-                    <button className="p-2 -ml-2 rounded-full hover:bg-muted/60 transition-colors text-foreground active:scale-95">
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
-                </Link>
+            <header className="pt-12 pb-4 px-5 flex items-center justify-between">
+                <button
+                    type="button"
+                    aria-label="Back"
+                    onClick={() => router.push('/news')}
+                    className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors text-foreground active:scale-95"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <button
+                    type="button"
+                    aria-label={t('settings.title')}
+                    onClick={() => router.push('/settings')}
+                    className="w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center text-foreground hover:bg-muted active:scale-95 transition-all"
+                >
+                    <Settings className="w-5 h-5" />
+                </button>
             </header>
 
             <main className="flex-1 px-5 flex flex-col">

@@ -208,7 +208,8 @@ function NewsPageContent() {
             <header className="absolute top-0 inset-x-0 z-20 pointer-events-none pb-2 pt-2">
                 <div className="flex justify-between items-center p-4">
                     <div className="flex items-center gap-3 pointer-events-auto text-foreground">
-                        <Image src="/images/Wahb-logo-noblue-removebg.png" alt="Wahb Logo" width={32} height={32} className="object-contain dark:brightness-100 brightness-0" priority />
+                        <Image src="/images/wahb_symbol_transparent_dark.png" alt="Wahb Logo" width={32} height={32} className="dark:hidden object-contain" priority />
+                        <Image src="/images/wahb_symbol_transparent_light.png" alt="Wahb Logo" width={32} height={32} className="hidden dark:block object-contain" priority />
                         <Link href="/profile">
                             <div className="w-9 h-9 rounded-sm bg-secondary flex items-center justify-center border border-foreground/20 hover:border-foreground/40 transition-all">
                                 <User className="w-4.5 h-4.5 text-foreground" />

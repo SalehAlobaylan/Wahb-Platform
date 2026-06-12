@@ -10,13 +10,18 @@ import {
     Trash2, Languages, Loader2,
     Clock, Play, AlertCircle, Lock,
 } from 'lucide-react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { useAuthStore } from '@/lib/stores';
 import { useChangePassword, useLogout } from '@/lib/hooks/use-auth';
 import { useTheme } from 'next-themes';
-import { fetchWatchHistory, clearWatchHistory, type WatchHistoryItem } from '@/lib/api/feeds';
+import {
+    fetchWatchHistory,
+    clearWatchHistory,
+    type WatchHistoryItem,
+    type WatchHistoryResponse,
+} from '@/lib/api/feeds';
 import { useI18n, useTranslations, type Locale } from '@/lib/i18n';
 
 /* ═══════════════════════════════════════════════════════
@@ -635,38 +640,69 @@ function ChangePasswordPanel({ onBack, t }: { onBack: () => void; t: (key: strin
     );
 }
 
-function formatRelativeTime(dateStr: string): string {
-    const now = Date.now();
-    const diff = now - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60_000);
-    if (mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString();
+function formatRelativeTime(dateStr: string, locale: Locale): string {
+    const viewedAt = new Date(dateStr).getTime();
+    if (!Number.isFinite(viewedAt)) return '';
+
+    const diffMs = viewedAt - Date.now();
+    const absMins = Math.abs(diffMs) / 60_000;
+    const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+
+    if (absMins < 60) return relative.format(Math.round(diffMs / 60_000), 'minute');
+
+    const absHours = absMins / 60;
+    if (absHours < 24) return relative.format(Math.round(diffMs / 3_600_000), 'hour');
+
+    const absDays = absHours / 24;
+    if (absDays < 7) return relative.format(Math.round(diffMs / 86_400_000), 'day');
+
+    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(viewedAt);
 }
 
 function formatDuration(sec?: number): string {
     if (!sec) return '';
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
+    const total = Math.max(0, Math.floor(sec));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
+type WatchHistoryPages = InfiniteData<WatchHistoryResponse, string | null>;
+type HistoryFeedTab = 'foryou' | 'news';
+
+function isForYouHistoryItem(item: WatchHistoryItem): boolean {
+    return item.type === 'VIDEO' || item.type === 'PODCAST';
+}
+
+function HistoryPanel({
+    onBack,
+    t,
+    locale,
+}: {
+    onBack: () => void;
+    t: (key: string) => string;
+    locale: Locale;
+}) {
     const queryClient = useQueryClient();
+    const router = useRouter();
+    const { user, isAuthenticated } = useAuthStore();
     const [confirmClear, setConfirmClear] = useState(false);
+    const [activeFeed, setActiveFeed] = useState<HistoryFeedTab>('foryou');
+    const historyQueryKey = useMemo(
+        () => ['watch-history', isAuthenticated && user ? `user:${user.id}` : 'anonymous'] as const,
+        [isAuthenticated, user]
+    );
 
     const {
         data,
         isLoading,
         isError,
+        refetch,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
     } = useInfiniteQuery({
-        queryKey: ['watch-history'],
+        queryKey: historyQueryKey,
         queryFn: ({ pageParam }) => fetchWatchHistory(pageParam),
         initialPageParam: null as string | null,
         getNextPageParam: (lastPage) => lastPage.cursor,
@@ -674,21 +710,104 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
 
     const clearMutation = useMutation({
         mutationFn: clearWatchHistory,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['watch-history'] });
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: historyQueryKey });
+            const previous = queryClient.getQueryData<WatchHistoryPages>(historyQueryKey);
+
+            queryClient.setQueryData<WatchHistoryPages>(historyQueryKey, (current) => {
+                if (!current) return current;
+                return {
+                    ...current,
+                    pages: current.pages.map((page) => ({ ...page, cursor: null, items: [] })),
+                };
+            });
+
             setConfirmClear(false);
+            return { previous };
+        },
+        onError: (_error, _variables, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(historyQueryKey, context.previous);
+            }
+            setConfirmClear(true);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: historyQueryKey });
         },
     });
 
-    const allItems: WatchHistoryItem[] = data?.pages.flatMap((p) => p.items) ?? [];
+    const allItems = useMemo<WatchHistoryItem[]>(() => {
+        if (!data?.pages) return [];
+
+        const seen = new Set<string>();
+        const items: WatchHistoryItem[] = [];
+        for (const page of data.pages) {
+            for (const item of page.items) {
+                if (!item?.content_id || seen.has(item.content_id)) continue;
+                seen.add(item.content_id);
+                items.push(item);
+            }
+        }
+        return items;
+    }, [data]);
+
+    const forYouItems = useMemo(() => allItems.filter(isForYouHistoryItem), [allItems]);
+    const newsItems = useMemo(() => allItems.filter((item) => !isForYouHistoryItem(item)), [allItems]);
+    const visibleItems = activeFeed === 'foryou' ? forYouItems : newsItems;
+
+    const handleOpenItem = (item: WatchHistoryItem) => {
+        const id = encodeURIComponent(item.content_id);
+        if (item.type === 'VIDEO' || item.type === 'PODCAST') {
+            router.push(`/?item=${id}`);
+            return;
+        }
+        router.push(`/news?item=${id}`);
+    };
 
     return (
         <div className="flex flex-col h-full bg-background">
             <PanelHeader title={t('settings.history.title')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto">
+                {!isLoading && !isError && allItems.length > 0 && (
+                    <div className="px-5 pt-4">
+                        <div className="grid grid-cols-2 rounded-xl border border-border bg-muted/40 p-1">
+                            <button
+                                type="button"
+                                onClick={() => setActiveFeed('foryou')}
+                                className={cn(
+                                    'h-9 rounded-lg text-xs font-semibold transition-colors',
+                                    activeFeed === 'foryou'
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                {t('settings.history.tabs.foryou')}
+                                <span className="ml-1 text-[10px] text-muted-foreground">
+                                    {forYouItems.length}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveFeed('news')}
+                                className={cn(
+                                    'h-9 rounded-lg text-xs font-semibold transition-colors',
+                                    activeFeed === 'news'
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                {t('settings.history.tabs.news')}
+                                <span className="ml-1 text-[10px] text-muted-foreground">
+                                    {newsItems.length}
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Clear button */}
                 {allItems.length > 0 && (
-                    <div className="px-5 pt-4 pb-2">
+                    <div className="px-5 pt-3 pb-2">
                         {confirmClear ? (
                             <div className="flex gap-2">
                                 <button
@@ -700,7 +819,8 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                                 </button>
                                 <button
                                     onClick={() => setConfirmClear(false)}
-                                    className="flex-1 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
+                                    disabled={clearMutation.isPending}
+                                    className="flex-1 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50"
                                 >
                                     {t('settings.history.cancel')}
                                 </button>
@@ -708,7 +828,8 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                         ) : (
                             <button
                                 onClick={() => setConfirmClear(true)}
-                                className="w-full py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:border-destructive/30 hover:text-destructive transition-colors flex items-center justify-center gap-2"
+                                disabled={clearMutation.isPending}
+                                className="w-full py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:border-destructive/30 hover:text-destructive transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 {t('settings.history.clear')}
@@ -736,6 +857,12 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                     <div className="flex flex-col items-center justify-center py-16 px-5 text-center gap-3">
                         <AlertCircle className="w-8 h-8 text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">{t('settings.history.failed')}</p>
+                        <button
+                            onClick={() => refetch()}
+                            className="px-4 py-2 rounded-lg bg-muted text-foreground text-xs font-semibold hover:bg-muted/80 transition-colors"
+                        >
+                            {t('settings.history.retry')}
+                        </button>
                     </div>
                 )}
 
@@ -751,11 +878,34 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                     </div>
                 )}
 
+                {!isLoading && !isError && allItems.length > 0 && visibleItems.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-16 px-5 text-center gap-3">
+                        <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center">
+                            <Clock className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="font-serif text-base font-semibold text-foreground">
+                            {activeFeed === 'foryou'
+                                ? t('settings.history.empty.foryou.title')
+                                : t('settings.history.empty.news.title')}
+                        </h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed max-w-[240px]">
+                            {activeFeed === 'foryou'
+                                ? t('settings.history.empty.foryou.body')
+                                : t('settings.history.empty.news.body')}
+                        </p>
+                    </div>
+                )}
+
                 {/* Item list */}
-                {allItems.length > 0 && (
+                {visibleItems.length > 0 && (
                     <div className="px-5 py-3 space-y-1">
-                        {allItems.map((item, i) => (
-                            <div key={`${item.content_id}-${i}`} className="flex gap-3 py-2.5 border-b border-border/50 last:border-0">
+                        {visibleItems.map((item) => (
+                            <button
+                                key={item.content_id}
+                                type="button"
+                                onClick={() => handleOpenItem(item)}
+                                className="w-full flex gap-3 py-2.5 border-b border-border/50 last:border-0 rounded-lg text-left hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 transition-colors"
+                            >
                                 {/* Thumbnail */}
                                 <div className="w-20 h-14 rounded-lg bg-muted shrink-0 overflow-hidden relative">
                                     {item.thumbnail_url ? (
@@ -792,17 +942,19 @@ function HistoryPanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                                             <span className="text-[11px] text-muted-foreground">·</span>
                                         )}
                                         <span className="text-[11px] text-muted-foreground">
-                                            {formatRelativeTime(item.viewed_at)}
+                                            {formatRelativeTime(item.viewed_at, locale)}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
+                            </button>
                         ))}
 
                         {/* Load more */}
                         {hasNextPage && (
                             <button
-                                onClick={() => fetchNextPage()}
+                                onClick={() => {
+                                    if (!isFetchingNextPage) fetchNextPage();
+                                }}
                                 disabled={isFetchingNextPage}
                                 className="w-full py-3 text-sm text-gold font-medium hover:text-gold/80 transition-colors disabled:opacity-50"
                             >
@@ -846,7 +998,7 @@ export default function SettingsPage() {
     if (activePanel === 'theme') return <ThemePanel onBack={goBack} t={t} />;
     if (activePanel === 'language') return <LanguagePanel onBack={goBack} t={t} />;
     if (activePanel === 'security') return <SecurityPanel onBack={goBack} onChangePassword={() => setActivePanel('change-password')} t={t} />;
-    if (activePanel === 'history') return <HistoryPanel onBack={goBack} t={t} />;
+    if (activePanel === 'history') return <HistoryPanel onBack={goBack} t={t} locale={locale} />;
 
     return (
         <div className="h-full w-full overflow-y-auto bg-background text-foreground font-sans">
