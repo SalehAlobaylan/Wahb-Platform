@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2 } from 'lucide-react';
+import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import { formatRelativeTime } from '@/lib/utils/time';
@@ -326,7 +326,7 @@ function RelatedItem({
 // `isActive` stays in the props contract (callers pass it; future
 // active-slide behaviors will need it) but is currently unused.
 export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
-    const { featured, related } = slide;
+    const { featured, related, story } = slide;
     const t = useTranslations();
     const { locale } = useI18n();
     const featuredPublishedAgo = formatRelativeTime(featured.published_at, locale);
@@ -371,6 +371,23 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                         </div>
                     )}
 
+                    {/* Story coverage chip — the aggregation signal: this slide
+                        is a STORY grouping several posts (and, when sources
+                        overlap, several outlets), not a single article. */}
+                    {story && (
+                        <div className="absolute bottom-2 start-2 z-10 inline-flex items-center gap-1.5 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 px-2 py-1 shadow-sm">
+                            <Layers className="w-3 h-3 text-news-accent" />
+                            <span className="text-[10px] font-bold tracking-wide text-foreground leading-none">
+                                {t('news.story.posts', { count: story.memberCount })}
+                                {story.sourceCount > 1 && (
+                                    <span className="text-muted-foreground font-medium">
+                                        {' · '}
+                                        {t('news.story.sources', { count: story.sourceCount })}
+                                    </span>
+                                )}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Title & Author */}

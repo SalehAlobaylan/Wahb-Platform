@@ -27,12 +27,16 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 
 const API_BASE = '/api/v1';
 
+// Identity for interaction/feed calls. For authenticated users we send NO
+// identity field: the /api/v1 proxy injects the user's JWT from the httpOnly
+// cookie and CMS derives the user id from that verified token. Sending a
+// client-supplied user_id is both pointless (the server ignores it) and was
+// the vector for an IDOR — so we never send it. Anonymous users still send
+// their local session_id for session-scoped engagement.
 function getIdentityParams(): URLSearchParams {
   const params = new URLSearchParams();
   const { user, isAuthenticated } = useAuthStore.getState();
-  if (isAuthenticated && user) {
-    params.set('user_id', user.id);
-  } else if (typeof window !== 'undefined') {
+  if (!(isAuthenticated && user) && typeof window !== 'undefined') {
     const sessionId = sessionStorage.getItem('wahb_session_id') || '';
     if (sessionId) params.set('session_id', sessionId);
   }
@@ -42,7 +46,7 @@ function getIdentityParams(): URLSearchParams {
 function getIdentityBody(): Record<string, string> {
   const { user, isAuthenticated } = useAuthStore.getState();
   if (isAuthenticated && user) {
-    return { user_id: user.id };
+    return {};
   }
   if (typeof window !== 'undefined') {
     const sessionId = sessionStorage.getItem('wahb_session_id') || '';
@@ -197,6 +201,16 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
     slide_id: slide.slide_id,
     featured,
     related: [...otherMembers, ...relatedStories],
+    // Aggregation signal for the "N posts · N sources" chip — only meaningful
+    // when the story actually groups multiple posts.
+    story:
+      f.member_count > 1
+        ? {
+            label: f.label,
+            memberCount: f.member_count,
+            sourceCount: f.source_count ?? 1,
+          }
+        : undefined,
   };
 }
 

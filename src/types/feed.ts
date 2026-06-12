@@ -75,6 +75,9 @@ export interface StorySummary {
   source_image_url?: string;
   published_at: string;
   member_count: number;
+  // Distinct sources among the story's members — the "covered by N sources"
+  // aggregation signal. Present on the featured story; absent/0 elsewhere.
+  source_count?: number;
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -101,10 +104,20 @@ export interface StoryNewsResponse {
 // Editorial slide shape consumed by the News UI: 1 featured item + related
 // items. Built from a StoryNewsSlide (featured = the story's top member; related
 // = the story's other members + related-story headlines).
+// StoryMeta carries the aggregation signal for a slide's featured story —
+// how many posts and distinct sources the story groups (Radar-style
+// "N posts · N sources" chip). Present only when the story has >1 member.
+export interface StoryMeta {
+  label: string;
+  memberCount: number;
+  sourceCount: number;
+}
+
 export interface NewsSlide {
   slide_id: string;
   featured: ContentItem;
   related: ContentItem[];
+  story?: StoryMeta;
 }
 
 export interface ForYouResponse {

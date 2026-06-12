@@ -244,6 +244,8 @@
 
   "news.related": "Related",
   "news.related.empty": "No related available",
+  "news.story.posts": "{count} posts",
+  "news.story.sources": "{count} sources",
   "news.badge.opinion": "Opinion",
   "news.badge.reaction": "Reaction",
   "news.badge.video": "Video",

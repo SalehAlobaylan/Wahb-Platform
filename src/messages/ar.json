@@ -244,6 +244,8 @@
 
   "news.related": "المتعلق",
   "news.related.empty": "لا توجد عناصر مرتبطة",
+  "news.story.posts": "{count} منشورات",
+  "news.story.sources": "{count} مصادر",
   "news.badge.opinion": "رأي",
   "news.badge.reaction": "تفاعل",
   "news.badge.video": "فيديو",
