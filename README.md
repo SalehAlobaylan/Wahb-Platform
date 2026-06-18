@@ -1,130 +1,82 @@
-# Wahb Platform
+# Wahb-Platform
 
-A mobile-first social platform featuring an audio-first "For You" feed and a magazine-style News feed.
+The consumer app — the product itself. A mobile-first Next.js PWA delivering Wahb's two-feed experience: **For You** (TikTok-style full-screen audio/video) and **News** (magazine-style story-slides). It renders feeds, plays media, and records interactions.
 
-## Overview
+It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwards reads/interactions to CMS and attaches the user's access token from an httpOnly cookie, so the browser never holds the token. It does **not** scrape, transcode, embed, or write to the database directly.
 
-Wahb Platform is a modern web application built with Next.js that delivers a social content experience optimized for mobile devices. The platform features two main feeds:
+**Port:** 3000 · **Production:** https://wahb.salehspace.dev · **Stack:** Next.js 16 (App Router), React 19, TypeScript, Zustand, TanStack Query, Framer Motion, Tailwind v4
 
-- **For You Feed**: An audio-first personalized content feed
-- **News Feed**: A magazine-style news and content discovery experience
+> Full feature + architecture reference: [`../docs/wahb-platform.md`](../docs/wahb-platform.md). Design system: [`SKILL.md`](SKILL.md) and the repo-root `DESIGN.md`. Product intent: [`../docs/PRD.md`](../docs/PRD.md).
 
-## Design System
+## The Two Feeds
 
-Wahb uses a mobile-first, max-width app shell centered on a black outer canvas. The default brand identity is warm gold on neutral editorial surfaces.
+- **For You** — full-screen vertical snap-scroll of MP4 audio/video. One card per viewport (`scroll-snap-mandatory`); active card auto-plays, previous pauses; tap toggles play/pause; infinite cursor-paginated. Items must have an MP4 `media_url` and `status=READY` (VIDEO + PODCAST). Includes progress bar, playback-speed control, and a draggable bottom sheet (Comments / Transcript / About).
+- **News** — full-screen snap-scroll of **story-slides**: one featured story + up to 3 related stories per slide. Tap opens the spring-animated full-screen `ArticleReader`. Keeps its own newsprint theme (red accents).
 
-### Default Palette
+## Other Features
 
-- **Gold accent**: `#DAA428` — reserved for interactive elements such as primary buttons, active tabs, progress bars, focus rings, selected badges, and floating actions.
-- **Light mode**: Warm Ivory `#FAF8F3`, Warm Cream cards `#FFF9F0`, Deep Navy text `#1A1A2E`.
-- **Dark mode**: True Black `#111111` background, Charcoal cards `#1A1A1A`, lifted neutral surfaces `#1E1E1E`, subtle borders `#2A2A2A`, text `#F0F0F0`, muted text `#888888`.
+- **Global audio player** — a hidden `<audio>` persists across navigation; leaving For You mid-playback transfers playback at the same timestamp, with a floating `NowPlayingBar` on non-feed pages.
+- **Interactions** — like, bookmark, share, view, complete → CMS `/interactions`. Like/bookmark are idempotent (toggle) with optimistic UI + rollback. Anonymous users get a per-tab `session_id` for `is_liked`/`is_bookmarked` flags.
+- **Saved / Search / Profile** — bookmarks (filter + sort), debounced search against CMS `/content/search`, and profile/create surfaces.
 
-### News Scope
-
-The News feed owns a separate `.news-page` theme using newsprint colors and red accents. Do not replace those red/newsprint tokens with gold when changing the default Wahb identity.
-
-## Tech Stack
-
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **State Management**: Zustand
-- **Data Fetching**: TanStack Query
-- **UI Components**: Radix UI
-- **Animations**: Framer Motion
-- **Testing**: Jest, React Testing Library
+> MVP surfaces — comments, profile, and search "trending" — are intentionally mocked / static until wired to the backend.
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js 20+
-- npm, yarn, pnpm, or bun
-
-### Installation
-
-1. Clone the repository and navigate to the platform directory:
-```bash
-cd Wahb-Platform
-```
-
-2. Install dependencies:
 ```bash
 npm install
+cp .env.example .env.local   # configure backend URLs
+npm run dev                  # http://localhost:3000
 ```
 
-3. Copy the environment variables file:
-```bash
-cp .env.example .env.local
-```
+Requires Node.js 20+.
 
-4. Configure your environment variables in `.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-NEXT_PUBLIC_ENABLE_DEBUG_MODE=false
-```
+## Architecture
 
-### Development
+- **Thin client / BFF proxy** — `/api/v1/[...path]/route.ts` forwards all CMS reads/interactions (GET/POST/PUT/PATCH/DELETE) to `NEXT_PUBLIC_API_URL` / `CMS_BASE_URL`, stripping hop-by-hop headers and attaching the `wahb_access_token` cookie as a Bearer header so user-authenticated CMS routes work transparently. `/api/auth/*` (register/login/refresh/logout/me/profile/change-password) proxy to IAM; `/api/content/submit` and `/api/transcribe` are dedicated server routes.
+- **State** — Zustand stores (`auth-store`, `feed-store`, `now-playing-store`); TanStack Query for server data; the News story-slide response is adapted into the editorial `NewsSlide` shape at the fetch boundary so the magazine UI is decoupled from CMS's model.
+- **Cannot** — scrape, run FFmpeg, run ML, or write directly to the DB; For You only ever plays MP4 URLs served by CMS.
 
-Run the development server:
+## Design System
 
-```bash
-npm run dev
-```
+Mobile-first, max-width app shell on a black outer canvas; warm **gold `#DAA428`** accent on neutral editorial surfaces (light: Warm Ivory; dark: True Black). The News feed owns a separate `.news-page` newsprint theme with red accents — don't replace those with gold. Arabic-first typography (`TheYearofHandicrafts`). See [`SKILL.md`](SKILL.md) for the full token contract.
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Configuration
 
-### Build
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `NEXT_PUBLIC_API_URL` | yes | http://localhost:8080/api/v1 | CMS public API base (used by the `/api/v1` proxy) |
+| `CMS_BASE_URL` | fallback | http://localhost:8080/api/v1 | Alternate CMS base if `NEXT_PUBLIC_API_URL` unset |
+| `IAM_API_URL` | for auth | http://localhost:4003/api/v1 | IAM base for register/login |
+| `NEXT_PUBLIC_USE_MOCK_DATA` | no | false | Force mock-client surfaces |
+| `NEXT_PUBLIC_ENABLE_DEBUG_MODE` | no | false | Debug UI |
 
-Create a production build:
+> `NEXT_PUBLIC_IAM_BASE_URL` is referenced in code but **missing from `.env.example`** — set it if your auth flow needs a browser-side IAM base.
 
-```bash
-npm run build
-npm run start
-```
+## Scripts
 
-### Testing
-
-Run tests:
-
-```bash
-npm test
-npm run test:watch
-```
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start dev server (:3000) |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npm test` | Jest |
+| `npm run test:watch` | Jest watch mode |
 
 ## Project Structure
 
 ```
 src/
-├── app/           # Next.js app router pages and layouts
-├── components/    # Reusable UI components
-├── lib/           # Utility functions and configurations
-└── types/         # TypeScript type definitions
+├── app/              # App Router — (feeds) group (For You, news, saved), create, login, register, profile, search, settings
+│   └── api/          # BFF routes: v1/[...path] proxy, auth/*, content/submit, transcribe
+├── components/
+│   ├── feed/         # for-you-card, news-slide, article-reader, draggable-bottom-sheet, view-tracker, …
+│   └── layout/  profile/  ui/
+├── lib/
+│   ├── api/          # feeds, content, auth clients + mock-client
+│   ├── stores/       # auth-store, feed-store, now-playing-store (Zustand)
+│   ├── hooks/        # use-feed, use-auth, use-my-content, use-publish-content
+│   └── i18n/ messages/   # bilingual AR/EN
+└── types/            # feed, auth types
 ```
-
-## Features
-
-- Mobile-first responsive design
-- Audio-first content consumption
-- Personalized content feeds
-- Magazine-style news layout
-- Smooth animations and transitions
-- Optimistic UI updates
-- Type-safe development with TypeScript
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Create production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm test` | Run tests once |
-| `npm run test:watch` | Run tests in watch mode |
-
-## Contributing
-
-This project is part of the Wahb meta-monorepo. Please refer to the main project guidelines for contribution standards.
