@@ -265,8 +265,12 @@
 
   "news.related": "Related",
   "news.related.empty": "No related available",
+  "news.related.stories": "Related stories",
   "news.story.posts": "{count} posts",
   "news.story.sources": "{count} sources",
+  "news.coverage": "Coverage",
+  "news.coverage.all": "All coverage",
+  "news.coverage.viewAll": "See all {count} posts",
   "news.badge.opinion": "Opinion",
   "news.badge.reaction": "Reaction",
   "news.badge.video": "Video",

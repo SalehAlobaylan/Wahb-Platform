@@ -210,8 +210,9 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
     published_at: f.published_at,
     created_at: f.published_at,
   };
-  // Other members (the story's remaining coverage), excluding the lead shown as
-  // featured, then the related-story headlines.
+  // Coverage = the story's OTHER member posts (each an actual source covering
+  // the same event), kept SEPARATE from related-story headlines so the UI can
+  // show "who is covering this" transparently instead of a mysterious count.
   const otherMembers = (f.members ?? [])
     .filter((m) => m.id !== f.lead_id)
     .map(memberToContentItem);
@@ -219,7 +220,8 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
   return {
     slide_id: slide.slide_id,
     featured,
-    related: [...otherMembers, ...relatedStories],
+    coverage: otherMembers,
+    related: relatedStories,
     // Aggregation signal for the "N posts · N sources" chip — only meaningful
     // when the story actually groups multiple posts.
     story:
@@ -228,6 +230,8 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
             label: f.label,
             memberCount: f.member_count,
             sourceCount: f.source_count ?? 1,
+            summary: f.summary,
+            bullets: f.bullets,
           }
         : undefined,
   };

@@ -79,6 +79,10 @@ export interface StorySummary {
   // Distinct sources among the story's members — the "covered by N sources"
   // aggregation signal. Present on the featured story; absent/0 elsewhere.
   source_count?: number;
+  // Source-grounded AI digest of the whole story (headline lede + bullets).
+  // Present on the featured story once generated; absent → fall back to excerpt.
+  summary?: string;
+  bullets?: string[];
   like_count: number;
   comment_count: number;
   share_count: number;
@@ -112,11 +116,19 @@ export interface StoryMeta {
   label: string;
   memberCount: number;
   sourceCount: number;
+  // Source-grounded AI digest of the story (Slice 8) — rendered under the
+  // headline on the featured slide. Empty/absent → not shown.
+  summary?: string;
+  bullets?: string[];
 }
 
 export interface NewsSlide {
   slide_id: string;
   featured: ContentItem;
+  // coverage = THIS story's other member posts (the actual sources covering the
+  // same event), each attributed to its source. Distinct from `related`, which
+  // is OTHER stories' headlines. Empty for a single-source story.
+  coverage?: ContentItem[];
   related: ContentItem[];
   story?: StoryMeta;
 }

@@ -265,8 +265,12 @@
 
   "news.related": "المتعلق",
   "news.related.empty": "لا توجد عناصر مرتبطة",
+  "news.related.stories": "قصص ذات صلة",
   "news.story.posts": "{count} منشورات",
   "news.story.sources": "{count} مصادر",
+  "news.coverage": "التغطية",
+  "news.coverage.all": "كل التغطية",
+  "news.coverage.viewAll": "عرض كل {count} منشور",
   "news.badge.opinion": "رأي",
   "news.badge.reaction": "تفاعل",
   "news.badge.video": "فيديو",

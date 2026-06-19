@@ -33,7 +33,7 @@ export async function mockFetchContentItem(id: string): Promise<ContentItem> {
     await delay(SIMULATED_DELAY_MS);
 
     const item = MOCK_FORYOU_ITEMS.find(i => i.id === id) ||
-        MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...s.related]).find(i => i.id === id);
+        MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...(s.coverage ?? []), ...s.related]).find(i => i.id === id);
 
     if (!item) {
         throw new Error('Content item not found');
@@ -82,7 +82,7 @@ export async function mockSearchContent(query: string): Promise<ContentItem[]> {
     // Collect all content items from both feeds
     const allItems: ContentItem[] = [
         ...MOCK_FORYOU_ITEMS,
-        ...MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...s.related]),
+        ...MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...(s.coverage ?? []), ...s.related]),
     ];
 
     // De-duplicate by id

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers } from 'lucide-react';
+import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import { formatRelativeTime } from '@/lib/utils/time';
@@ -317,6 +317,122 @@ function RelatedItem({
     );
 }
 
+/* ── Coverage item: a story member, attributed to ITS source ─ */
+
+function sourceAvatar(item: ContentItem): string {
+    return (
+        item.source_image_url ||
+        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(item.source_name || item.author || 'news')}`
+    );
+}
+
+function CoverageItem({
+    item,
+    onOpenArticle,
+}: {
+    item: ContentItem;
+    onOpenArticle: (item: ContentItem) => void;
+}) {
+    const { locale } = useI18n();
+    const t = useTranslations();
+    const publishedAgo = formatRelativeTime(item.published_at, locale);
+    return (
+        <button
+            type="button"
+            onClick={() => onOpenArticle(item)}
+            className="w-full text-start flex gap-2.5 items-start rounded-sm border border-foreground/15 bg-muted/40 p-2 hover:bg-muted transition-colors"
+        >
+            <img
+                alt={item.source_name || ''}
+                src={sourceAvatar(item)}
+                className="w-7 h-7 shrink-0 rounded-sm border border-foreground/20 object-cover bg-secondary"
+            />
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                    <span dir="auto" className="text-[11px] font-bold text-foreground truncate">
+                        {item.source_name || item.author || t('saved.item.untitled')}
+                    </span>
+                    <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
+                        {t(getRelatedBadge(item))}
+                    </span>
+                    {publishedAgo && (
+                        <span className="ms-auto flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
+                            <Clock className="w-[10px] h-[10px]" />
+                            {publishedAgo}
+                        </span>
+                    )}
+                </div>
+                <p dir="auto" className="text-[12px] leading-snug text-muted-foreground line-clamp-2">
+                    {getRelatedDisplayTitle(item)}
+                </p>
+            </div>
+            <ChevronLeft className="w-3.5 h-3.5 shrink-0 text-muted-foreground rtl:rotate-0 ltr:rotate-180 mt-1" />
+        </button>
+    );
+}
+
+/* ── Coverage sheet: every source & post behind a story ──── */
+
+function CoverageSheet({
+    label,
+    items,
+    sourceCount,
+    onOpenArticle,
+    onClose,
+}: {
+    label: string;
+    items: ContentItem[];
+    sourceCount: number;
+    onOpenArticle: (item: ContentItem) => void;
+    onClose: () => void;
+}) {
+    const t = useTranslations();
+    // Distinct sources for the "covered by" strip.
+    const sources = Array.from(
+        new Map(items.map((i) => [i.source_name || i.author || i.id, i])).values()
+    );
+    return (
+        <div className="absolute inset-0 z-50 flex flex-col bg-background" onClick={(e) => e.stopPropagation()}>
+            <header className="shrink-0 flex items-center justify-between gap-2 border-b border-border px-4 pt-14 pb-3">
+                <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-news-accent">{t('news.coverage.all')}</p>
+                    <h2 dir="auto" className="font-serif text-base font-bold text-foreground line-clamp-2">{label}</h2>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {t('news.story.posts', { count: items.length })}
+                        {sourceCount > 1 && ` · ${t('news.story.sources', { count: sourceCount })}`}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </header>
+            {/* Covered-by source strip */}
+            <div className="shrink-0 flex gap-2 overflow-x-auto hide-scrollbar px-4 py-2 border-b border-border">
+                {sources.map((s) => (
+                    <div key={s.id} className="flex items-center gap-1.5 shrink-0 rounded-full border border-foreground/15 bg-muted/40 ps-1 pe-2.5 py-1">
+                        <img src={sourceAvatar(s)} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        <span dir="auto" className="text-[11px] font-medium text-foreground whitespace-nowrap">
+                            {s.source_name || s.author || ''}
+                        </span>
+                    </div>
+                ))}
+            </div>
+            {/* overscroll-contain stops a swipe at the scroll boundary from
+                chaining to the parent snap-scroll feed underneath the sheet. */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain hide-scrollbar space-y-2 p-4 pb-24">
+                {items.map((item) => (
+                    <CoverageItem key={item.id} item={item} onOpenArticle={onOpenArticle} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
 /* ── Main Component ──────────────────────────────────────── */
 
 /**
@@ -326,7 +442,7 @@ function RelatedItem({
 // `isActive` stays in the props contract (callers pass it; future
 // active-slide behaviors will need it) but is currently unused.
 export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
-    const { featured, related, story } = slide;
+    const { featured, coverage = [], related, story } = slide;
     const t = useTranslations();
     const { locale } = useI18n();
     const featuredPublishedAgo = formatRelativeTime(featured.published_at, locale);
@@ -337,13 +453,17 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     const isFeaturedBookmarked = useFeedStore((s) => s.bookmarkedIds.has(featured.id));
 
     const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+    const [coverageOpen, setCoverageOpen] = useState(false);
+    // Every post behind this story (lead first), each attributed to its source.
+    const allCoverage = [featured, ...coverage];
+    const hasCoverage = coverage.length > 0;
 
     const handleToggleExpanded = (itemId: string) => {
         setExpandedItemId(prev => prev === itemId ? null : itemId);
     };
 
     return (
-        <div className="w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-background text-foreground">
+        <div className="relative w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-background text-foreground">
             {/* ═══════════════ TOP: Featured Hero ═══════════════ */}
             <div 
                 className={cn(
@@ -371,11 +491,15 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                         </div>
                     )}
 
-                    {/* Story coverage chip — the aggregation signal: this slide
-                        is a STORY grouping several posts (and, when sources
-                        overlap, several outlets), not a single article. */}
+                    {/* Story coverage chip — the aggregation signal AND the entry
+                        point to "who is covering this": tap to open every source
+                        + post behind the story. */}
                     {story && (
-                        <div className="absolute bottom-2 start-2 z-10 inline-flex items-center gap-1.5 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 px-2 py-1 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setCoverageOpen(true); }}
+                            className="absolute bottom-2 start-2 z-10 inline-flex items-center gap-1.5 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 px-2 py-1 shadow-sm hover:bg-background transition-colors"
+                        >
                             <Layers className="w-3 h-3 text-news-accent" />
                             <span className="text-[10px] font-bold tracking-wide text-foreground leading-none">
                                 {t('news.story.posts', { count: story.memberCount })}
@@ -386,7 +510,8 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                                     </span>
                                 )}
                             </span>
-                        </div>
+                            <ChevronLeft className="w-2.5 h-2.5 text-muted-foreground rtl:rotate-0 ltr:rotate-180" />
+                        </button>
                     )}
                 </div>
 
@@ -398,17 +523,30 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                     )}>
                         {getFeaturedTitle(featured)}
                     </h1>
-                    {(featured.excerpt || featured.body_text) && (
+                    {/* Source-grounded story digest (Slice 8): when the story has an
+                        AI digest of all its sources, show the bullets; the actual
+                        member posts stay visible below. Otherwise fall back to the
+                        lead member's excerpt (today's behavior). */}
+                    {story?.bullets && story.bullets.length > 0 ? (
+                        <ul dir="auto" className="mb-2 space-y-1">
+                            {story.bullets.slice(0, 3).map((point, i) => (
+                                <li key={i} className="flex gap-1.5 text-sm text-muted-foreground leading-relaxed">
+                                    <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-news-accent/70" />
+                                    <span className="line-clamp-2">{point}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (featured.excerpt || featured.body_text) ? (
                         <p dir="auto" className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
                             {normalizeForTitle(featured.excerpt || featured.body_text?.slice(0, 160) || '')}
                         </p>
-                    )}
+                    ) : null}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <img
                                 alt="Author"
                                 className="w-5 h-5 rounded-sm border border-foreground/20 object-cover"
-                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${featured.author || featured.source_name}`}
+                                src={sourceAvatar(featured)}
                             />
                             <span className="text-xs text-muted-foreground font-light italic">
                                 {featured.source_name || featured.author || t('saved.item.untitled')}
@@ -461,28 +599,75 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                 <div className="h-px bg-border" />
             </div>
 
-            {/* ═══════════════ BOTTOM: Related ═══════════════ */}
+            {/* ═══════════════ BOTTOM: Coverage + Related ═══════════════ */}
             <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-24">
-                <h3 className="shrink-0 font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">{t('news.related')}</h3>
+                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-4">
+                    {/* The story's actual sources & posts — who is covering this. */}
+                    {hasCoverage && (
+                        <section>
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                                    {t('news.coverage')}
+                                    {story && story.sourceCount > 1 && (
+                                        <span className="text-news-accent/80"> · {t('news.story.sources', { count: story.sourceCount })}</span>
+                                    )}
+                                </h3>
+                                {coverage.length > 4 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCoverageOpen(true)}
+                                        className="text-[10px] font-bold text-news-accent hover:underline"
+                                    >
+                                        {t('news.coverage.viewAll', { count: allCoverage.length })}
+                                    </button>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                {coverage.slice(0, 4).map((item) => (
+                                    <CoverageItem key={item.id} item={item} onOpenArticle={onOpenArticle} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
-                <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-2">
+                    {/* Related STORIES (other events) — kept distinct from coverage. */}
                     {related.length > 0 ? (
-                        related.slice(0, 4).map((item) => (
-                            <RelatedItem
-                                key={item.id}
-                                item={item}
-                                onOpenArticle={onOpenArticle}
-                                isExpanded={expandedItemId === item.id}
-                                onToggleExpand={() => handleToggleExpanded(item.id)}
-                            />
-                        ))
+                        <section>
+                            <h3 className="font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">
+                                {hasCoverage ? t('news.related.stories') : t('news.related')}
+                            </h3>
+                            <div className="space-y-2">
+                                {related.slice(0, hasCoverage ? 3 : 4).map((item) => (
+                                    <RelatedItem
+                                        key={item.id}
+                                        item={item}
+                                        onOpenArticle={onOpenArticle}
+                                        isExpanded={expandedItemId === item.id}
+                                        onToggleExpand={() => handleToggleExpanded(item.id)}
+                                    />
+                                ))}
+                            </div>
+                        </section>
                     ) : (
-                        <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-                            {t('news.related.empty')}
-                        </div>
+                        !hasCoverage && (
+                            <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                                {t('news.related.empty')}
+                            </div>
+                        )
                     )}
                 </div>
             </div>
+
+            {/* Coverage sheet — every source + post behind the story. */}
+            {coverageOpen && story && (
+                <CoverageSheet
+                    label={story.label || getFeaturedTitle(featured)}
+                    items={allCoverage}
+                    sourceCount={story.sourceCount}
+                    onOpenArticle={onOpenArticle}
+                    onClose={() => setCoverageOpen(false)}
+                />
+            )}
         </div>
     );
 }
