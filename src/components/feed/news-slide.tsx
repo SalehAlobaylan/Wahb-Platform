@@ -161,6 +161,14 @@ const getFeaturedTitle = (item: ContentItem) => {
     return normalizeForTitle(raw);
 };
 
+const getLifecycleLabelKey = (story: NewsSlideType['story']): string | null => {
+    if (!story) return null;
+    if (story.lifecycle === 'breaking') return 'news.lifecycle.breaking';
+    if (story.isCarryover || story.lifecycle === 'cooling') return 'news.lifecycle.cooling';
+    if (story.lifecycle === 'historical') return 'news.lifecycle.historical';
+    return null;
+};
+
 /* ── Expandable Related Item ─────────────────────────────── */
 
 function RelatedItem({
@@ -446,6 +454,8 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     const t = useTranslations();
     const { locale } = useI18n();
     const featuredPublishedAgo = formatRelativeTime(featured.published_at, locale);
+    const storyUpdatedAgo = formatRelativeTime(story?.updatedAt, locale);
+    const storyLifecycleLabelKey = getLifecycleLabelKey(story);
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
     const featuredImageUrl = getDisplayImageUrl(featured);
@@ -467,7 +477,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
             {/* ═══════════════ TOP: Featured Hero ═══════════════ */}
             <div 
                 className={cn(
-                    "shrink-0 w-full flex flex-col px-4 pt-14 pb-3 relative group/hero",
+                    "shrink-0 w-full flex flex-col px-4 pt-[6.75rem] pb-3 relative group/hero",
                     hasEnoughContent(featured) && "cursor-pointer"
                 )}
                 onClick={() => hasEnoughContent(featured) ? onOpenArticle(featured) : undefined}
@@ -494,7 +504,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                     {/* Story coverage chip — the aggregation signal AND the entry
                         point to "who is covering this": tap to open every source
                         + post behind the story. */}
-                    {story && (
+                    {story && story.memberCount > 1 && (
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setCoverageOpen(true); }}
@@ -541,6 +551,22 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                             {normalizeForTitle(featured.excerpt || featured.body_text?.slice(0, 160) || '')}
                         </p>
                     ) : null}
+                    {(storyUpdatedAgo || storyLifecycleLabelKey) && (
+                        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                            {storyUpdatedAgo && (
+                                <span className="inline-flex items-center gap-1 rounded-sm border border-foreground/15 bg-muted/60 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                                    <Clock className="h-3 w-3 text-news-accent" />
+                                    {t('news.story.updated', { time: storyUpdatedAgo })}
+                                </span>
+                            )}
+                            {storyLifecycleLabelKey && (
+                                <span className="inline-flex items-center gap-1 rounded-sm border border-news-accent/25 bg-news-accent/10 px-2 py-1 text-[10px] font-bold text-news-accent">
+                                    <TrendingUp className="h-3 w-3" />
+                                    {t(storyLifecycleLabelKey)}
+                                </span>
+                            )}
+                        </div>
+                    )}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <img

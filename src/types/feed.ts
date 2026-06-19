@@ -2,6 +2,8 @@
 
 export type ContentType = 'NEWS' | 'ARTICLE' | 'VIDEO' | 'TWEET' | 'COMMENT' | 'PODCAST';
 export type SourceType = 'RSS' | 'PODCAST' | 'YOUTUBE' | 'UPLOAD' | 'MANUAL' | 'TELEGRAM';
+export type NewsWindow = 'today' | 'week' | 'month';
+export type NewsLifecycle = 'breaking' | 'active' | 'cooling' | 'historical';
 
 export interface ContentItem {
   id: string;
@@ -69,6 +71,9 @@ export interface StorySummary {
   // bookmark) target THIS, not story_id (a topic id with no content row).
   lead_id: string;
   label: string;
+  last_member_at: string;
+  lifecycle: NewsLifecycle;
+  is_carryover?: boolean;
   title?: string;
   excerpt?: string;
   thumbnail_url?: string;
@@ -109,13 +114,15 @@ export interface StoryNewsResponse {
 // Editorial slide shape consumed by the News UI: 1 featured item + related
 // items. Built from a StoryNewsSlide (featured = the story's top member; related
 // = the story's other members + related-story headlines).
-// StoryMeta carries the aggregation signal for a slide's featured story —
-// how many posts and distinct sources the story groups (Radar-style
-// "N posts · N sources" chip). Present only when the story has >1 member.
+// StoryMeta carries circulation context for a slide's featured story: update
+// recency, lifecycle, and the multi-source coverage signal when available.
 export interface StoryMeta {
   label: string;
   memberCount: number;
   sourceCount: number;
+  updatedAt?: string;
+  lifecycle?: NewsLifecycle;
+  isCarryover?: boolean;
   // Source-grounded AI digest of the story (Slice 8) — rendered under the
   // headline on the featured slide. Empty/absent → not shown.
   summary?: string;

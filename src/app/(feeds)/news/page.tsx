@@ -20,8 +20,9 @@ import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { NowPlayingBar } from '@/components/now-playing-bar';
 import { throttleScroll } from '@/lib/scroll-optimizer';
+import { cn } from '@/lib/utils';
 import { User, Search, Plus } from 'lucide-react';
-import type { ContentItem, NewsSlide as NewsSlideType } from '@/types';
+import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
 import { useTranslations } from '@/lib/i18n';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -29,6 +30,12 @@ import { useShallow } from 'zustand/react/shallow';
 // 800 ms regardless of how often the scroll handler fires. Module scope (not a
 // React ref) keeps the read/write out of render-time ref access.
 let lastNewsFetchAt = 0;
+
+const NEWS_WINDOW_OPTIONS: Array<{ value: NewsWindow; labelKey: string }> = [
+    { value: 'today', labelKey: 'news.window.today' },
+    { value: 'week', labelKey: 'news.window.week' },
+    { value: 'month', labelKey: 'news.window.month' },
+];
 
 export default function NewsPage() {
     // useSearchParams must live under a Suspense boundary (same pattern as the
@@ -51,6 +58,7 @@ export default function NewsPage() {
 
 function NewsPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
+    const restoredRef = useRef(false);
     const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore(
         useShallow((s) => ({
             newsActiveIndex: s.newsActiveIndex,
@@ -60,7 +68,9 @@ function NewsPageContent() {
     );
     const setBottomSheetMounted = useNowPlayingStore((s) => s.setBottomSheetMounted);
     const t = useTranslations();
-    
+    const searchParams = useSearchParams();
+    const [selectedWindow, setSelectedWindow] = useState<NewsWindow>('today');
+
     // Reader Overlay State
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
 
@@ -68,7 +78,6 @@ function NewsPageContent() {
     // generates for ARTICLE/TWEET/COMMENT items). The deep-linked article is
     // derived at render — no effect — and closing the reader marks the id
     // dismissed so it doesn't reopen.
-    const searchParams = useSearchParams();
     const deepLinkId = searchParams.get('item');
     const [dismissedDeepLinkId, setDismissedDeepLinkId] = useState<string | null>(null);
     const { data: deepLinkItem } = useContentItem(deepLinkId);
@@ -96,7 +105,7 @@ function NewsPageContent() {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
-    } = useNewsFeed();
+    } = useNewsFeed(selectedWindow);
 
     // The CMS already returns editorially-grouped slides (1 featured ARTICLE +
     // up to 3 related TWEET/COMMENT/ARTICLE). Consume them as-is — re-deriving the
@@ -171,11 +180,20 @@ function NewsPageContent() {
         throttledScrollRef.current?.();
     }, []);
 
+    const handleWindowChange = useCallback((nextWindow: NewsWindow) => {
+        if (nextWindow === selectedWindow) return;
+        setSelectedWindow(nextWindow);
+        setNewsActiveIndex(0);
+        resetProgress();
+        lastNewsFetchAt = 0;
+        restoredRef.current = false;
+        if (feedRef.current) feedRef.current.scrollTop = 0;
+    }, [selectedWindow, setNewsActiveIndex, resetProgress]);
+
     // Restore scroll position to the last viewed slide on mount.
     // newsActiveIndex is persisted by the feed-store, so this survives
     // navigation away and back. Only runs once after slides are first
     // available so we don't fight the user while they scroll.
-    const restoredRef = useRef(false);
     useEffect(() => {
         if (restoredRef.current || newsSlides.length === 0 || !feedRef.current) return;
         restoredRef.current = true;
@@ -225,6 +243,29 @@ function NewsPageContent() {
                                 <Search className="w-4.5 h-4.5 text-foreground" />
                             </div>
                         </Link>
+                    </div>
+                </div>
+                <div className="pointer-events-auto -mt-1 flex justify-center px-4">
+                    <div className="inline-flex rounded-sm border border-foreground/15 bg-background/90 p-0.5 shadow-sm backdrop-blur">
+                        {NEWS_WINDOW_OPTIONS.map((option) => {
+                            const active = selectedWindow === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => handleWindowChange(option.value)}
+                                    className={cn(
+                                        'h-8 rounded-sm px-3 text-[11px] font-bold transition-colors',
+                                        active
+                                            ? 'bg-news-accent text-white shadow-sm'
+                                            : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
+                                    )}
+                                    aria-pressed={active}
+                                >
+                                    {t(option.labelKey)}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </header>

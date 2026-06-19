@@ -54,8 +54,9 @@ describe('Feeds API', () => {
         });
 
         it('fetchNewsFeed calls real API', async () => {
-            await fetchNewsFeed();
+            await fetchNewsFeed(null, 'week');
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/news?'));
+            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('window=week'));
             expect(mockClient.mockFetchNewsFeed).not.toHaveBeenCalled();
         });
     });

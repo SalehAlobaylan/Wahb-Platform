@@ -12,6 +12,7 @@ import type {
   StoryMember,
   StorySummary,
   CommentsResponse,
+  NewsWindow,
 } from '@/types';
 import {
   mockFetchForYouFeed,
@@ -222,18 +223,16 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
     featured,
     coverage: otherMembers,
     related: relatedStories,
-    // Aggregation signal for the "N posts · N sources" chip — only meaningful
-    // when the story actually groups multiple posts.
-    story:
-      f.member_count > 1
-        ? {
-            label: f.label,
-            memberCount: f.member_count,
-            sourceCount: f.source_count ?? 1,
-            summary: f.summary,
-            bullets: f.bullets,
-          }
-        : undefined,
+    story: {
+      label: f.label,
+      memberCount: f.member_count,
+      sourceCount: f.source_count ?? 1,
+      updatedAt: f.last_member_at,
+      lifecycle: f.lifecycle,
+      isCarryover: f.is_carryover,
+      summary: f.summary,
+      bullets: f.bullets,
+    },
   };
 }
 
@@ -247,13 +246,14 @@ function storyNewsResponseToNews(raw: StoryNewsResponse): NewsResponse {
 /**
  * Fetch News feed slides
  */
-export async function fetchNewsFeed(cursor?: string | null): Promise<NewsResponse> {
+export async function fetchNewsFeed(cursor?: string | null, window: NewsWindow = 'today'): Promise<NewsResponse> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     return mockFetchNewsFeed(cursor);
   }
 
   const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
+  params.set('window', window);
   params.set('limit', '10');
   params.set('exclude_seen', 'true');
 

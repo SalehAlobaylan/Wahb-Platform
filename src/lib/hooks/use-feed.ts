@@ -15,7 +15,7 @@ import {
 } from '@/lib/api';
 import { useFeedStore } from '@/lib/stores';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import type { CommentsResponse, ContentComment, Interaction } from '@/types';
+import type { CommentsResponse, ContentComment, Interaction, NewsWindow } from '@/types';
 import type { BookmarkFeedFilter, BookmarkSort } from '@/lib/api/feeds';
 import type { InfiniteData } from '@tanstack/react-query';
 
@@ -35,10 +35,10 @@ export function useForYouFeed() {
 /**
  * Hook for infinite scrolling News feed
  */
-export function useNewsFeed() {
+export function useNewsFeed(window: NewsWindow = 'today') {
   return useInfiniteQuery({
-    queryKey: ['feed', 'news'],
-    queryFn: ({ pageParam }) => fetchNewsFeed(pageParam),
+    queryKey: ['feed', 'news', window],
+    queryFn: ({ pageParam }) => fetchNewsFeed(pageParam, window),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
     staleTime: 1000 * 60, // 1 minute
