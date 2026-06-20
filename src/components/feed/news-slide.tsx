@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers, X, Tag, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { typeBadgeKey, categoryBadgeKey } from '@/lib/utils/content-badge';
+import { typeBadgeLabel, categoryBadgeKey } from '@/lib/utils/content-badge';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import { formatRelativeTime } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n';
@@ -232,11 +232,11 @@ function RelatedItem({
                 </div>
 
                 {/* Content */}
-                <div className="flex flex-col justify-center flex-1 min-w-0 pe-1">
-                    <div className="flex justify-between items-baseline mb-0.5">
+                <div className="flex flex-col justify-center flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline gap-2 mb-0.5">
                         <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
-                                {t(typeBadgeKey(item))}
+                            <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0 truncate max-w-[8rem]">
+                                {typeBadgeLabel(item, t)}
                             </span>
                             {categoryBadgeKey(item.category) && (
                                 <span className="text-[8px] text-muted-foreground uppercase tracking-wider font-bold truncate">
@@ -258,43 +258,44 @@ function RelatedItem({
                             ) : null}
                         </div>
                     </div>
-                    <h4 dir="auto" className={cn(
-                        'font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground',
-                        !isExpanded && 'line-clamp-2'
-                    )}>
-                        {getRelatedDisplayTitle(item)}
-                    </h4>
+                    {/* Title + actions share the line: title flexes, the small
+                        like / bookmark / open strip sits at its end — no extra row,
+                        no crowded side column. */}
+                    <div className="flex items-end justify-between gap-2">
+                        <h4 dir="auto" className={cn(
+                            'flex-1 min-w-0 font-serif text-[14px] leading-snug text-foreground group-hover:text-foreground',
+                            !isExpanded && 'line-clamp-2'
+                        )}>
+                            {getRelatedDisplayTitle(item)}
+                        </h4>
+                        <div className="shrink-0 flex items-center gap-2.5 text-muted-foreground pb-0.5">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); likeMutation.mutate({ contentId: item.id, isLiked }); }}
+                                className="flex items-center gap-0.5 hover:text-news-accent transition-colors"
+                                aria-label="Like"
+                            >
+                                <Heart className={cn('w-3.5 h-3.5', isLiked && 'text-news-accent fill-news-accent')} />
+                                <span className="text-[10px]">{adjustedLikeCount(item.like_count, item.is_liked, isLiked)}</span>
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: item.id, isBookmarked }); }}
+                                className="hover:text-news-accent transition-colors"
+                                aria-label="Bookmark"
+                            >
+                                <Bookmark className={cn('w-3.5 h-3.5', isBookmarked && 'text-news-accent fill-news-accent')} />
+                            </button>
+                            {hasEnoughContent(item) && (
+                                <button
+                                    onClick={handleOpenArticle}
+                                    className="hover:text-news-accent transition-colors"
+                                    aria-label={t('news.badge.article')}
+                                >
+                                    <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
-
-                {/* Side arrow → opens article reader */}
-                {hasEnoughContent(item) && (
-                    <button
-                        onClick={handleOpenArticle}
-                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-sm text-muted-foreground hover:text-news-accent hover:bg-foreground/10 transition-all"
-                        aria-label={t('news.badge.article')}
-                    >
-                        <ChevronLeft className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" />
-                    </button>
-                )}
-            </div>
-
-            {/* Inline action buttons */}
-            <div className="flex items-center gap-3 mt-2 ps-0.5">
-                <button
-                    onClick={(e) => { e.stopPropagation(); likeMutation.mutate({ contentId: item.id, isLiked }); }}
-                    className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
-                    aria-label="Like"
-                >
-                    <Heart className={cn('w-3.5 h-3.5', isLiked && 'text-news-accent fill-news-accent')} />
-                    <span className="text-[10px]">{adjustedLikeCount(item.like_count, item.is_liked, isLiked)}</span>
-                </button>
-                <button
-                    onClick={(e) => { e.stopPropagation(); bookmarkMutation.mutate({ contentId: item.id, isBookmarked }); }}
-                    className="flex items-center gap-1 text-muted-foreground hover:text-news-accent transition-colors"
-                    aria-label="Bookmark"
-                >
-                    <Bookmark className={cn('w-3.5 h-3.5', isBookmarked && 'text-news-accent fill-news-accent')} />
-                </button>
             </div>
 
             {/* Expanded text */}
@@ -355,8 +356,8 @@ function CoverageItem({
                     <span dir="auto" className="text-[11px] font-bold text-foreground truncate">
                         {item.source_name || item.author || t('saved.item.untitled')}
                     </span>
-                    <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
-                        {t(typeBadgeKey(item))}
+                    <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0 truncate max-w-[8rem]">
+                        {typeBadgeLabel(item, t)}
                     </span>
                     {publishedAgo && (
                         <span className="ms-auto flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
@@ -520,7 +521,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
             {/* ═══════════════ TOP: Featured Hero ═══════════════ */}
             <div 
                 className={cn(
-                    "shrink-0 w-full flex flex-col px-4 pt-[6.75rem] pb-3 relative group/hero",
+                    "shrink-0 w-full flex flex-col px-4 pt-16 pb-3 relative group/hero",
                     hasEnoughContent(featured) && "cursor-pointer"
                 )}
                 onClick={() => hasEnoughContent(featured) ? openWithCoverage(featured) : undefined}

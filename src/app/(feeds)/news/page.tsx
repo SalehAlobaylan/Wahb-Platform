@@ -20,7 +20,6 @@ import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { NowPlayingBar } from '@/components/now-playing-bar';
 import { throttleScroll } from '@/lib/scroll-optimizer';
-import { cn } from '@/lib/utils';
 import { User, Search, Plus } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
 import { useTranslations } from '@/lib/i18n';
@@ -240,7 +239,15 @@ function NewsPageContent() {
                         </Link>
                     </div>
                     <div className="pointer-events-auto">
-                        <FeedSwitcher variant="light" />
+                        {/* The News tab doubles as the today/week/month trigger: it
+                            shows a dropdown arrow on the News page and opens the
+                            time-range menu when tapped again. */}
+                        <FeedSwitcher
+                            variant="light"
+                            newsWindowOptions={NEWS_WINDOW_OPTIONS}
+                            newsWindowValue={selectedWindow}
+                            onNewsWindowChange={(v) => handleWindowChange(v as NewsWindow)}
+                        />
                     </div>
                     <div className="pointer-events-auto">
                         <Link href="/search">
@@ -248,29 +255,6 @@ function NewsPageContent() {
                                 <Search className="w-4.5 h-4.5 text-foreground" />
                             </div>
                         </Link>
-                    </div>
-                </div>
-                <div className="pointer-events-auto -mt-1 flex justify-center px-4">
-                    <div className="inline-flex rounded-sm border border-foreground/15 bg-background/90 p-0.5 shadow-sm backdrop-blur">
-                        {NEWS_WINDOW_OPTIONS.map((option) => {
-                            const active = selectedWindow === option.value;
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => handleWindowChange(option.value)}
-                                    className={cn(
-                                        'h-8 rounded-sm px-3 text-[11px] font-bold transition-colors',
-                                        active
-                                            ? 'bg-news-accent text-white shadow-sm'
-                                            : 'text-muted-foreground hover:bg-foreground/10 hover:text-foreground'
-                                    )}
-                                    aria-pressed={active}
-                                >
-                                    {t(option.labelKey)}
-                                </button>
-                            );
-                        })}
                     </div>
                 </div>
             </header>
