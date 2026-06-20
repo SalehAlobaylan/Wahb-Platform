@@ -74,6 +74,7 @@ export interface StorySummary {
   last_member_at: string;
   lifecycle: NewsLifecycle;
   is_carryover?: boolean;
+  reason?: string;
   title?: string;
   excerpt?: string;
   thumbnail_url?: string;
@@ -123,6 +124,7 @@ export interface StoryMeta {
   updatedAt?: string;
   lifecycle?: NewsLifecycle;
   isCarryover?: boolean;
+  reason?: string;
   // Source-grounded AI digest of the story (Slice 8) — rendered under the
   // headline on the featured slide. Empty/absent → not shown.
   summary?: string;

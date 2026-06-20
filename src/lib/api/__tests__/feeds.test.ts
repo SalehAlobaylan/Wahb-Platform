@@ -59,5 +59,48 @@ describe('Feeds API', () => {
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('window=week'));
             expect(mockClient.mockFetchNewsFeed).not.toHaveBeenCalled();
         });
+
+        it('maps circulation story context from real API', async () => {
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    cursor: null,
+                    slides: [{
+                        slide_id: 'slide-1',
+                        featured: {
+                            story_id: 'story-1',
+                            lead_id: 'lead-1',
+                            label: 'Major story',
+                            last_member_at: '2026-06-19T11:30:00Z',
+                            lifecycle: 'cooling',
+                            is_carryover: true,
+                            reason: 'Carryover fill',
+                            title: 'Story title',
+                            excerpt: 'Story excerpt',
+                            published_at: '2026-06-19T08:00:00Z',
+                            member_count: 4,
+                            source_count: 2,
+                            like_count: 1,
+                            comment_count: 2,
+                            share_count: 3,
+                            view_count: 4,
+                            members: [],
+                        },
+                        related: [],
+                    }],
+                }),
+            });
+
+            const result = await fetchNewsFeed(null, 'today');
+
+            expect(result.slides[0].story).toMatchObject({
+                updatedAt: '2026-06-19T11:30:00Z',
+                lifecycle: 'cooling',
+                isCarryover: true,
+                reason: 'Carryover fill',
+                memberCount: 4,
+                sourceCount: 2,
+            });
+        });
     });
 });

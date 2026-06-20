@@ -230,6 +230,7 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
       updatedAt: f.last_member_at,
       lifecycle: f.lifecycle,
       isCarryover: f.is_carryover,
+      reason: f.reason,
       summary: f.summary,
       bullets: f.bullets,
     },
