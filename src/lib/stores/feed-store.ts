@@ -11,6 +11,9 @@ interface FeedState {
   globalPaused: boolean;
   playbackSpeed: number;
   forYouDisplayMode: ForYouDisplayMode;
+  // When a News story has no real post image, the hero shows only a small source
+  // logo. This persisted preference lets the reader expand it to a larger view.
+  newsSourceImageExpanded: boolean;
   progress: number;
   forYouPlaybackById: Record<string, { timeSec: number; progress: number }>;
   lastActiveForYouItemId: string | null;
@@ -33,6 +36,7 @@ interface FeedState {
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setForYouDisplayMode: (mode: ForYouDisplayMode) => void;
+  setNewsSourceImageExpanded: (expanded: boolean) => void;
   setProgress: (progress: number) => void;
   setForYouPlayback: (id: string, timeSec: number, progress: number) => void;
   setLastActiveForYouItemId: (id: string | null) => void;
@@ -69,6 +73,7 @@ export const useFeedStore = create<FeedState>()(
       globalPaused: false,
       playbackSpeed: 1.0,
       forYouDisplayMode: 'fit',
+      newsSourceImageExpanded: false,
       progress: 0,
       forYouPlaybackById: {},
       lastActiveForYouItemId: null,
@@ -96,6 +101,8 @@ export const useFeedStore = create<FeedState>()(
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
       setForYouDisplayMode: (mode) => set({ forYouDisplayMode: mode }),
+
+      setNewsSourceImageExpanded: (expanded) => set({ newsSourceImageExpanded: expanded }),
 
       setProgress: (progress) => set({ progress }),
 
@@ -159,6 +166,7 @@ export const useFeedStore = create<FeedState>()(
         likedIds: Array.from(state.likedIds),
         playbackSpeed: state.playbackSpeed,
         forYouDisplayMode: state.forYouDisplayMode,
+        newsSourceImageExpanded: state.newsSourceImageExpanded,
         forYouPlaybackById: state.forYouPlaybackById,
         lastActiveForYouItemId: state.lastActiveForYouItemId,
       }),

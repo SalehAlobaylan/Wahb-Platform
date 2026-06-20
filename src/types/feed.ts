@@ -1,7 +1,7 @@
 // Feed API Types
 
 export type ContentType = 'NEWS' | 'ARTICLE' | 'VIDEO' | 'TWEET' | 'COMMENT' | 'PODCAST';
-export type SourceType = 'RSS' | 'PODCAST' | 'YOUTUBE' | 'UPLOAD' | 'MANUAL' | 'TELEGRAM';
+export type SourceType = 'RSS' | 'PODCAST' | 'YOUTUBE' | 'UPLOAD' | 'MANUAL' | 'TELEGRAM' | 'TWITTER';
 export type NewsWindow = 'today' | 'week' | 'month';
 export type NewsLifecycle = 'breaking' | 'active' | 'cooling' | 'historical';
 
@@ -18,6 +18,12 @@ export interface ContentItem {
   author?: string;
   source_name?: string;
   source_image_url?: string;
+  // Ingest source (RSS/TELEGRAM/...) — lets the badge distinguish a Telegram
+  // channel post (format=ARTICLE) from an RSS article.
+  source?: SourceType;
+  // Story news-taxonomy slug (politics/economy/...) for the topic chip; set on
+  // related-story items. general/unknown → no chip.
+  category?: string;
 
   // Interaction/Engagement stats
   like_count: number;
@@ -51,6 +57,7 @@ export interface StoryMember {
   id: string;
   type: ContentType;
   format?: string;
+  source?: SourceType;
   title?: string;
   excerpt?: string;
   body_text?: string;
@@ -80,6 +87,12 @@ export interface StorySummary {
   thumbnail_url?: string;
   source_name?: string;
   source_image_url?: string;
+  // Lead member's format + source → badge a related card by its lead post type
+  // and detect a Telegram-led story.
+  format?: string;
+  source?: SourceType;
+  // News-taxonomy slug (politics/economy/...) for the topic chip.
+  category?: string;
   published_at: string;
   member_count: number;
   // Distinct sources among the story's members — the "covered by N sources"
@@ -129,6 +142,8 @@ export interface StoryMeta {
   // headline on the featured slide. Empty/absent → not shown.
   summary?: string;
   bullets?: string[];
+  // News-taxonomy slug (politics/economy/...) → topic chip. general/unknown → no chip.
+  category?: string;
 }
 
 export interface NewsSlide {

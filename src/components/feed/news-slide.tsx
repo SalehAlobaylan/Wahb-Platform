@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers, X } from 'lucide-react';
+import { Clock, TrendingUp, Quote, ChevronLeft, Heart, Bookmark, Share2, Layers, X, Tag, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { typeBadgeKey, categoryBadgeKey } from '@/lib/utils/content-badge';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import { formatRelativeTime } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n';
@@ -112,21 +113,6 @@ const getReadTime = (content?: string) => {
     const words = content.split(' ').length;
     const minutes = Math.ceil(words / 200);
     return `${minutes}m`;
-};
-
-const getRelatedBadge = (item: ContentItem) => {
-    if (item.type === 'TWEET') return 'news.badge.opinion';
-    if (item.type === 'COMMENT') return 'news.badge.reaction';
-    if (item.type === 'VIDEO') return 'news.badge.video';
-    if (item.type === 'PODCAST') return 'news.badge.audio';
-    if (item.topic_tags) {
-        if (item.topic_tags.includes('news-politics')) return 'news.badge.politics';
-        if (item.topic_tags.includes('news-economy')) return 'news.badge.economy';
-        if (item.topic_tags.includes('news-conflict')) return 'news.badge.conflict';
-        if (item.topic_tags.includes('news-disaster')) return 'news.badge.disaster';
-        if (item.topic_tags.includes('news')) return 'news.badge.news';
-    }
-    return 'news.badge.article';
 };
 
 const getRelatedMeta = (item: ContentItem, t: (key: string, vars?: Record<string, string | number>) => string) => {
@@ -248,10 +234,17 @@ function RelatedItem({
                 {/* Content */}
                 <div className="flex flex-col justify-center flex-1 min-w-0 pe-1">
                     <div className="flex justify-between items-baseline mb-0.5">
-                            <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold">
-                                {t(getRelatedBadge(item))}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
+                                {t(typeBadgeKey(item))}
                             </span>
-                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            {categoryBadgeKey(item.category) && (
+                                <span className="text-[8px] text-muted-foreground uppercase tracking-wider font-bold truncate">
+                                    {t(categoryBadgeKey(item.category)!)}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground shrink-0">
                             {publishedAgo ? (
                                 <>
                                     <Clock className="w-[10px] h-[10px]" />
@@ -363,7 +356,7 @@ function CoverageItem({
                         {item.source_name || item.author || t('saved.item.untitled')}
                     </span>
                     <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
-                        {t(getRelatedBadge(item))}
+                        {t(typeBadgeKey(item))}
                     </span>
                     {publishedAgo && (
                         <span className="ms-auto flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
@@ -443,6 +436,42 @@ function CoverageSheet({
     );
 }
 
+/* ── Coverage chip: the "N posts · M sources" entry point ── */
+
+function CoverageChip({
+    story,
+    onOpen,
+    className,
+}: {
+    story: NonNullable<NewsSlideType['story']>;
+    onOpen: () => void;
+    className?: string;
+}) {
+    const t = useTranslations();
+    return (
+        <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen(); }}
+            className={cn(
+                'inline-flex items-center gap-1.5 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 px-2 py-1 shadow-sm hover:bg-background transition-colors',
+                className
+            )}
+        >
+            <Layers className="w-3 h-3 text-news-accent" />
+            <span className="text-[10px] font-bold tracking-wide text-foreground leading-none">
+                {t('news.story.posts', { count: story.memberCount })}
+                {story.sourceCount > 1 && (
+                    <span className="text-muted-foreground font-medium">
+                        {' · '}
+                        {t('news.story.sources', { count: story.sourceCount })}
+                    </span>
+                )}
+            </span>
+            <ChevronLeft className="w-2.5 h-2.5 text-muted-foreground rtl:rotate-0 ltr:rotate-180" />
+        </button>
+    );
+}
+
 /* ── Main Component ──────────────────────────────────────── */
 
 /**
@@ -458,9 +487,17 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     const featuredPublishedAgo = formatRelativeTime(featured.published_at, locale);
     const storyUpdatedAgo = formatRelativeTime(story?.updatedAt, locale);
     const storyLifecycleLabelKey = getLifecycleLabelKey(story);
+    const storyCategoryKey = categoryBadgeKey(story?.category);
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
     const featuredImageUrl = getDisplayImageUrl(featured);
+    // A real post image (the media that came with the news post) earns the full
+    // magazine banner. When `thumbnail_url` is empty the display image is just a
+    // source logo/favicon — render it small to reclaim slide space.
+    const heroHasPostImage = Boolean(featured.thumbnail_url);
+    // Reader preference (persisted): whether the source-logo fallback is enlarged.
+    const sourceImageExpanded = useFeedStore((s) => s.newsSourceImageExpanded);
+    const setSourceImageExpanded = useFeedStore((s) => s.setNewsSourceImageExpanded);
     const isFeaturedLiked = useFeedStore((s) => s.likedIds.has(featured.id));
     const isFeaturedBookmarked = useFeedStore((s) => s.bookmarkedIds.has(featured.id));
 
@@ -488,9 +525,12 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                 )}
                 onClick={() => hasEnoughContent(featured) ? openWithCoverage(featured) : undefined}
             >
-                {/* Hero Image */}
-                <div className="w-full aspect-[2/1] rounded-sm overflow-hidden mb-3 border border-foreground/20 relative group">
-                    {featuredImageUrl ? (
+                {/* Hero Image — full magazine banner ONLY for a real post image.
+                    A source favicon/logo (the fallback when the post carried no
+                    media) is just branding, so it shrinks to a slim source band
+                    and gives the slide its space back. */}
+                {heroHasPostImage ? (
+                    <div className="w-full aspect-[2/1] rounded-sm overflow-hidden mb-3 border border-foreground/20 relative group">
                         <div
                             className={cn(
                                 "w-full h-full bg-cover bg-center transition-transform duration-500",
@@ -498,38 +538,65 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                             )}
                             style={{ backgroundImage: `url(${featuredImageUrl})` }}
                         />
-                    ) : (
-                        <div className={cn(
-                            "w-full h-full bg-card flex items-center justify-center transition-transform duration-500",
-                            hasEnoughContent(featured) && "group-hover/hero:scale-[1.02]"
-                        )}>
-                            <span className="text-4xl opacity-20">📰</span>
-                        </div>
-                    )}
-
-                    {/* Story coverage chip — the aggregation signal AND the entry
-                        point to "who is covering this": tap to open every source
-                        + post behind the story. */}
-                    {story && story.memberCount > 1 && (
+                        {/* Story coverage chip — the aggregation signal AND the
+                            entry point to "who is covering this". */}
+                        {story && story.memberCount > 1 && (
+                            <CoverageChip story={story} onOpen={() => setCoverageOpen(true)} className="absolute bottom-2 start-2 z-10" />
+                        )}
+                    </div>
+                ) : sourceImageExpanded ? (
+                    /* Source logo, enlarged on the reader's request: a medium band
+                       (contained, never stretched) with a minimize control. */
+                    <div className="w-full h-28 rounded-sm overflow-hidden mb-3 border border-foreground/20 relative bg-muted/30 flex items-center justify-center">
+                        {featuredImageUrl ? (
+                            <div
+                                className="w-16 h-16 bg-contain bg-center bg-no-repeat"
+                                style={{ backgroundImage: `url(${featuredImageUrl})` }}
+                            />
+                        ) : (
+                            <span className="text-3xl opacity-25">📰</span>
+                        )}
                         <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setCoverageOpen(true); }}
-                            className="absolute bottom-2 start-2 z-10 inline-flex items-center gap-1.5 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 px-2 py-1 shadow-sm hover:bg-background transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setSourceImageExpanded(false); }}
+                            aria-label={t('news.sourceImage.minimize')}
+                            title={t('news.sourceImage.minimize')}
+                            className="absolute top-2 end-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-sm bg-background/90 backdrop-blur-sm border border-foreground/20 text-muted-foreground hover:text-foreground transition-colors"
                         >
-                            <Layers className="w-3 h-3 text-news-accent" />
-                            <span className="text-[10px] font-bold tracking-wide text-foreground leading-none">
-                                {t('news.story.posts', { count: story.memberCount })}
-                                {story.sourceCount > 1 && (
-                                    <span className="text-muted-foreground font-medium">
-                                        {' · '}
-                                        {t('news.story.sources', { count: story.sourceCount })}
-                                    </span>
-                                )}
-                            </span>
-                            <ChevronLeft className="w-2.5 h-2.5 text-muted-foreground rtl:rotate-0 ltr:rotate-180" />
+                            <Minimize2 className="w-3.5 h-3.5" />
                         </button>
-                    )}
-                </div>
+                        {story && story.memberCount > 1 && (
+                            <CoverageChip story={story} onOpen={() => setCoverageOpen(true)} className="absolute bottom-2 start-2 z-10" />
+                        )}
+                    </div>
+                ) : (
+                    /* Just a source logo/favicon — kept small + crisp (a downscaled
+                       favicon reads clean; it has no editorial value, so it never
+                       claims banner space). Reader can enlarge it via the control. */
+                    <div className="w-full flex items-center gap-2 mb-3">
+                        <div className="w-12 h-12 shrink-0 rounded-sm overflow-hidden border border-foreground/15 bg-muted/40 flex items-center justify-center">
+                            {featuredImageUrl ? (
+                                <img src={featuredImageUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-lg opacity-25">📰</span>
+                            )}
+                        </div>
+                        <div className="ms-auto flex items-center gap-1.5">
+                            {story && story.memberCount > 1 && (
+                                <CoverageChip story={story} onOpen={() => setCoverageOpen(true)} />
+                            )}
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSourceImageExpanded(true); }}
+                                aria-label={t('news.sourceImage.expand')}
+                                title={t('news.sourceImage.expand')}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-sm border border-foreground/15 bg-muted/40 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <Maximize2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Title & Author */}
                 <div className="relative">
@@ -557,8 +624,14 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                             {normalizeForTitle(featured.excerpt || featured.body_text?.slice(0, 160) || '')}
                         </p>
                     ) : null}
-                    {(storyUpdatedAgo || storyLifecycleLabelKey) && (
+                    {(storyUpdatedAgo || storyLifecycleLabelKey || storyCategoryKey) && (
                         <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                            {storyCategoryKey && (
+                                <span className="inline-flex items-center gap-1 rounded-sm border border-foreground/15 bg-muted/60 px-2 py-1 text-[10px] font-bold text-foreground">
+                                    <Tag className="h-3 w-3 text-news-accent" />
+                                    {t(storyCategoryKey)}
+                                </span>
+                            )}
                             {storyUpdatedAgo && (
                                 <span className="inline-flex items-center gap-1 rounded-sm border border-foreground/15 bg-muted/60 px-2 py-1 text-[10px] font-medium text-muted-foreground">
                                     <Clock className="h-3 w-3 text-news-accent" />

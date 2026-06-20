@@ -11,6 +11,7 @@ import { formatArticleDate, formatRelativeTime } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n/use-translations';
 import { useI18n } from '@/lib/i18n/context';
 import { isHtml, sanitizeHtml } from '@/lib/utils/html';
+import { typeBadgeKey, categoryBadgeKey } from '@/lib/utils/content-badge';
 import { CommentsPanel } from './comments-panel';
 import type { ContentItem } from '@/types';
 
@@ -133,6 +134,9 @@ function CoverageSection({
                                         <span dir="auto" className="text-xs font-bold text-foreground truncate">
                                             {item.source_name || item.author || ''}
                                         </span>
+                                        <span className="text-[8px] text-news-accent uppercase tracking-wider font-bold shrink-0">
+                                            {t(typeBadgeKey(item))}
+                                        </span>
                                         {ago && (
                                             <span className="ms-auto flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
                                                 <Clock className="w-3 h-3" />
@@ -251,22 +255,6 @@ function ArticleReaderInner({
         return `${minutes} min read`;
     };
     
-    const getCategoryLabel = (item: ContentItem) => {
-        if (item.type === 'TWEET') return t('articleReader.category.social');
-        if (item.type === 'COMMENT') return t('articleReader.category.reaction');
-        if (item.topic_tags && item.topic_tags.length > 0) {
-            const newsTag = item.topic_tags.find(t => t.startsWith('news-'));
-            if (newsTag) {
-                const cat = newsTag.replace('news-', '');
-                return t(`articleReader.category.${cat}`);
-            }
-            if (item.topic_tags.includes('news')) return t('articleReader.category.news');
-        }
-        if (item.source_name) {
-            return item.source_name;
-        }
-        return t('articleReader.category.newsArticle');
-    };
 
     return (
         <motion.div
@@ -323,8 +311,13 @@ function ArticleReaderInner({
                     <div className="px-6 pt-6 pb-2">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-news-accent/10 text-news-accent border border-news-accent/20">
-                                {getCategoryLabel(article)}
+                                {t(typeBadgeKey(article))}
                             </span>
+                            {categoryBadgeKey(article.category) && (
+                                <span className="px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-muted/60 text-foreground border border-foreground/15">
+                                    {t(categoryBadgeKey(article.category)!)}
+                                </span>
+                            )}
                         </div>
 
                         <h1 dir="auto" className="text-2xl md:text-3xl font-serif font-bold text-foreground leading-tight mb-4">

@@ -151,6 +151,7 @@ function memberToContentItem(m: StoryMember): ContentItem {
     // The member's format (ARTICLE/TWEET/COMMENT) carries the content shape the
     // magazine badges key off; fall back to the kind (NEWS) when absent.
     type: (m.format as ContentType) || m.type,
+    source: m.source,
     title: m.title,
     body_text: m.body_text,
     excerpt: m.excerpt,
@@ -172,13 +173,16 @@ function storySummaryToContentItem(s: StorySummary): ContentItem {
     // Target the lead member's content id, NOT story_id (a topic id) — so
     // open / like / bookmark hit a real content row instead of 404ing.
     id: s.lead_id || s.story_id,
-    type: 'NEWS',
+    // Badge a related-story card by its LEAD post's real type (article/tweet/
+    // comment); fall back to NEWS when the lead format is absent.
+    type: (s.format as ContentType) || 'NEWS',
+    source: s.source,
+    category: s.category,
     title: s.title || s.label,
     excerpt: s.excerpt,
     thumbnail_url: s.thumbnail_url || s.source_image_url,
     source_name: s.source_name,
     source_image_url: s.source_image_url,
-    topic_tags: s.label ? [s.label] : undefined,
     like_count: s.like_count,
     comment_count: s.comment_count,
     share_count: s.share_count,
@@ -196,14 +200,17 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
   const featured: ContentItem = {
     id: f.lead_id || lead?.id || f.story_id,
     type: (lead?.format as ContentType) || lead?.type || 'NEWS',
+    source: lead?.source,
     title: f.title || f.label,
     excerpt: f.excerpt,
     body_text: lead?.body_text,
-    thumbnail_url: f.thumbnail_url || f.source_image_url,
+    // POST media only — do NOT fall back to the source image here. The slide
+    // distinguishes a real post image (full banner) from a source-logo fallback
+    // (slim band); getDisplayImageUrl handles the source/favicon fallback chain.
+    thumbnail_url: f.thumbnail_url,
     author: lead?.author,
     source_name: f.source_name,
     source_image_url: f.source_image_url,
-    topic_tags: f.label ? [f.label] : undefined,
     like_count: f.like_count,
     comment_count: f.comment_count,
     share_count: f.share_count,
@@ -233,6 +240,7 @@ function storySlideToNewsSlide(slide: StoryNewsSlide): NewsSlide {
       reason: f.reason,
       summary: f.summary,
       bullets: f.bullets,
+      category: f.category,
     },
   };
 }
