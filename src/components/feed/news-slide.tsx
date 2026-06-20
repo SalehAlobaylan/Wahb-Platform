@@ -100,7 +100,9 @@ const getRelatedDisplayTitle = (item: ContentItem): string => {
 interface NewsSlideProps {
     slide: NewsSlideType;
     isActive: boolean;
-    onOpenArticle: (item: ContentItem) => void;
+    // coverage (optional) = every source/post behind the same story, so the
+    // article reader can show "who else is covering this" at its bottom.
+    onOpenArticle: (item: ContentItem, coverage?: ContentItem[]) => void;
 }
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -465,8 +467,12 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
     const [coverageOpen, setCoverageOpen] = useState(false);
     // Every post behind this story (lead first), each attributed to its source.
+    // Surfaced only via the hero coverage chip → CoverageSheet, never inline on
+    // the slide body — the slide stays focused on the featured story + related.
     const allCoverage = [featured, ...coverage];
-    const hasCoverage = coverage.length > 0;
+    // Opening any story member carries the full coverage set so the reader can
+    // list the other sources covering the same event.
+    const openWithCoverage = (item: ContentItem) => onOpenArticle(item, allCoverage);
 
     const handleToggleExpanded = (itemId: string) => {
         setExpandedItemId(prev => prev === itemId ? null : itemId);
@@ -480,7 +486,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                     "shrink-0 w-full flex flex-col px-4 pt-[6.75rem] pb-3 relative group/hero",
                     hasEnoughContent(featured) && "cursor-pointer"
                 )}
-                onClick={() => hasEnoughContent(featured) ? onOpenArticle(featured) : undefined}
+                onClick={() => hasEnoughContent(featured) ? openWithCoverage(featured) : undefined}
             >
                 {/* Hero Image */}
                 <div className="w-full aspect-[2/1] rounded-sm overflow-hidden mb-3 border border-foreground/20 relative group">
@@ -625,45 +631,19 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                 <div className="h-px bg-border" />
             </div>
 
-            {/* ═══════════════ BOTTOM: Coverage + Related ═══════════════ */}
+            {/* ═══════════════ BOTTOM: Related stories ═══════════════ */}
+            {/* Coverage (the story's own sources/posts) is intentionally NOT here —
+                it lives behind the hero coverage chip → CoverageSheet, shown only
+                when the reader acts on the featured story. */}
             <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-24">
                 <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar space-y-4">
-                    {/* The story's actual sources & posts — who is covering this. */}
-                    {hasCoverage && (
-                        <section>
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-                                    {t('news.coverage')}
-                                    {story && story.sourceCount > 1 && (
-                                        <span className="text-news-accent/80"> · {t('news.story.sources', { count: story.sourceCount })}</span>
-                                    )}
-                                </h3>
-                                {coverage.length > 4 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setCoverageOpen(true)}
-                                        className="text-[10px] font-bold text-news-accent hover:underline"
-                                    >
-                                        {t('news.coverage.viewAll', { count: allCoverage.length })}
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                {coverage.slice(0, 4).map((item) => (
-                                    <CoverageItem key={item.id} item={item} onOpenArticle={onOpenArticle} />
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* Related STORIES (other events) — kept distinct from coverage. */}
                     {related.length > 0 ? (
                         <section>
                             <h3 className="font-serif text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">
-                                {hasCoverage ? t('news.related.stories') : t('news.related')}
+                                {t('news.related')}
                             </h3>
                             <div className="space-y-2">
-                                {related.slice(0, hasCoverage ? 3 : 4).map((item) => (
+                                {related.slice(0, 4).map((item) => (
                                     <RelatedItem
                                         key={item.id}
                                         item={item}
@@ -675,11 +655,9 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                             </div>
                         </section>
                     ) : (
-                        !hasCoverage && (
-                            <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
-                                {t('news.related.empty')}
-                            </div>
-                        )
+                        <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                            {t('news.related.empty')}
+                        </div>
                     )}
                 </div>
             </div>
@@ -690,7 +668,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
                     label={story.label || getFeaturedTitle(featured)}
                     items={allCoverage}
                     sourceCount={story.sourceCount}
-                    onOpenArticle={onOpenArticle}
+                    onOpenArticle={openWithCoverage}
                     onClose={() => setCoverageOpen(false)}
                 />
             )}

@@ -1,13 +1,13 @@
 'use client';
 
-import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle } from 'lucide-react';
+import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle, Layers, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation, useContentItem } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { shareContent } from '@/lib/utils/share';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
-import { formatArticleDate } from '@/lib/utils/time';
+import { formatArticleDate, formatRelativeTime } from '@/lib/utils/time';
 import { useTranslations } from '@/lib/i18n/use-translations';
 import { useI18n } from '@/lib/i18n/context';
 import { isHtml, sanitizeHtml } from '@/lib/utils/html';
@@ -16,6 +16,11 @@ import type { ContentItem } from '@/types';
 
 interface ArticleReaderProps {
     article: ContentItem | null;
+    // Every source/post behind the same story (lead + members). The reader lists
+    // the others at the bottom as "who else is covering this".
+    coverage?: ContentItem[];
+    // Switch the reader to a sibling source (carries the same coverage set).
+    onOpenArticle?: (item: ContentItem, coverage?: ContentItem[]) => void;
     onClose: () => void;
 }
 
@@ -56,14 +61,96 @@ const sourceImageFromName = (sourceName?: string): string | undefined => {
 const getDisplayImageUrl = (item: ContentItem): string | undefined =>
     item.thumbnail_url || item.source_image_url || sourceImageFromName(item.source_name);
 
-export function ArticleReader({ article, onClose }: ArticleReaderProps) {
+export function ArticleReader({ article, coverage, onOpenArticle, onClose }: ArticleReaderProps) {
     // AnimatePresence must stay mounted across open/close for the exit
     // (slide-down) animation to run, so it lives above the conditional and the
     // inner element is keyed by article id.
     return (
         <AnimatePresence>
-            {article && <ArticleReaderInner key={article.id} article={article} onClose={onClose} />}
+            {article && (
+                <ArticleReaderInner
+                    key={article.id}
+                    article={article}
+                    coverage={coverage}
+                    onOpenArticle={onOpenArticle}
+                    onClose={onClose}
+                />
+            )}
         </AnimatePresence>
+    );
+}
+
+const sourceAvatar = (item: ContentItem): string =>
+    item.source_image_url ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(item.source_name || item.author || 'news')}`;
+
+/* ── Coverage: the other sources behind the same story ──── */
+
+function CoverageSection({
+    items,
+    currentId,
+    onOpenArticle,
+}: {
+    items: ContentItem[];
+    currentId: string;
+    onOpenArticle?: (item: ContentItem, coverage?: ContentItem[]) => void;
+}) {
+    const t = useTranslations();
+    const { locale } = useI18n();
+    const others = items.filter((i) => i.id !== currentId);
+    if (others.length === 0) return null;
+    const sourceCount = new Set(others.map((i) => i.source_name || i.author || i.id)).size;
+
+    return (
+        <div className="px-6 pb-6">
+            <div className="border-t border-foreground/10 pt-5">
+                <h3 className="flex items-center gap-1.5 font-serif text-[11px] text-muted-foreground uppercase tracking-widest font-bold mb-3">
+                    <Layers className="w-3.5 h-3.5 text-news-accent" />
+                    {t('news.coverage')}
+                    {sourceCount > 1 && (
+                        <span className="text-news-accent/80"> · {t('news.story.sources', { count: sourceCount })}</span>
+                    )}
+                </h3>
+                <div className="space-y-2">
+                    {others.map((item) => {
+                        const ago = formatRelativeTime(item.published_at, locale);
+                        const title =
+                            item.title?.trim() || item.excerpt?.trim() || item.body_text?.trim() || '';
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => onOpenArticle?.(item, items)}
+                                className="w-full text-start flex gap-2.5 items-start rounded-sm border border-foreground/15 bg-muted/40 p-2.5 hover:bg-muted transition-colors"
+                            >
+                                <img
+                                    alt={item.source_name || ''}
+                                    src={sourceAvatar(item)}
+                                    className="w-8 h-8 shrink-0 rounded-sm border border-foreground/20 object-cover bg-secondary"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span dir="auto" className="text-xs font-bold text-foreground truncate">
+                                            {item.source_name || item.author || ''}
+                                        </span>
+                                        {ago && (
+                                            <span className="ms-auto flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                                                <Clock className="w-3 h-3" />
+                                                {ago}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p dir="auto" className="text-[13px] leading-snug text-muted-foreground line-clamp-2">
+                                        {title}
+                                    </p>
+                                </div>
+                                <ChevronLeft className="w-4 h-4 shrink-0 text-muted-foreground rtl:rotate-0 ltr:rotate-180 mt-1.5" />
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -121,7 +208,17 @@ function CommentsSection({ article }: { article: ContentItem }) {
     );
 }
 
-function ArticleReaderInner({ article: feedItem, onClose }: { article: ContentItem; onClose: () => void }) {
+function ArticleReaderInner({
+    article: feedItem,
+    coverage,
+    onOpenArticle,
+    onClose,
+}: {
+    article: ContentItem;
+    coverage?: ContentItem[];
+    onOpenArticle?: (item: ContentItem, coverage?: ContentItem[]) => void;
+    onClose: () => void;
+}) {
     const t = useTranslations();
     const { locale } = useI18n();
     // Feed payloads truncate body_text (news feed caps it at 600 chars), so
@@ -272,6 +369,15 @@ function ArticleReaderInner({ article: feedItem, onClose }: { article: ContentIt
                             </p>
                         )}
                     </div>
+
+                    {/* Coverage — the other sources behind the same story. */}
+                    {coverage && coverage.length > 0 && (
+                        <CoverageSection
+                            items={coverage}
+                            currentId={article.id}
+                            onOpenArticle={onOpenArticle}
+                        />
+                    )}
 
                     {/* Comments Section */}
                     <CommentsSection article={article} />

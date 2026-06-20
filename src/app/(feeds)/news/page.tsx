@@ -73,6 +73,9 @@ function NewsPageContent() {
 
     // Reader Overlay State
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
+    // Coverage (the other sources behind the same story) for the open article —
+    // rendered at the bottom of the reader. Empty for deep-links / standalone items.
+    const [articleCoverage, setArticleCoverage] = useState<ContentItem[]>([]);
 
     // Deep-link support: /news?item=<content_id> (this is what shareContent
     // generates for ARTICLE/TWEET/COMMENT items). The deep-linked article is
@@ -86,6 +89,7 @@ function NewsPageContent() {
     const openArticle = selectedArticle ?? deepLinkArticle;
     const handleCloseArticle = () => {
         setSelectedArticle(null);
+        setArticleCoverage([]);
         if (deepLinkArticle) setDismissedDeepLinkId(deepLinkArticle.id);
     };
 
@@ -203,8 +207,9 @@ function NewsPageContent() {
         }
     }, [newsSlides.length, newsActiveIndex]);
 
-    const handleOpenArticle = (item: ContentItem) => {
+    const handleOpenArticle = (item: ContentItem, coverage?: ContentItem[]) => {
         setSelectedArticle(item);
+        setArticleCoverage(coverage ?? []);
     };
 
     const showLoading = isLoading;
@@ -324,6 +329,8 @@ function NewsPageContent() {
             {/* ── Full Screen Reader Overlay ───────────── */}
             <ArticleReader
                 article={openArticle}
+                coverage={articleCoverage}
+                onOpenArticle={handleOpenArticle}
                 onClose={handleCloseArticle}
             />
         </div>
