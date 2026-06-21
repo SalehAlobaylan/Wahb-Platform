@@ -34,8 +34,8 @@ const SAVED_FEEDS: Array<{ key: SavedFeed; labelKey: string }> = [
 ];
 
 const TYPE_BADGE_STYLES: Record<ContentType, string> = {
-    NEWS: 'bg-gold/20 text-gold border-gold/30',
-    ARTICLE: 'bg-gold/20 text-gold border-gold/30',
+    NEWS: 'bg-news-accent/20 text-news-accent border-news-accent/30',
+    ARTICLE: 'bg-news-accent/20 text-news-accent border-news-accent/30',
     PODCAST: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
     VIDEO: 'bg-sky-500/15 text-sky-400 border-sky-500/25',
     TWEET: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
@@ -174,7 +174,7 @@ function SavedToolbar({
                     value={search}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={t('saved.search.placeholder')}
-                    className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-gold/50"
+                    className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-news-accent/50"
                 />
             </label>
             <div className="flex items-center justify-between">
@@ -186,7 +186,7 @@ function SavedToolbar({
                     onClick={onSortToggle}
                     className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
                 >
-                    <ArrowDownUp className="h-3.5 w-3.5 text-gold" />
+                    <ArrowDownUp className="h-3.5 w-3.5 text-news-accent" />
                     {sort === 'saved_desc' ? t('saved.sort.savedNewest') : t('saved.sort.savedOldest')}
                 </button>
             </div>
@@ -216,7 +216,7 @@ function SavedEmptyState({
     return (
         <div className="flex flex-col items-center justify-center px-8 pt-16 text-center">
             <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border bg-card">
-                <Bookmark className="h-8 w-8 text-gold/60" />
+                <Bookmark className="h-8 w-8 text-news-accent/60" />
             </div>
             <h2 className="mb-2 font-serif text-xl font-medium text-foreground">{title}</h2>
             <p className="max-w-[280px] text-sm leading-relaxed text-muted-foreground">{body}</p>
@@ -327,10 +327,10 @@ function SavedRow({
             <button
                 type="button"
                 onClick={(event) => onRemove(event, item.id)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-news-accent hover:bg-news-accent/10 transition-colors disabled:opacity-50"
                 aria-label={t('saved.removeBookmark')}
             >
-                <Bookmark className="h-4 w-4 fill-gold" />
+                <Bookmark className="h-4 w-4 fill-news-accent" />
             </button>
         </article>
     );
@@ -493,7 +493,7 @@ export default function SavedPage() {
             <div ref={scrollRef} className="h-full overflow-y-auto hide-scrollbar pt-20 pb-24">
                 <div className="px-5 mb-5">
                     <div className="mb-1 flex items-center gap-3">
-                        <Bookmark className="h-5 w-5 text-gold" />
+                        <Bookmark className="h-5 w-5 text-news-accent" />
                         <h1 className="font-serif text-2xl font-bold tracking-tight text-foreground">
                             {t('saved.title')}
                         </h1>

@@ -65,7 +65,7 @@ export function FeedSwitcher({
             'transition-colors pb-1',
             active
                 ? isDark
-                    ? 'text-white border-b-2 border-gold'
+                    ? 'text-white border-b-2 border-news-accent'
                     : 'text-news-accent border-b-2 border-news-accent'
                 : isDark
                     ? 'text-white/50 hover:text-white'

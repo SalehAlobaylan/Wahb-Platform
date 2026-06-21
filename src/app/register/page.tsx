@@ -93,7 +93,7 @@ export default function RegisterPage() {
                                 onChange={(e) => setUsername(e.target.value)}
                             placeholder={t('auth.register.usernamePlaceholder')}
                                 autoComplete="username"
-                                className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-gold focus:ring-1 focus:ring-gold/30 outline-none transition-all text-sm"
+                                className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-news-accent focus:ring-1 focus:ring-news-accent/30 outline-none transition-all text-sm"
                             />
                         </div>
                     </div>
@@ -112,7 +112,7 @@ export default function RegisterPage() {
                             placeholder={t('auth.register.emailPlaceholder')}
                                 autoComplete="email"
                                 aria-invalid={emailError || undefined}
-                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${emailError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${emailError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-news-accent focus:ring-news-accent/30'}`}
                             />
                         </div>
                         {emailError && (
@@ -134,7 +134,7 @@ export default function RegisterPage() {
                             placeholder={t('auth.register.passwordPlaceholder')}
                                 autoComplete="new-password"
                                 aria-invalid={passwordError || undefined}
-                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${passwordError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${passwordError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-news-accent focus:ring-news-accent/30'}`}
                             />
                         </div>
                         {passwordError && (
@@ -157,7 +157,7 @@ export default function RegisterPage() {
                                 className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${
                                     confirmPassword && !passwordsMatch
                                         ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
-                                        : 'border-border focus:border-gold focus:ring-gold/30'
+                                        : 'border-border focus:border-news-accent focus:ring-news-accent/30'
                                 }`}
                             />
                         </div>
@@ -169,7 +169,7 @@ export default function RegisterPage() {
                     <button
                         type="submit"
                         disabled={!isValid || register.isPending}
-                        className="w-full h-12 rounded-xl bg-gold text-background font-semibold text-sm hover:bg-gold/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full h-12 rounded-xl bg-news-accent text-background font-semibold text-sm hover:bg-news-accent/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {register.isPending ? (
                             <>
@@ -186,7 +186,7 @@ export default function RegisterPage() {
                 <div className="pt-8 pb-8 text-center">
                     <p className="text-sm text-muted-foreground">
                         {t('auth.register.already')}{' '}
-                        <Link href="/login" className="text-gold font-medium hover:underline">
+                        <Link href="/login" className="text-news-accent font-medium hover:underline">
                             {t('auth.register.signIn')}
                         </Link>
                     </p>

@@ -65,7 +65,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
                         <Button
                             onClick={this.handleRetry}
-                            className="gap-2 mt-2 bg-gold text-white hover:bg-gold/90"
+                            className="gap-2 mt-2 bg-news-accent text-white hover:bg-news-accent/90"
                         >
                             <RefreshCw className="w-4 h-4" />
                             Try Again
@@ -105,7 +105,7 @@ export function FeedErrorFallback({
 
                 <Button
                     onClick={onRetry}
-                    className="gap-2 mt-2 bg-gold text-white hover:bg-gold/90"
+                    className="gap-2 mt-2 bg-news-accent text-white hover:bg-news-accent/90"
                 >
                     <RefreshCw className="w-4 h-4" />
                     {t('feed.error.retry')}

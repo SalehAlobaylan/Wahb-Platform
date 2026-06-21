@@ -87,7 +87,7 @@ export function PullToRefresh({
                             className={cn(
                                 "w-10 h-10 rounded-full flex items-center justify-center",
                                 canRefresh || isRefreshing
-                                    ? "bg-gold"
+                                    ? "bg-news-accent"
                                     : "bg-muted"
                             )}
                             style={{ scale }}

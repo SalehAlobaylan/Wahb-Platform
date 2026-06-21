@@ -48,7 +48,7 @@ export function ForYouSkeleton() {
 
             {/* Progress bar skeleton */}
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted-foreground/15">
-                <Skeleton className="h-full w-1/4 bg-gold/30" />
+                <Skeleton className="h-full w-1/4 bg-news-accent/30" />
             </div>
         </div>
     );

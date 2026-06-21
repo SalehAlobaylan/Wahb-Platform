@@ -39,111 +39,111 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  /* Editorial / magazine radius scale — square-rounded (base 4px) */
+  --radius-sm: 0.125rem;   /* 2px */
+  --radius-md: 0.25rem;    /* 4px */
+  --radius-lg: 0.375rem;   /* 6px */
+  --radius-xl: 0.5rem;     /* 8px */
+  --radius-2xl: 0.625rem;  /* 10px */
+  --radius-3xl: 0.75rem;   /* 12px */
+  --radius-4xl: 0.875rem;  /* 14px */
 
-  /* Gold color token — Warm Gold accent */
-  --color-gold: #DAA428;
-
-  /* News-accent color token — resolves to red in news-page scope, gold elsewhere */
-  --color-news-accent: var(--news-accent, #DAA428);
+  /* News-accent color token — Press Red, adapts per mode (light #e63946 / dark #ff6b6b) */
+  --color-news-accent: var(--news-accent);
 }
 
 :root {
-  --radius: 0.625rem;
+  /* Editorial / magazine — square-rounded. Base is intentionally small. */
+  --radius: 0.25rem;
 
-  /* Wahb — Midnight & Gold (Light Mode — Warm Ivory) */
-  --background: #FAF8F3;
-  /* Warm ivory page background */
-  --foreground: #1A1A2E;
-  /* Deep navy — primary text */
-  --card: #FFF9F0;
-  /* Warm cream surface */
-  --card-foreground: #1A1A2E;
-  --popover: #FFF9F0;
-  --popover-foreground: #1A1A2E;
-  --primary: #DAA428;
-  /* Warm Gold — accent */
-  --primary-foreground: #FFFFFF;
-  --secondary: #FDF8ED;
-  /* Gold wash */
-  --secondary-foreground: #1A1A2E;
-  --muted: #F0EDE6;
-  /* Warm stone muted */
-  --muted-foreground: #6B6B80;
-  /* Warm grey text */
-  --accent: #FDF8ED;
-  --accent-foreground: #1A1A2E;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #E8E4DA;
-  /* Warm border */
-  --input: #E8E4DA;
-  --ring: #DAA428;
-  /* Gold ring */
-  --chart-1: #DAA428;
-  --chart-2: #1A1A2E;
-  --chart-3: #B8891E;
-  --chart-4: #E8E4DA;
-  --chart-5: #FDF8ED;
-  --sidebar: #FFF9F0;
-  --sidebar-foreground: #1A1A2E;
-  --sidebar-primary: #DAA428;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FDF8ED;
-  --sidebar-accent-foreground: #1A1A2E;
-  --sidebar-border: #E8E4DA;
-  --sidebar-ring: #DAA428;
+  /* Wahb — Newsprint & Red (Light Mode — Newsprint) */
+  --background: #f8f5f2;
+  /* Newsprint paper — page background */
+  --foreground: #1a1a1a;
+  /* Newsprint ink — primary text & hard borders */
+  --card: #eae7e3;
+  /* Paper grey — card surface */
+  --card-foreground: #1a1a1a;
+  --popover: #eae7e3;
+  --popover-foreground: #1a1a1a;
+  --primary: #e63946;
+  /* Press Red — accent */
+  --primary-foreground: #ffffff;
+  --secondary: #eae7e3;
+  --secondary-foreground: #1a1a1a;
+  --muted: #eae7e3;
+  --muted-foreground: #666666;
+  /* Muted grey text */
+  --accent: #eae7e3;
+  --accent-foreground: #1a1a1a;
+  --destructive: #c1121f;
+  --border: #1a1a1a;
+  /* Hard ink border — the editorial signature */
+  --input: #1a1a1a;
+  --ring: #e63946;
+  /* Press Red focus ring */
+  --news-accent: #e63946;
+  --chart-1: #e63946;
+  --chart-2: #1a1a1a;
+  --chart-3: #c1121f;
+  --chart-4: #eae7e3;
+  --chart-5: #666666;
+  --sidebar: #eae7e3;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #e63946;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eae7e3;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #1a1a1a;
+  --sidebar-ring: #e63946;
 }
 
 .dark {
-  /* Wahb — True Black / Charcoal (Dark Mode) */
-  --background: #111111;
-  /* True black — page background */
-  --foreground: #F0F0F0;
-  /* Near white — primary text */
-  --card: #1A1A1A;
-  /* Charcoal — card surfaces */
-  --card-foreground: #F0F0F0;
-  --popover: #1A1A1A;
-  --popover-foreground: #F0F0F0;
-  --primary: #DAA428;
-  /* Warm Gold — constant */
-  --primary-foreground: #FFFFFF;
-  --secondary: #1E1E1E;
-  /* Slightly lifted charcoal — secondary surfaces */
-  --secondary-foreground: #F0F0F0;
-  --muted: #1E1E1E;
-  --muted-foreground: #888888;
+  /* Wahb — Dark Room (Dark Mode) */
+  --background: #1a1a1a;
+  /* Dark room — page background */
+  --foreground: #f8f5f2;
+  /* Newsprint paper — primary text */
+  --card: #2a2a2a;
+  /* Lifted dark surface — cards */
+  --card-foreground: #f8f5f2;
+  --popover: #2a2a2a;
+  --popover-foreground: #f8f5f2;
+  --primary: #ff6b6b;
+  /* Press Red — dark variant */
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a2a;
+  --secondary-foreground: #f8f5f2;
+  --muted: #2a2a2a;
+  --muted-foreground: #999999;
   /* Mid grey — muted text */
-  --accent: #1E1E1E;
-  --accent-foreground: #F0F0F0;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: #2A2A2A;
-  /* Subtle charcoal border */
-  --input: #2A2A2A;
-  --ring: #DAA428;
-  --chart-1: #DAA428;
-  --chart-2: #F0F0F0;
-  --chart-3: #888888;
-  --chart-4: #2A2A2A;
-  --chart-5: #1E1E1E;
-  --sidebar: #1A1A1A;
-  --sidebar-foreground: #F0F0F0;
-  --sidebar-primary: #DAA428;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E1E1E;
-  --sidebar-accent-foreground: #F0F0F0;
-  --sidebar-border: #2A2A2A;
-  --sidebar-ring: #DAA428;
+  --accent: #2a2a2a;
+  --accent-foreground: #f8f5f2;
+  --destructive: #ff6b6b;
+  --border: #f8f5f2;
+  /* Paper-white hard border (inverted ink) */
+  --input: #f8f5f2;
+  --ring: #ff6b6b;
+  --news-accent: #ff6b6b;
+  --chart-1: #ff6b6b;
+  --chart-2: #f8f5f2;
+  --chart-3: #999999;
+  --chart-4: #2a2a2a;
+  --chart-5: #999999;
+  --sidebar: #2a2a2a;
+  --sidebar-foreground: #f8f5f2;
+  --sidebar-primary: #ff6b6b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #f8f5f2;
+  --sidebar-border: #f8f5f2;
+  --sidebar-ring: #ff6b6b;
 }
 
 /* ═══════════════════════════════════════════════════
-   Newsprint Theme — scoped to .news-page
+   Newsprint Theme — now the global identity (:root / .dark).
+   These .news-page blocks are kept as no-op aliases so the
+   `news-page` className still resolves to the same palette.
    ═══════════════════════════════════════════════════ */
 
 .news-page {
@@ -215,7 +215,7 @@ footer {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Custom scrollbar — Gold */
+/* Custom scrollbar — Press Red */
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -225,19 +225,19 @@ footer {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #DAA428;
-  border-radius: 5px;
+  background: #e63946;
+  border-radius: 2px;
   border: 2px solid var(--background);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8891E;
+  background: #c1121f;
 }
 
-/* Selection — Charcoal & Gold */
+/* Selection — Press Red on paper */
 ::selection {
-  background: #DAA428;
-  color: #111111;
+  background: #e63946;
+  color: #f8f5f2;
 }
 
 /* Hide scrollbar utility */

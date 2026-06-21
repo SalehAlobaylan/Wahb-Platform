@@ -395,7 +395,7 @@ function ForYouPageContent() {
                 <div className="flex justify-between items-center p-4 pt-6">
                     {/* Profile avatar */}
                     <Link href="/profile" className="pointer-events-auto">
-                        <div className="w-9 h-9 rounded-full bg-gold/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
+                        <div className="w-9 h-9 rounded-full bg-news-accent/40 flex items-center justify-center border border-white/20 hover:border-white/40 transition-all">
                             {isAuthenticated && user ? (
                                 <span className="text-sm font-bold text-white uppercase">{(user.username || user.email)[0]}</span>
                             ) : (
@@ -455,7 +455,7 @@ function ForYouPageContent() {
                     {/* Loading more indicator */}
                     {isFetchingNextPage && (
                         <div className="h-20 flex items-center justify-center">
-                            <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-2 border-news-accent/30 border-t-news-accent rounded-full animate-spin" />
                         </div>
                     )}
                 </FeedContainer>
@@ -464,7 +464,7 @@ function ForYouPageContent() {
             {/* ── Fixed Progress Bar ─────────────────────────────── */}
             <div className="absolute bottom-[80px] left-0 right-0 h-1 bg-white/10 z-30">
                 <div
-                    className="h-full bg-gold transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(218,164,40,0.5)]"
+                    className="h-full bg-news-accent transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(230,57,70,0.5)]"
                     style={{ width: `${progress}%` }}
                 />
             </div>
@@ -602,7 +602,7 @@ function ForYouPageContent() {
             <div className="absolute left-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
                 <Link
                     href="/create"
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-gold hover:bg-gold/90 transition-all shadow-lg shadow-black/50 active:scale-95"
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-news-accent hover:bg-news-accent/90 transition-all shadow-lg shadow-black/50 active:scale-95"
                     aria-label="Create Post"
                 >
                     <Plus className="w-6 h-6 text-white" />

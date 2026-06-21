@@ -72,7 +72,7 @@ export function InterestsModal({ isOpen, onClose, selected, onSave }: InterestsM
                                 className={cn(
                                     'px-3.5 py-2 rounded-full text-sm font-medium transition-all border',
                                     isSelected
-                                        ? 'bg-gold/20 text-gold border-gold/40 shadow-[0_0_10px_rgba(218,164,40,0.15)]'
+                                        ? 'bg-news-accent/20 text-news-accent border-news-accent/40 shadow-[0_0_10px_rgba(230,57,70,0.15)]'
                                         : 'bg-muted text-muted-foreground border-border hover:border-foreground/20 hover:text-foreground'
                                 )}
                             >
@@ -92,7 +92,7 @@ export function InterestsModal({ isOpen, onClose, selected, onSave }: InterestsM
                 {/* Save button */}
                 <button
                     onClick={handleSave}
-                    className="w-full py-3 rounded-xl bg-gold text-white font-bold text-sm tracking-wide hover:bg-gold/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(218,164,40,0.3)]"
+                    className="w-full py-3 rounded-xl bg-news-accent text-white font-bold text-sm tracking-wide hover:bg-news-accent/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(230,57,70,0.3)]"
                 >
                     Save Interests ({localSelected.length})
                 </button>

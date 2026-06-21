@@ -42,10 +42,10 @@ const RECENT_SEARCHES_KEY = 'wahb_recent_searches';
    ══════════════════════════════════════════════════════════ */
 function getTypeBadge(type: ContentType, t: (key: string) => string) {
     const map: Record<ContentType, { label: string; color: string }> = {
-        NEWS: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
-        ARTICLE: { label: t('saved.badge.article'), color: 'bg-gold/20 text-gold border-gold/30' },
+        NEWS: { label: t('saved.badge.article'), color: 'bg-news-accent/20 text-news-accent border-news-accent/30' },
+        ARTICLE: { label: t('saved.badge.article'), color: 'bg-news-accent/20 text-news-accent border-news-accent/30' },
         PODCAST: { label: t('saved.badge.podcast'), color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' },
-        VIDEO: { label: t('saved.badge.video'), color: 'bg-gold/15 text-gold border-gold/25' },
+        VIDEO: { label: t('saved.badge.video'), color: 'bg-news-accent/15 text-news-accent border-news-accent/25' },
         TWEET: { label: t('saved.badge.tweet'), color: 'bg-violet-500/15 text-violet-400 border-violet-500/25' },
         COMMENT: { label: t('saved.badge.comment'), color: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
     };
@@ -229,7 +229,7 @@ export default function SearchPage() {
                             className={cn(
                                 'w-full h-10 pl-9 pr-9 rounded-xl text-sm text-foreground placeholder:text-muted-foreground',
                                 'bg-muted border border-border',
-                                'focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30',
+                                'focus:outline-none focus:border-news-accent/50 focus:ring-1 focus:ring-news-accent/30',
                                 'transition-all'
                             )}
                         />
@@ -261,7 +261,7 @@ export default function SearchPage() {
                                     className={cn(
                                         'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border',
                                         isActive
-                                            ? 'bg-gold text-white border-gold shadow-lg shadow-gold/20'
+                                            ? 'bg-news-accent text-white border-news-accent shadow-lg shadow-news-accent/20'
                                             : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground'
                                     )}
                                 >
@@ -288,7 +288,7 @@ export default function SearchPage() {
                         {/* Trending Topics */}
                         <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp className="w-4 h-4 text-gold" />
+                                <TrendingUp className="w-4 h-4 text-news-accent" />
                                 <h2 className="text-sm font-bold text-foreground uppercase tracking-widest font-serif">{t('search.trending')}</h2>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -296,7 +296,7 @@ export default function SearchPage() {
                                     <button
                                         key={topic}
                                         onClick={() => handleTrendingClick(topic)}
-                                        className="px-3.5 py-2 rounded-full text-xs font-medium bg-muted text-foreground border border-border hover:bg-gold/20 hover:text-gold hover:border-gold/30 transition-all"
+                                        className="px-3.5 py-2 rounded-full text-xs font-medium bg-muted text-foreground border border-border hover:bg-news-accent/20 hover:text-news-accent hover:border-news-accent/30 transition-all"
                                     >
                                         {topic}
                                     </button>
@@ -314,7 +314,7 @@ export default function SearchPage() {
                                     </div>
                                     <button
                                         onClick={handleClearAllRecent}
-                                        className="text-[11px] text-gold hover:text-gold/70 transition-colors font-semibold uppercase tracking-wider"
+                                        className="text-[11px] text-news-accent hover:text-news-accent/70 transition-colors font-semibold uppercase tracking-wider"
                                     >
                                         {t('search.clearAll')}
                                     </button>
@@ -362,7 +362,7 @@ export default function SearchPage() {
                     /* ── No Results ── */
                     <div className="flex flex-col items-center justify-center px-8 pt-20">
                         <div className="relative mb-6">
-                            <div className="absolute inset-0 bg-gold/10 rounded-full blur-2xl scale-150" />
+                            <div className="absolute inset-0 bg-news-accent/10 rounded-full blur-2xl scale-150" />
                             <div className="relative w-20 h-20 rounded-full bg-card border border-border flex items-center justify-center">
                                 <Search className="w-8 h-8 text-muted-foreground" />
                             </div>
@@ -373,7 +373,7 @@ export default function SearchPage() {
                         </p>
                         <button
                             onClick={handleClear}
-                            className="mt-4 px-4 py-2 rounded-full bg-gold/20 text-gold text-xs font-bold uppercase tracking-wider border border-gold/30 hover:bg-gold/30 transition-colors"
+                            className="mt-4 px-4 py-2 rounded-full bg-news-accent/20 text-news-accent text-xs font-bold uppercase tracking-wider border border-news-accent/30 hover:bg-news-accent/30 transition-colors"
                         >
                             {t('search.clear')}
                         </button>
@@ -461,12 +461,12 @@ export default function SearchPage() {
                                         className={cn(
                                             "shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all",
                                             bookmarkedIds.has(item.id)
-                                                ? "text-gold bg-gold/10"
-                                                : "text-muted-foreground hover:text-gold hover:bg-gold/10"
+                                                ? "text-news-accent bg-news-accent/10"
+                                                : "text-muted-foreground hover:text-news-accent hover:bg-news-accent/10"
                                         )}
                                         aria-label="Bookmark"
                                     >
-                                        <Bookmark className={cn("w-4 h-4", bookmarkedIds.has(item.id) && "fill-gold")} />
+                                        <Bookmark className={cn("w-4 h-4", bookmarkedIds.has(item.id) && "fill-news-accent")} />
                                     </button>
                                 </article>
                             );

@@ -321,7 +321,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             )}>
                 {/* Type badge */}
                 <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-gold/90 text-white backdrop-blur-md flex items-center gap-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-news-accent/90 text-white backdrop-blur-md flex items-center gap-1">
                         <Headphones className="w-3 h-3" />
                         {item.type === 'PODCAST' ? t('foryou.badge.podcast') : t('foryou.badge.audio')}
                     </span>
@@ -339,7 +339,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
 
                 {/* Author */}
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gold/40 flex items-center justify-center text-xs overflow-hidden border border-white/20">
+                    <div className="w-8 h-8 rounded-full bg-news-accent/40 flex items-center justify-center text-xs overflow-hidden border border-white/20">
                         <img
                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.author}`}
                             alt={item.author || 'Author'}
@@ -420,7 +420,7 @@ function DisplayModeSelector({
                         onClick={() => onChange(option)}
                         className={cn(
                             'flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-all hover:bg-white/15 hover:text-white',
-                            mode === option && 'bg-gold text-white shadow-[0_0_14px_rgba(218,164,40,0.35)]'
+                            mode === option && 'bg-news-accent text-white shadow-[0_0_14px_rgba(230,57,70,0.35)]'
                         )}
                     >
                         <Icon className="h-4 w-4" />
@@ -455,11 +455,11 @@ function TranscriptSurface({
             onClick={onTogglePlay}
             data-testid="transcript-surface"
         >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(218,164,40,0.22),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.48),rgba(0,0,0,0.92))]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(230,57,70,0.22),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.48),rgba(0,0,0,0.92))]" />
 
             <div className="relative z-10 max-w-[calc(100%-56px)] space-y-2 pr-14">
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-black/30 px-2.5 py-1 backdrop-blur-sm">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-news-accent">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-news-accent/30 bg-black/30 px-2.5 py-1 backdrop-blur-sm">
                         <FileText className="h-3 w-3" />
                         {t('transcript.live')}
                     </span>
@@ -493,7 +493,7 @@ function TranscriptSurface({
 
                 {hasTranscript && isLoading ? (
                     <div className="mx-auto flex flex-col items-center justify-center py-8 text-white/70">
-                        <div className="mb-3 h-6 w-6 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
+                        <div className="mb-3 h-6 w-6 animate-spin rounded-full border-2 border-news-accent/30 border-t-news-accent" />
                         <p className="text-sm">{t('transcript.loading')}</p>
                     </div>
                 ) : null}
@@ -517,7 +517,7 @@ function TranscriptSurface({
 
             {!isPlaying && (
                 <div className="pointer-events-none absolute bottom-24 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-md">
-                    <PauseCircle className="h-4 w-4 text-gold" />
+                    <PauseCircle className="h-4 w-4 text-news-accent" />
                     {t('foryou.paused')}
                 </div>
             )}
@@ -549,7 +549,7 @@ function NoTranscriptState({
             <p className="text-sm">{t('transcript.unavailable')}</p>
             {isAuthenticated ? (
                 isSuccess ? (
-                    <p className="mt-2 text-xs text-gold">
+                    <p className="mt-2 text-xs text-news-accent">
                         {t('transcript.generating')}
                     </p>
                 ) : (
@@ -560,7 +560,7 @@ function NoTranscriptState({
                             if (contentItemId) onGenerate();
                         }}
                         disabled={isPending}
-                        className="mt-3 rounded-lg bg-gold px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-gold/90 disabled:opacity-50"
+                        className="mt-3 rounded-lg bg-news-accent px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-news-accent/90 disabled:opacity-50"
                     >
                         {isPending ? (
                             <span className="flex items-center gap-2">
@@ -640,7 +640,7 @@ function TranscriptText({
                             <div className={cn(
                                 'mb-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
                                 isActive
-                                    ? 'border-gold/40 bg-gold/15 text-gold'
+                                    ? 'border-news-accent/40 bg-news-accent/15 text-news-accent'
                                     : 'border-white/10 bg-white/5 text-white/35'
                             )}>
                                 {formatTimestamp(segment.start)}

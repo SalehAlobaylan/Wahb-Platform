@@ -117,7 +117,7 @@ function SettingsRow({
                         'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ring-1',
                         disabled
                             ? 'bg-muted/80 text-muted-foreground ring-border/70'
-                            : 'bg-gold/10 text-gold ring-transparent'
+                            : 'bg-news-accent/10 text-news-accent ring-transparent'
                     )}
                 >
                     {icon}
@@ -137,7 +137,7 @@ function SettingsRow({
                     <>
                         {value && <span className="text-xs text-muted-foreground">{value}</span>}
                         {interactive && (
-                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-news-accent group-hover:translate-x-0.5 transition-all" />
                         )}
                     </>
                 )}
@@ -165,7 +165,7 @@ function Toggle({
             className={cn(
                 'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors',
                 disabled ? 'cursor-not-allowed opacity-55 ring-1 ring-inset ring-muted-foreground/35' : 'cursor-pointer',
-                checked ? 'bg-gold/90' : 'bg-muted',
+                checked ? 'bg-news-accent/90' : 'bg-muted',
                 disabled && 'grayscale-[0.35]'
             )}
         >
@@ -212,7 +212,7 @@ function RadioOption({
             onClick={onSelect}
             className={cn(
                 'w-full flex items-center justify-between p-4 transition-colors',
-                selected ? 'bg-gold/10' : 'hover:bg-muted/40'
+                selected ? 'bg-news-accent/10' : 'hover:bg-muted/40'
             )}
         >
             <div className="text-left">
@@ -222,7 +222,7 @@ function RadioOption({
             <div
                 className={cn(
                     'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0',
-                    selected ? 'border-gold bg-gold' : 'border-border'
+                    selected ? 'border-news-accent bg-news-accent' : 'border-border'
                 )}
             >
                 {selected && <Check className="w-3 h-3 text-background" />}
@@ -248,12 +248,12 @@ function ProfilePanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
                 {/* Avatar & Name */}
                 <div className="flex flex-col items-center pt-2 pb-4">
                     <div className="relative mb-3">
-                        <div className="w-20 h-20 rounded-full border-2 border-gold bg-gold/10 flex items-center justify-center">
-                            <span className="font-serif text-2xl font-bold text-gold">{initials}</span>
+                        <div className="w-20 h-20 rounded-full border-2 border-news-accent bg-news-accent/10 flex items-center justify-center">
+                            <span className="font-serif text-2xl font-bold text-news-accent">{initials}</span>
                         </div>
                     </div>
                     <h2 className="font-serif text-lg font-bold text-foreground">{displayName}</h2>
-                    <p className="text-xs text-gold font-medium tracking-wide uppercase mt-0.5">{t('settings.profile.member')}</p>
+                    <p className="text-xs text-news-accent font-medium tracking-wide uppercase mt-0.5">{t('settings.profile.member')}</p>
                 </div>
 
                 <div>
@@ -336,8 +336,8 @@ function ThemePanel({ onBack, t }: { onBack: () => void; t: (key: string) => str
                                 className={cn(
                                     'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all',
                                     theme === t.key
-                                        ? 'bg-gold/10 border-gold/40 text-gold'
-                                        : 'bg-card border-border text-muted-foreground hover:border-gold/20'
+                                        ? 'bg-news-accent/10 border-news-accent/40 text-news-accent'
+                                        : 'bg-card border-border text-muted-foreground hover:border-news-accent/20'
                                 )}
                             >
                                 {t.icon}
@@ -505,7 +505,7 @@ function PasswordInput({
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={placeholder}
                     autoComplete={autoComplete}
-                    className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-gold focus:ring-1 focus:ring-gold/30 outline-none transition-all text-sm"
+                    className="w-full h-12 pl-10 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground/50 focus:border-news-accent focus:ring-1 focus:ring-news-accent/30 outline-none transition-all text-sm"
                 />
             </div>
         </div>
@@ -570,12 +570,12 @@ function ChangePasswordPanel({ onBack, t }: { onBack: () => void; t: (key: strin
             <PanelHeader title={t('settings.password.title')} onBack={onBack} />
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
                 {!isAuthenticated && (
-                    <div className="rounded-xl border border-gold/20 bg-gold/10 p-4">
+                    <div className="rounded-xl border border-news-accent/20 bg-news-accent/10 p-4">
                         <p className="text-sm font-medium text-foreground">{t('settings.password.signInRequired.title')}</p>
                         <p className="text-xs text-muted-foreground mt-1">
                             {t('settings.password.signInRequired.body')}
                         </p>
-                        <Link href="/login" className="mt-3 inline-flex text-sm font-semibold text-gold hover:text-gold/80">
+                        <Link href="/login" className="mt-3 inline-flex text-sm font-semibold text-news-accent hover:text-news-accent/80">
                             {t('settings.password.signInRequired.action')}
                         </Link>
                     </div>
@@ -623,7 +623,7 @@ function ChangePasswordPanel({ onBack, t }: { onBack: () => void; t: (key: strin
                     <button
                         type="submit"
                         disabled={!isValid || changePassword.isPending}
-                        className="w-full h-12 rounded-xl bg-gold text-background font-semibold text-sm hover:bg-gold/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full h-12 rounded-xl bg-news-accent text-background font-semibold text-sm hover:bg-news-accent/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {changePassword.isPending ? (
                             <>
@@ -904,7 +904,7 @@ function HistoryPanel({
                                 key={item.content_id}
                                 type="button"
                                 onClick={() => handleOpenItem(item)}
-                                className="w-full flex gap-3 py-2.5 border-b border-border/50 last:border-0 rounded-lg text-left hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 transition-colors"
+                                className="w-full flex gap-3 py-2.5 border-b border-border/50 last:border-0 rounded-lg text-left hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-news-accent/60 transition-colors"
                             >
                                 {/* Thumbnail */}
                                 <div className="w-20 h-14 rounded-lg bg-muted shrink-0 overflow-hidden relative">
@@ -934,7 +934,7 @@ function HistoryPanel({
                                     </p>
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                         {item.source_name && (
-                                            <span className="text-[11px] text-gold font-medium truncate max-w-[100px]">
+                                            <span className="text-[11px] text-news-accent font-medium truncate max-w-[100px]">
                                                 {item.source_name}
                                             </span>
                                         )}
@@ -956,7 +956,7 @@ function HistoryPanel({
                                     if (!isFetchingNextPage) fetchNextPage();
                                 }}
                                 disabled={isFetchingNextPage}
-                                className="w-full py-3 text-sm text-gold font-medium hover:text-gold/80 transition-colors disabled:opacity-50"
+                                className="w-full py-3 text-sm text-news-accent font-medium hover:text-news-accent/80 transition-colors disabled:opacity-50"
                             >
                                 {isFetchingNextPage ? t('settings.history.loading') : t('settings.history.loadMore')}
                             </button>
@@ -1020,25 +1020,25 @@ export default function SettingsPage() {
                 {isAuthenticated && user ? (
                     <button
                         onClick={() => setActivePanel('profile')}
-                        className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-border hover:border-gold/30 transition-colors group"
+                        className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-border hover:border-news-accent/30 transition-colors group"
                     >
                         <div className="relative shrink-0">
-                            <div className="w-14 h-14 rounded-full border-2 border-gold bg-gold/10 flex items-center justify-center">
-                                <span className="font-serif text-lg font-bold text-gold">
+                            <div className="w-14 h-14 rounded-full border-2 border-news-accent bg-news-accent/10 flex items-center justify-center">
+                                <span className="font-serif text-lg font-bold text-news-accent">
                                     {user.username.slice(0, 2).toUpperCase()}
                                 </span>
                             </div>
-                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-gold rounded-full border-2 border-background" />
+                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-news-accent rounded-full border-2 border-background" />
                         </div>
                         <div className="flex-1 text-left min-w-0">
                             <h2 className="font-serif text-base font-semibold text-foreground">{user.username}</h2>
-                            <p className="text-xs text-gold font-medium tracking-wide uppercase">Member</p>
+                            <p className="text-xs text-news-accent font-medium tracking-wide uppercase">Member</p>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-news-accent group-hover:translate-x-0.5 transition-all shrink-0" />
                     </button>
                 ) : (
                     <Link href="/login" className="block">
-                        <div className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-dashed border-gold/30 hover:border-gold/50 transition-colors group">
+                        <div className="w-full flex items-center space-x-4 bg-card p-4 rounded-xl border border-dashed border-news-accent/30 hover:border-news-accent/50 transition-colors group">
                             <div className="w-14 h-14 rounded-full border-2 border-border bg-muted/30 flex items-center justify-center shrink-0">
                                 <User className="w-6 h-6 text-muted-foreground" />
                             </div>
@@ -1046,7 +1046,7 @@ export default function SettingsPage() {
                                 <h2 className="font-serif text-base font-semibold text-foreground">{t('settings.signIn')}</h2>
                                 <p className="text-xs text-muted-foreground">{t('auth.login.subtitle')}</p>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-news-accent group-hover:translate-x-0.5 transition-all shrink-0" />
                         </div>
                     </Link>
                 )}
@@ -1089,7 +1089,7 @@ export default function SettingsPage() {
                         <button
                             onClick={handleLogout}
                             disabled={logout.isPending}
-                            className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                            className="w-full border border-news-accent/30 text-news-accent py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-news-accent/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                         >
                             {logout.isPending ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1100,7 +1100,7 @@ export default function SettingsPage() {
                         </button>
                     ) : (
                         <Link href="/login">
-                            <button className="w-full border border-gold/30 text-gold py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-gold/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <button className="w-full border border-news-accent/30 text-news-accent py-3.5 px-6 rounded-xl text-sm font-semibold hover:bg-news-accent/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                 <User className="w-4 h-4" />
                                 <span>{t('settings.signIn')}</span>
                             </button>

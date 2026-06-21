@@ -249,7 +249,7 @@ export default function CreatePage() {
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground font-sans" dir="ltr">
       <div
         className="pointer-events-none fixed inset-0 z-0"
-        style={{ background: 'radial-gradient(circle at 100% 0%, rgba(218, 164, 40, 0.16) 0%, transparent 42%)' }}
+        style={{ background: 'radial-gradient(circle at 100% 0%, rgba(230,57,70, 0.16) 0%, transparent 42%)' }}
       />
 
         <nav className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-background/90 p-4 pb-2 backdrop-blur-md">

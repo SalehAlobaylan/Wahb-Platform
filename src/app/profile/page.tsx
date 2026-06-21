@@ -80,14 +80,14 @@ function GuestProfile() {
 
                     {/* CTA buttons */}
                     <Link href="/login" className="w-full max-w-[280px]">
-                        <button className="w-full h-12 rounded-xl bg-gold text-background font-semibold text-sm hover:bg-gold/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <button className="w-full h-12 rounded-xl bg-news-accent text-background font-semibold text-sm hover:bg-news-accent/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer">
                             <LogIn className="w-4 h-4" />
                             {t('profile.guest.signIn')}
                         </button>
                     </Link>
                     <Link href="/register" className="mt-3">
                         <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                            {t('auth.login.registerPrompt')} <span className="text-gold font-medium">{t('profile.guest.register')}</span>
+                            {t('auth.login.registerPrompt')} <span className="text-news-accent font-medium">{t('profile.guest.register')}</span>
                         </span>
                     </Link>
 

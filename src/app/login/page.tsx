@@ -109,7 +109,7 @@ function LoginContent() {
                             placeholder={t('auth.login.emailPlaceholder')}
                                 autoComplete="email"
                                 aria-invalid={emailError || undefined}
-                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${emailError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${emailError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-news-accent focus:ring-news-accent/30'}`}
                             />
                         </div>
                         {emailError && (
@@ -131,7 +131,7 @@ function LoginContent() {
                             placeholder={t('auth.login.passwordPlaceholder')}
                                 autoComplete="current-password"
                                 aria-invalid={passwordError || undefined}
-                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${passwordError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-gold focus:ring-gold/30'}`}
+                                className={`w-full h-12 pl-10 pr-4 rounded-xl bg-card border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 outline-none transition-all text-sm ${passwordError ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500/30' : 'border-border focus:border-news-accent focus:ring-news-accent/30'}`}
                             />
                         </div>
                         {passwordError && (
@@ -142,7 +142,7 @@ function LoginContent() {
                     <button
                         type="submit"
                         disabled={!isValid || login.isPending}
-                        className="w-full h-12 rounded-xl bg-gold text-background font-semibold text-sm hover:bg-gold/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full h-12 rounded-xl bg-news-accent text-background font-semibold text-sm hover:bg-news-accent/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {login.isPending ? (
                             <>
@@ -176,7 +176,7 @@ function LoginContent() {
                         disabled={login.isPending}
                         className="w-full h-12 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                     >
-                        <Zap className="w-4 h-4 text-gold" />
+                        <Zap className="w-4 h-4 text-news-accent" />
                         {t('auth.login.quick')}
                     </button>
                     <p className="text-[10px] text-muted-foreground/40 text-center mt-2">{t('auth.login.quickHint')}</p>
@@ -186,7 +186,7 @@ function LoginContent() {
                 <div className="pt-6 text-center">
                     <p className="text-sm text-muted-foreground">
                         {t('auth.login.registerPrompt')}{' '}
-                        <Link href="/register" className="text-gold font-medium hover:underline">
+                        <Link href="/register" className="text-news-accent font-medium hover:underline">
                             {t('auth.login.registerAction')}
                         </Link>
                     </p>
