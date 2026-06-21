@@ -7,4 +7,5 @@ export { ViewTracker, useViewTracking } from './view-tracker';
 export { DraggableBottomSheet } from './draggable-bottom-sheet';
 export { BottomSheetTabs } from './bottom-sheet-tabs';
 export { NewsBottomSheetContent } from './news-bottom-sheet-content';
+export { NewsSquareTile } from './news-square-tile';
 export { ArticleReader } from './article-reader';

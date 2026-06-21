@@ -5,7 +5,6 @@ import { Sparkles, Lock, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
 import { shareContent } from '@/lib/utils/share';
-import { NowPlayingBar } from '@/components/now-playing-bar';
 import type { ContentItem } from '@/types';
 
 type TabKey = 'upnext' | 'tts';
@@ -33,9 +32,6 @@ export function NewsBottomSheetContent({ featuredItem }: NewsBottomSheetContentP
 
     return (
         <div className="flex flex-col h-full">
-            {/* ── Playback controls (shared with NowPlayingBar) ── */}
-            <NowPlayingBar expanded />
-
             {/* ── Tab bar ───────────────────────────────────── */}
             <div className="flex items-center justify-between border-b border-border mb-4 h-[35px]">
                 <div className="flex h-full flex-1">

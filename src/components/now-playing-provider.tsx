@@ -27,7 +27,7 @@ function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
 export function NowPlayingProvider() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const lastPersistRef = useRef(0);
-    const { audioSrc, isPlaying, videoActive, seekTo, stop, clearSeek } =
+    const { audioSrc, isPlaying, videoActive, seekTo, pendingSeek, stop, clearSeek, clearPendingSeek } =
         useNowPlayingStore();
 
     // Sync audio source (always keep it loaded so handoff is instant).
@@ -117,9 +117,54 @@ export function NowPlayingProvider() {
         seekThenPlay();
     }, [isPlaying, audioSrc, videoActive, seekTo, clearSeek]);
 
+    // Apply a one-shot UI seek request (scrubber / skip buttons). Runs
+    // regardless of play/pause state. We update the audioPlaybackTime bridge
+    // immediately so the ring/scrubber reflect the new position even while
+    // paused (no timeupdate fires until playback resumes).
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || pendingSeek === null) return;
+
+        const apply = () => {
+            const duration = audio.duration;
+            const target =
+                Number.isFinite(duration) && duration > 0
+                    ? Math.min(pendingSeek, duration - 0.05)
+                    : pendingSeek;
+            audio.currentTime = Math.max(0, target);
+
+            const { currentItem } = useNowPlayingStore.getState();
+            if (currentItem) {
+                audioPlaybackTime.itemId = currentItem.id;
+                audioPlaybackTime.time = audio.currentTime;
+            }
+            clearPendingSeek();
+        };
+
+        if (audio.readyState < 1) {
+            const onReady = () => {
+                audio.removeEventListener('loadedmetadata', onReady);
+                apply();
+            };
+            audio.addEventListener('loadedmetadata', onReady);
+            return () => audio.removeEventListener('loadedmetadata', onReady);
+        }
+
+        apply();
+    }, [pendingSeek, clearPendingSeek]);
+
     // When track ends, clear the store
     const handleEnded = () => {
         stop();
+    };
+
+    // Keep the bridge duration fresh as soon as metadata is known, so the ring
+    // can render before the first timeupdate.
+    const handleLoadedMetadata = () => {
+        const audio = audioRef.current;
+        if (audio && Number.isFinite(audio.duration)) {
+            audioPlaybackTime.duration = audio.duration;
+        }
     };
 
     // Track the exact position while the <audio> owns playback so For You can
@@ -133,6 +178,9 @@ export function NowPlayingProvider() {
 
         audioPlaybackTime.itemId = currentItem.id;
         audioPlaybackTime.time = audio.currentTime;
+        if (Number.isFinite(audio.duration)) {
+            audioPlaybackTime.duration = audio.duration;
+        }
 
         const now = Date.now();
         if (now - lastPersistRef.current >= 5000) {
@@ -146,6 +194,7 @@ export function NowPlayingProvider() {
             ref={audioRef}
             onEnded={handleEnded}
             onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
             preload="auto"
             className="hidden"
         />

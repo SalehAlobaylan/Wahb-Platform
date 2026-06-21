@@ -396,6 +396,11 @@
   "nowPlaying.pause": "Pause",
   "nowPlaying.dismiss": "Dismiss",
   "nowPlaying.nowPlaying": "Now Playing",
+  "nowPlaying.controls": "Playback controls",
+  "nowPlaying.skipBack": "Skip back 15 seconds",
+  "nowPlaying.skipForward": "Skip forward 15 seconds",
+  "nowPlaying.close": "Close",
+  "idle.breaking": "Breaking",
 
   "upNext.title": "Up Next",
   "upNext.featured": "Featured",

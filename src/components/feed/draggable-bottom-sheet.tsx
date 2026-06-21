@@ -21,6 +21,12 @@ interface DraggableBottomSheetProps {
     defaultHeight?: number;
     /** Additional className for the container */
     className?: string;
+    /**
+     * When true, slide the (collapsed) sheet off the bottom of the screen —
+     * the LinkedIn/X hide-on-scroll behaviour. Ignored while expanded or being
+     * dragged. Named `concealed` to avoid clashing with the DOM `hidden` attr.
+     */
+    concealed?: boolean;
 }
 
 /**
@@ -34,6 +40,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
     maxHeight = 500,
     defaultHeight = 80,
     className,
+    concealed = false,
 }, ref) {
     const [height, setHeight] = useState(defaultHeight);
     const [isDragging, setIsDragging] = useState(false);
@@ -45,6 +52,10 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
     const lastTouchTapAt = useRef(0);
 
     const isExpanded = height > minHeight + 20;
+
+    // Hide-on-scroll: only park the sheet off-screen when it's collapsed and the
+    // user isn't mid-drag, so we never fight a deliberate interaction.
+    const shouldConceal = concealed && !isExpanded && !isDragging;
 
     useImperativeHandle(ref, () => ({
         expand: () => setHeight(maxHeight),
@@ -173,7 +184,10 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
             style={{
                 height: isDragging ? 'auto' : `${height}px`,
                 minHeight: `${height}px`,
-                transition: isDragging ? 'none' : 'height 0.3s ease-out, min-height 0.3s ease-out',
+                transform: shouldConceal ? 'translateY(105%)' : 'none',
+                transition: isDragging
+                    ? 'none'
+                    : 'height 0.3s ease-out, min-height 0.3s ease-out, transform 0.3s ease-out',
             }}
         >
             {/* Drag handle */}

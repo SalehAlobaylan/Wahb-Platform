@@ -396,6 +396,11 @@
   "nowPlaying.pause": "إيقاف مؤقت",
   "nowPlaying.dismiss": "إغلاق",
   "nowPlaying.nowPlaying": "قيد التشغيل",
+  "nowPlaying.controls": "أدوات التحكم بالتشغيل",
+  "nowPlaying.skipBack": "إرجاع 15 ثانية",
+  "nowPlaying.skipForward": "تقديم 15 ثانية",
+  "nowPlaying.close": "إغلاق",
+  "idle.breaking": "عاجل",
 
   "upNext.title": "التالي",
   "upNext.featured": "مميّز",

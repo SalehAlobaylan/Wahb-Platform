@@ -13,13 +13,13 @@ import {
     ViewTracker,
     DraggableBottomSheet,
     NewsBottomSheetContent,
+    NewsSquareTile,
     ArticleReader,
 } from '@/components/feed';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { NowPlayingBar } from '@/components/now-playing-bar';
 import { throttleScroll } from '@/lib/scroll-optimizer';
-import { User, Search, Plus } from 'lucide-react';
+import { User, Search } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
 import { useTranslations } from '@/lib/i18n';
 import { useShallow } from 'zustand/react/shallow';
@@ -57,6 +57,10 @@ export default function NewsPage() {
 function NewsPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
     const restoredRef = useRef(false);
+    // Hide-on-scroll (LinkedIn/X): track scroll direction to conceal the sheet.
+    const lastScrollTopRef = useRef(0);
+    const scrollRafRef = useRef(false);
+    const [sheetConcealed, setSheetConcealed] = useState(false);
     const { newsActiveIndex, setNewsActiveIndex, resetProgress } = useFeedStore(
         useShallow((s) => ({
             newsActiveIndex: s.newsActiveIndex,
@@ -134,6 +138,13 @@ function NewsPageContent() {
     const activeSlide = newsSlides[newsActiveIndex];
     const activeFeatured = activeSlide?.featured;
 
+    // Top breaking story (lifecycle === 'breaking') — surfaced in the idle
+    // square tile when no audio is playing.
+    const breakingSlide = useMemo(
+        () => newsSlides.find((s) => s.story?.lifecycle === 'breaking' && s.featured?.title) ?? null,
+        [newsSlides]
+    );
+
     const rawHandleScroll = useCallback(() => {
         if (!feedRef.current) return;
         const scrollPosition = feedRef.current.scrollTop;
@@ -179,6 +190,23 @@ function NewsPageContent() {
     }, []);
 
     const handleScroll = useCallback(() => {
+        // Direction-aware sheet hide. Coalesce the layout read into a single
+        // rAF so we don't thrash on every scroll event; React de-dupes the
+        // identical setState, so frame-rate calls are cheap.
+        if (!scrollRafRef.current) {
+            scrollRafRef.current = true;
+            requestAnimationFrame(() => {
+                scrollRafRef.current = false;
+                const el = feedRef.current;
+                if (!el) return;
+                const st = el.scrollTop;
+                const delta = st - lastScrollTopRef.current;
+                if (st < 24) setSheetConcealed(false); // at the top → always show
+                else if (delta > 6) setSheetConcealed(true); // scrolling down → hide
+                else if (delta < -6) setSheetConcealed(false); // scrolling up → show
+                lastScrollTopRef.current = st;
+            });
+        }
         throttledScrollRef.current?.();
     }, []);
 
@@ -201,7 +229,11 @@ function NewsPageContent() {
         restoredRef.current = true;
         const target = Math.min(newsActiveIndex, newsSlides.length - 1);
         if (target > 0) {
-            feedRef.current.scrollTop = target * feedRef.current.clientHeight;
+            const top = target * feedRef.current.clientHeight;
+            feedRef.current.scrollTop = top;
+            // Seed the direction baseline so the restore scroll doesn't read as
+            // a downward swipe and hide the sheet on load.
+            lastScrollTopRef.current = top;
         }
     }, [newsSlides.length, newsActiveIndex]);
 
@@ -287,24 +319,21 @@ function NewsPageContent() {
                     minHeight={80}
                     maxHeight={550}
                     defaultHeight={80}
+                    concealed={sheetConcealed}
                     className="bg-card/95 border-t border-border rounded-t-sm"
                     expandedContent={<NewsBottomSheetContent featuredItem={activeFeatured} />}
                 >
-                    <div className="w-full">
-                        <NowPlayingBar inline />
-                    </div>
+                    {/* Collapsed: just the pull handle — pull up for Up Next / TTS / Share */}
+                    <div className="h-1.5 w-full" />
                 </DraggableBottomSheet>
             )}
 
-            {/* ── Floating Action Button ───────────── */}
+            {/* ── Square tile: now-playing player / idle info tile ───────────── */}
             <div className="absolute end-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
-                <Link
-                    href="/create"
-                    className="flex items-center justify-center w-12 h-12 rounded-sm bg-news-accent hover:bg-news-accent/90 transition-all active:scale-95"
-                    aria-label={t('create.publish')}
-                >
-                    <Plus className="w-6 h-6 text-white" />
-                </Link>
+                <NewsSquareTile
+                    breaking={breakingSlide?.featured ?? null}
+                    onOpenBreaking={(item) => handleOpenArticle(item, breakingSlide?.coverage)}
+                />
             </div>
 
             {/* ── Full Screen Reader Overlay ───────────── */}
