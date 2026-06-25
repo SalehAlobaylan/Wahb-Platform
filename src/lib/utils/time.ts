@@ -44,6 +44,18 @@ export function formatRelativeTime(
 }
 
 /**
+ * Format a media duration in seconds as `m:ss` (e.g. 3:45). Returns null for
+ * missing/zero durations so callers can omit the element.
+ */
+export function formatDuration(sec?: number): string | null {
+    if (!sec) return null;
+    const total = Math.max(0, Math.floor(sec));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/**
  * Absolute date for the article reader header, in the user's locale
  * (e.g. "June 11, 2026" / "١١ يونيو ٢٠٢٦"). Returns null on bad input
  * instead of rendering "Invalid Date".

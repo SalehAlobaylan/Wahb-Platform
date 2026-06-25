@@ -2,29 +2,19 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import {
-    ArrowDownUp,
-    Bookmark,
-    FileText,
-    Mic,
-    Play,
-    Rss,
-    Search,
-    User,
-    Video,
-    X,
-} from 'lucide-react';
-import { useBookmarks, useBookmarkMutation } from '@/lib/hooks';
+import { ArrowDownUp, Bookmark, Search, User, X } from 'lucide-react';
+import { useBookmarks, useBookmarkMutation, useInfiniteScroll } from '@/lib/hooks';
 import { useFeedStore } from '@/lib/stores';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader, ForYouCard } from '@/components/feed';
+import { SavedList, isForYouItem } from '@/components/saved';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '@/lib/utils/time';
-import { useI18n, useTranslations } from '@/lib/i18n';
+import { useTranslations } from '@/lib/i18n';
+import { flattenPages } from '@/lib/utils/pages';
 import type { BookmarkSort } from '@/lib/api/feeds';
-import type { ContentItem, ContentType } from '@/types';
+import type { ContentItem } from '@/types';
 
 type SavedFeed = 'foryou' | 'news';
 
@@ -32,61 +22,6 @@ const SAVED_FEEDS: Array<{ key: SavedFeed; labelKey: string }> = [
     { key: 'foryou', labelKey: 'saved.tabs.foryou' },
     { key: 'news', labelKey: 'saved.tabs.news' },
 ];
-
-const TYPE_BADGE_STYLES: Record<ContentType, string> = {
-    NEWS: 'bg-news-accent/20 text-news-accent border-news-accent/30',
-    ARTICLE: 'bg-news-accent/20 text-news-accent border-news-accent/30',
-    PODCAST: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
-    VIDEO: 'bg-sky-500/15 text-sky-400 border-sky-500/25',
-    TWEET: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
-    COMMENT: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-};
-
-const TYPE_LABEL_KEYS: Record<ContentType, string> = {
-    NEWS: 'saved.badge.article',
-    ARTICLE: 'saved.badge.article',
-    PODCAST: 'saved.badge.podcast',
-    VIDEO: 'saved.badge.video',
-    TWEET: 'saved.badge.tweet',
-    COMMENT: 'saved.badge.comment',
-};
-
-function isForYouItem(item: ContentItem): boolean {
-    return item.type === 'VIDEO' || item.type === 'PODCAST';
-}
-
-function flattenSavedPages(data: ReturnType<typeof useBookmarks>['data']): ContentItem[] {
-    if (!data?.pages) return [];
-    const seen = new Set<string>();
-    const items: ContentItem[] = [];
-    for (const page of data.pages) {
-        for (const item of page.items) {
-            if (!item?.id || seen.has(item.id)) continue;
-            seen.add(item.id);
-            items.push(item);
-        }
-    }
-    return items;
-}
-
-function formatDuration(sec?: number): string | null {
-    if (!sec) return null;
-    const total = Math.max(0, Math.floor(sec));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function sourceImageFromName(sourceName?: string): string | null {
-    if (!sourceName) return null;
-    const compact = sourceName.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').trim();
-    if (!compact || compact.includes(' ')) return null;
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(compact)}&sz=128`;
-}
-
-function savedTimestamp(item: ContentItem): string | undefined {
-    return item.bookmarked_at || item.published_at || item.created_at;
-}
 
 function SavedHeader() {
     const t = useTranslations();
@@ -241,137 +176,6 @@ function SavedSkeletonList() {
     );
 }
 
-function SavedRow({
-    item,
-    onOpen,
-    onRemove,
-}: {
-    item: ContentItem;
-    onOpen: (item: ContentItem) => void;
-    onRemove: (event: MouseEvent<HTMLButtonElement>, contentId: string) => void;
-}) {
-    const t = useTranslations();
-    const { locale } = useI18n();
-    const badgeClass = TYPE_BADGE_STYLES[item.type] ?? 'bg-muted text-muted-foreground border-border';
-    const badgeLabel = t(TYPE_LABEL_KEYS[item.type] ?? 'saved.badge.article');
-    const duration = formatDuration(item.duration_sec);
-    const timestamp = formatRelativeTime(savedTimestamp(item), locale);
-    const fallbackImage = sourceImageFromName(item.source_name);
-    const displayImage = item.thumbnail_url || item.source_image_url || fallbackImage;
-    const title = item.title || item.body_text?.slice(0, 90) || t('saved.item.untitled');
-
-    return (
-        <article
-            className="bg-card rounded-xl p-3 flex gap-3 items-center border border-border hover:bg-muted/50 transition-colors group"
-        >
-            <button
-                type="button"
-                onClick={() => onOpen(item)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left"
-            >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {displayImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={displayImage}
-                            alt=""
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                    ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                            {isForYouItem(item) ? (
-                                item.type === 'VIDEO' ? (
-                                    <Video className="h-5 w-5 text-muted-foreground" />
-                                ) : (
-                                    <Mic className="h-5 w-5 text-muted-foreground" />
-                                )
-                            ) : (
-                                <FileText className="h-5 w-5 text-muted-foreground" />
-                            )}
-                        </div>
-                    )}
-                    {isForYouItem(item) && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition-opacity group-hover:opacity-100">
-                            <Play className="h-5 w-5 fill-white text-white drop-shadow" />
-                        </span>
-                    )}
-                    {duration && (
-                        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 text-[9px] font-mono text-white">
-                            {duration}
-                        </span>
-                    )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                        <span className={cn('rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider', badgeClass)}>
-                            {badgeLabel}
-                        </span>
-                        {item.source_name && (
-                            <span className="flex min-w-0 items-center gap-1 text-[9px] text-muted-foreground">
-                                <Rss className="h-2.5 w-2.5 shrink-0" />
-                                <span className="truncate">{item.source_name}</span>
-                            </span>
-                        )}
-                    </div>
-                    <h3 dir="auto" className="line-clamp-2 font-serif text-sm leading-snug text-foreground">
-                        {title}
-                    </h3>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        {item.author && <span className="truncate max-w-[120px]">{item.author}</span>}
-                        {timestamp && <span className="shrink-0">{t('saved.savedAt', { time: timestamp })}</span>}
-                    </div>
-                </div>
-            </button>
-
-            <button
-                type="button"
-                onClick={(event) => onRemove(event, item.id)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-news-accent hover:bg-news-accent/10 transition-colors disabled:opacity-50"
-                aria-label={t('saved.removeBookmark')}
-            >
-                <Bookmark className="h-4 w-4 fill-news-accent" />
-            </button>
-        </article>
-    );
-}
-
-function SavedList({
-    items,
-    isFetchingNextPage,
-    hasNextPage,
-    sentinelRef,
-    onOpen,
-    onRemove,
-}: {
-    items: ContentItem[];
-    isFetchingNextPage: boolean;
-    hasNextPage: boolean;
-    sentinelRef: React.RefObject<HTMLDivElement | null>;
-    onOpen: (item: ContentItem) => void;
-    onRemove: (event: MouseEvent<HTMLButtonElement>, contentId: string) => void;
-}) {
-    const t = useTranslations();
-    return (
-        <div className="px-5 space-y-3 pb-4">
-            {items.map((item) => (
-                <SavedRow key={item.id} item={item} onOpen={onOpen} onRemove={onRemove} />
-            ))}
-            <div ref={sentinelRef} className="h-1" />
-            {isFetchingNextPage && (
-                <div className="py-4 text-center text-xs text-muted-foreground">
-                    {t('saved.loadingMore')}
-                </div>
-            )}
-            {!hasNextPage && items.length > 6 && (
-                <div className="py-4 text-center text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                    {t('saved.caughtUp')}
-                </div>
-            )}
-        </div>
-    );
-}
-
 function SavedPlaybackOverlay({
     item,
     onClose,
@@ -405,7 +209,6 @@ export default function SavedPage() {
     const [selectedPlayback, setSelectedPlayback] = useState<ContentItem | null>(null);
     const deferredSearch = useDeferredValue(search.trim());
     const scrollRef = useRef<HTMLDivElement | null>(null);
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
     const t = useTranslations();
 
     const forYouQuery = useBookmarks({ feed: 'foryou', sort, q: deferredSearch });
@@ -413,13 +216,17 @@ export default function SavedPage() {
     const activeQuery = activeFeed === 'foryou' ? forYouQuery : newsQuery;
     const bookmarkMutation = useBookmarkMutation();
 
-    const forYouItems = useMemo(() => flattenSavedPages(forYouQuery.data), [forYouQuery.data]);
-    const newsItems = useMemo(() => flattenSavedPages(newsQuery.data), [newsQuery.data]);
+    const forYouItems = useMemo(() => flattenPages(forYouQuery.data), [forYouQuery.data]);
+    const newsItems = useMemo(() => flattenPages(newsQuery.data), [newsQuery.data]);
     const activeItems = activeFeed === 'foryou' ? forYouItems : newsItems;
-    const activeHasNextPage = activeQuery.hasNextPage;
-    const activeIsFetching = activeQuery.isFetching;
-    const activeIsFetchingNextPage = activeQuery.isFetchingNextPage;
-    const activeFetchNextPage = activeQuery.fetchNextPage;
+
+    const sentinelRef = useInfiniteScroll({
+        hasNextPage: Boolean(activeQuery.hasNextPage),
+        isFetching: activeQuery.isFetching,
+        isFetchingNextPage: activeQuery.isFetchingNextPage,
+        fetchNextPage: activeQuery.fetchNextPage,
+        root: scrollRef,
+    });
 
     useEffect(() => {
         const allItems = [...forYouItems, ...newsItems];
@@ -434,22 +241,6 @@ export default function SavedPage() {
         scrollRef.current?.scrollTo({ top: 0 });
     }, [activeFeed, deferredSearch, sort]);
 
-    useEffect(() => {
-        const node = sentinelRef.current;
-        if (!node || !activeHasNextPage) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0]?.isIntersecting && !activeIsFetching && !activeIsFetchingNextPage) {
-                    activeFetchNextPage();
-                }
-            },
-            { root: scrollRef.current, rootMargin: '300px' }
-        );
-        observer.observe(node);
-        return () => observer.disconnect();
-    }, [activeHasNextPage, activeIsFetching, activeIsFetchingNextPage, activeFetchNextPage]);
-
     const handleOpenItem = (item: ContentItem) => {
         if (isForYouItem(item)) {
             setSelectedPlayback(item);
@@ -458,9 +249,9 @@ export default function SavedPage() {
         setSelectedArticle(item);
     };
 
-    const handleRemoveBookmark = (event: MouseEvent<HTMLButtonElement>, contentId: string) => {
+    const handleRemoveBookmark = (event: MouseEvent<HTMLButtonElement>, item: ContentItem) => {
         event.stopPropagation();
-        bookmarkMutation.mutate({ contentId, isBookmarked: true });
+        bookmarkMutation.mutate({ contentId: item.id, isBookmarked: true });
     };
 
     const handleClosePlayback = () => {
@@ -531,11 +322,15 @@ export default function SavedPage() {
                 ) : (
                     <SavedList
                         items={activeItems}
+                        onOpen={handleOpenItem}
+                        action={{
+                            kind: 'bookmark',
+                            ariaLabel: t('saved.removeBookmark'),
+                            onClick: handleRemoveBookmark,
+                        }}
                         isFetchingNextPage={activeQuery.isFetchingNextPage}
                         hasNextPage={Boolean(activeQuery.hasNextPage)}
                         sentinelRef={sentinelRef}
-                        onOpen={handleOpenItem}
-                        onRemove={handleRemoveBookmark}
                     />
                 )}
             </div>

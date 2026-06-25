@@ -87,3 +87,25 @@ export async function updateProfile(payload: {
   const data = await res.json();
   return (data?.data ?? data) as AuthUser;
 }
+
+/**
+ * Upload a new avatar image. Posts multipart to the Next proxy, which forwards
+ * to IAM; IAM stores the file and returns the updated user (with avatar_url).
+ */
+export async function uploadAvatar(file: File): Promise<AuthUser> {
+  const form = new FormData();
+  form.set('avatar', file);
+
+  const res = await fetch('/api/auth/avatar', {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Avatar upload failed' }));
+    throw new Error(err.message || err.error || 'Avatar upload failed');
+  }
+
+  const data = await res.json();
+  return (data?.data ?? data) as AuthUser;
+}

@@ -424,6 +424,46 @@ export async function fetchBookmarks(options: FetchBookmarksOptions = {}): Promi
 }
 
 /**
+ * Fetch the current user's liked content, newest-like first. Mirrors the
+ * bookmarks endpoint shape (ForYouResponse) so it can reuse the same row UI.
+ */
+export async function fetchMyLikes(cursor?: string | null): Promise<ForYouResponse> {
+  const params = getIdentityParams();
+  if (cursor) params.set('cursor', cursor);
+  params.set('limit', '20');
+
+  const response = await fetch(`${API_BASE}/interactions/likes?${params}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch likes: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || data;
+}
+
+export interface UserStats {
+  saved: number;
+  likes: number;
+  listened: number;
+  created: number;
+}
+
+/**
+ * Fetch the authenticated user's aggregate profile counts.
+ */
+export async function fetchUserStats(): Promise<UserStats> {
+  const response = await fetch(`${API_BASE}/interactions/stats`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch stats: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || data;
+}
+
+/**
  * Search content items
  */
 export async function searchContent(query: string): Promise<ContentItem[]> {
