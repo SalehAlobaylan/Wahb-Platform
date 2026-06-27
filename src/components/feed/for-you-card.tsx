@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import { useRef, useEffect, useCallback, useState, type MutableRefObject } from 'react';
 import Image from 'next/image';
@@ -11,6 +12,7 @@ import { requestRestore } from '@/lib/api/feeds';
 import { useRequestTranscription, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
+import { getPlaybackUrl, isVisualPlayback } from '@/lib/utils/playback';
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem, TranscriptSegment } from '@/types';
 import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
@@ -63,7 +65,9 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     const [currentTime, setCurrentTime] = useState(
         () => useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec ?? 0
     );
-    const effectiveDisplayMode: ForYouDisplayMode = item.media_url ? forYouDisplayMode : 'transcript';
+    const playbackUrl = getPlaybackUrl(item);
+    const visualPlayback = isVisualPlayback(item);
+    const effectiveDisplayMode: ForYouDisplayMode = visualPlayback ? forYouDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
     const videoFitClass = effectiveDisplayMode === 'fill' ? 'object-cover' : 'object-contain';
@@ -229,7 +233,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
         }
     };
 
-    const isArchived = item.is_archived || (!item.media_url && item.status === 'ARCHIVED');
+    const isArchived = item.is_archived || (!playbackUrl && item.status === 'ARCHIVED');
 
     return (
         <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-black">
@@ -237,7 +241,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                 <ArchivedOverlay item={item} />
             )}
             {/* Background/Video */}
-            {item.media_url ? (
+            {playbackUrl && visualPlayback ? (
                 <>
                     {/* Poster behind video keeps fill mode and loading states visually stable. */}
                     {item.thumbnail_url && (
@@ -262,7 +266,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                             videoFitClass,
                             renderTranscriptSurface && 'opacity-0 pointer-events-none'
                         )}
-                        src={item.media_url}
+                        src={playbackUrl}
                         loop
                         muted={false}
                         playsInline

@@ -13,6 +13,24 @@ export interface ContentItem {
   excerpt?: string;
   media_url?: string;
   thumbnail_url?: string;
+  playback_url?: string;
+  playback_type?: 'hls' | 'mp4' | 'audio' | string;
+  fallback_playback_url?: string;
+  has_video?: boolean;
+  media_renditions?: Array<{
+    type: 'hls' | 'mp4' | 'audio' | string;
+    url: string;
+    mime_type?: string;
+    width?: number;
+    height?: number;
+    bitrate_kbps?: number;
+    is_primary?: boolean;
+  }>;
+  parent_id?: string;
+  chapter_index?: number;
+  chapter_start_ms?: number;
+  chapter_end_ms?: number;
+  duration_bucket?: string;
   original_url?: string;
   duration_sec?: number;
   author?: string;

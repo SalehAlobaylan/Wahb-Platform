@@ -36,6 +36,10 @@ export const metadata: Metadata = {
   description: "Mobile-first social platform with audio-first MP4 For You feed and magazine-style News feed",
   keywords: ["podcast", "news", "audio", "social media", "discovery"],
   authors: [{ name: "Wahb Team" }],
+  icons: {
+    icon: "/images/wahb_app_icon.png",
+    apple: "/images/wahb_app_icon.png",
+  },
 };
 
 export const viewport: Viewport = {

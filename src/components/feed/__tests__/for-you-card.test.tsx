@@ -195,6 +195,9 @@ describe('ForYouCard', () => {
             id: 'audio-1',
             type: 'PODCAST',
             media_url: undefined,
+            playback_url: 'http://example.com/audio.mp3',
+            playback_type: 'audio',
+            has_video: false,
             transcript_id: undefined,
             body_text: 'Audio transcript fallback text.',
         };
@@ -203,6 +206,26 @@ describe('ForYouCard', () => {
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Audio transcript fallback text.')).toBeInTheDocument();
+    });
+
+    it('renders atomized playback_url-only video chapters', () => {
+        const chapterItem: ContentItem = {
+            ...mockItem,
+            id: 'chapter-1',
+            media_url: undefined,
+            playback_url: 'http://example.com/chapter.m3u8',
+            playback_type: 'hls',
+            fallback_playback_url: 'http://example.com/chapter.mp4',
+            has_video: true,
+            parent_id: 'parent-1',
+            chapter_index: 0,
+        };
+
+        const { container } = renderWithProviders(<ForYouCard item={chapterItem} isActive />);
+
+        const video = container.querySelector('video');
+        expect(video).toBeInTheDocument();
+        expect(video).toHaveAttribute('src', 'http://example.com/chapter.m3u8');
     });
 
     it('does not fetch transcript content for inactive offscreen cards', () => {

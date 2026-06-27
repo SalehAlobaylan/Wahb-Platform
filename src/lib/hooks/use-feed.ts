@@ -18,14 +18,15 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import type { CommentsResponse, ContentComment, Interaction, NewsWindow } from '@/types';
 import type { BookmarkFeedFilter, BookmarkSort } from '@/lib/api/feeds';
 import type { InfiniteData } from '@tanstack/react-query';
+import type { ForYouDurationPreference } from '@/lib/api/feeds';
 
 /**
  * Hook for infinite scrolling For You feed
  */
-export function useForYouFeed() {
+export function useForYouFeed(duration?: ForYouDurationPreference | null) {
   return useInfiniteQuery({
-    queryKey: ['feed', 'foryou'],
-    queryFn: ({ pageParam }) => fetchForYouFeed(pageParam),
+    queryKey: ['feed', 'foryou', { duration: duration ?? null }],
+    queryFn: ({ pageParam }) => fetchForYouFeed(pageParam, duration),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
     staleTime: 1000 * 60, // 1 minute

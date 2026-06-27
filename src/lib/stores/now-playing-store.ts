@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ContentItem } from '@/types';
+import { getAudioPlaybackUrl } from '@/lib/utils/playback';
 
 interface NowPlayingState {
     /** Currently playing content item */
@@ -81,7 +82,7 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
         set({
             currentItem: item,
             isPlaying: true,
-            audioSrc: item.media_url || null,
+            audioSrc: getAudioPlaybackUrl(item) || null,
         }),
 
     pause: () => set({ isPlaying: false }),
@@ -108,7 +109,7 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
     setCurrentFromVideo: (item, playing = true) =>
         set(() => ({
             currentItem: item,
-            audioSrc: item.media_url || null,
+            audioSrc: getAudioPlaybackUrl(item) || null,
             isPlaying: playing,
             videoActive: true,
         })),

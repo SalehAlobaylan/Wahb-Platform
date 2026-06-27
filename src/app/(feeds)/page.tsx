@@ -1,8 +1,9 @@
 'use client';
+'use no memo';
 
 import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,8 +11,9 @@ import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottom
 import type { DraggableBottomSheetHandle } from '@/components/feed/draggable-bottom-sheet';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
-import { Search, Bookmark, User, Heart, MessageCircle, RotateCcw, Plus } from 'lucide-react';
+import { Search, Bookmark, User, Heart, MessageCircle, RotateCcw, Plus, Clock3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPlaybackUrl } from '@/lib/utils/playback';
 import { useTranslations } from '@/lib/i18n';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import {
@@ -23,11 +25,56 @@ import {
     AdaptiveBuffer,
 } from '@/lib/scroll-optimizer';
 import type { ContentItem } from '@/types';
+import type { ForYouDurationPreference } from '@/lib/api/feeds';
 
 // ── Module-level singletons (survive re-renders, reset on HMR) ──────────────
 const tokenBucket = new TokenBucket(3, 1);
 const backoffMgr = new BackoffManager();
 const adaptiveBuffer = new AdaptiveBuffer();
+const durationOptions: ForYouDurationPreference[] = [5, 10, 15, 20, 30, 40];
+
+function parseDurationPreference(raw: string | null): ForYouDurationPreference | null {
+    const value = Number(raw);
+    return durationOptions.includes(value as ForYouDurationPreference) ? value as ForYouDurationPreference : null;
+}
+
+function DurationPreferenceSelector({
+    value,
+    onChange,
+}: {
+    value: ForYouDurationPreference | null;
+    onChange: (value: ForYouDurationPreference | null) => void;
+}) {
+    return (
+        <div className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/15 bg-black/35 p-1 text-white shadow-lg backdrop-blur-md">
+            <button
+                type="button"
+                onClick={() => onChange(null)}
+                aria-label="All durations"
+                className={cn(
+                    'flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-semibold transition-colors',
+                    value === null ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
+                )}
+            >
+                <Clock3 className="h-3.5 w-3.5" />
+            </button>
+            {durationOptions.map((option) => (
+                <button
+                    key={option}
+                    type="button"
+                    onClick={() => onChange(option)}
+                    aria-label={`${option} minute chapters`}
+                    className={cn(
+                        'h-8 min-w-10 rounded-full px-2 text-xs font-semibold tabular-nums transition-colors',
+                        value === option ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
+                    )}
+                >
+                    {option}m
+                </button>
+            ))}
+        </div>
+    );
+}
 
 export default function ForYouPage() {
     return (
@@ -48,6 +95,8 @@ export default function ForYouPage() {
 
 function ForYouPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+    const pathname = usePathname();
     const { user, isAuthenticated } = useAuthStore();
     const {
         forYouActiveIndex, setForYouActiveIndex, resetProgress, progress,
@@ -72,6 +121,10 @@ function ForYouPageContent() {
         }))
     );
     const searchParams = useSearchParams();
+    const durationPreference = useMemo(
+        () => parseDurationPreference(searchParams.get('duration')),
+        [searchParams]
+    );
     const t = useTranslations();
 
     // API hooks
@@ -84,7 +137,7 @@ function ForYouPageContent() {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
-    } = useForYouFeed();
+    } = useForYouFeed(durationPreference);
 
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
@@ -105,6 +158,16 @@ function ForYouPageContent() {
         return out;
     }, [data]);
 
+    const setDurationPreference = useCallback((duration: ForYouDurationPreference | null) => {
+        const params = new URLSearchParams(Array.from(searchParams.entries()));
+        if (duration) params.set('duration', String(duration));
+        else params.delete('duration');
+        setForYouActiveIndex(0);
+        resetProgress();
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }, [pathname, resetProgress, router, searchParams, setForYouActiveIndex]);
+
     // Current active item — drives the fixed bottom sheet
     const activeItem = forYouItems[forYouActiveIndex] ?? null;
     const isLiked = activeItem ? likedIds.has(activeItem.id) : false;
@@ -115,6 +178,12 @@ function ForYouPageContent() {
             setLastActiveForYouItemId(activeItem.id);
         }
     }, [activeItem?.id, setLastActiveForYouItemId]);
+
+    useEffect(() => {
+        if (forYouItems.length > 0 && forYouActiveIndex >= forYouItems.length) {
+            setForYouActiveIndex(Math.max(0, forYouItems.length - 1));
+        }
+    }, [forYouActiveIndex, forYouItems.length, setForYouActiveIndex]);
 
     // Sync server-side interaction flags into the local sets so like/bookmark
     // icons reflect reality (e.g. interactions made in a previous session).
@@ -265,7 +334,7 @@ function ForYouPageContent() {
 
     // Register active item with the now-playing store (metadata only, no <audio> playback)
     useEffect(() => {
-        if (activeItem && activeItem.media_url) {
+        if (activeItem && getPlaybackUrl(activeItem)) {
             setCurrentFromVideo(activeItem, !globalPaused && isPlaying);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -423,6 +492,13 @@ function ForYouPageContent() {
                 </div>
             </header>
 
+            <div className="pointer-events-none absolute left-0 right-0 top-[76px] z-20 flex justify-center px-3">
+                <DurationPreferenceSelector
+                    value={durationPreference}
+                    onChange={setDurationPreference}
+                />
+            </div>
+
             {/* Feed content. PullToRefresh reads scrollTop from feedRef so it
                 doesn't add a second scroll container; pulling down at the
                 top of the first card invalidates the query and refetches. */}
@@ -450,6 +526,19 @@ function ForYouPageContent() {
                                 />
                             </ViewTracker>
                         ))
+                    )}
+
+                    {!showLoading && forYouItems.length === 0 && (
+                        <div className="flex h-full w-full snap-start snap-always items-center justify-center bg-black px-6 text-center text-white">
+                            <div>
+                                <p className="text-lg font-semibold">
+                                    {durationPreference ? `No ${durationPreference}m chapters ready` : 'No feed-ready media'}
+                                </p>
+                                <p className="mt-2 text-sm text-white/60">
+                                    Try another duration or check back soon.
+                                </p>
+                            </div>
+                        </div>
                     )}
 
                     {/* Loading more indicator */}

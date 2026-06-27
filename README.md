@@ -1,6 +1,6 @@
 # Wahb-Platform
 
-The consumer app — the product itself. A mobile-first Next.js PWA delivering Wahb's two-feed experience: **For You** (TikTok-style full-screen audio/video) and **News** (magazine-style story-slides). It renders feeds, plays media, and records interactions.
+The consumer app — the product itself. A mobile-first Next.js PWA delivering Wahb's two-feed experience: **For You** (TikTok-style full-screen audio-first media units) and **News** (magazine-style story-slides). It renders feeds, plays media, and records interactions.
 
 It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwards reads/interactions to CMS and attaches the user's access token from an httpOnly cookie, so the browser never holds the token. It does **not** scrape, transcode, embed, or write to the database directly.
 
@@ -10,7 +10,7 @@ It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwar
 
 ## The Two Feeds
 
-- **For You** — full-screen vertical snap-scroll of MP4 audio/video. One card per viewport (`scroll-snap-mandatory`); active card auto-plays, previous pauses; tap toggles play/pause; infinite cursor-paginated. Items must have an MP4 `media_url` and `status=READY` (VIDEO + PODCAST). Includes progress bar, playback-speed control, and a draggable bottom sheet (Comments / Transcript / About).
+- **For You** — full-screen vertical snap-scroll of audio-first media feed units. One card per viewport (`scroll-snap-mandatory`); active card auto-plays, previous pauses; tap toggles play/pause; infinite cursor-paginated. Items come from CMS with playback metadata (`playback_url`, `playback_type`, fallback/renditions) and may be raw short media or atomized child chapters. HLS, MP4 fallback, and audio-only playback are supported. Includes progress bar, playback-speed control, and a draggable bottom sheet (Comments / Transcript / About).
 - **News** — full-screen snap-scroll of **story-slides**: one featured story + up to 3 related stories per slide. Tap opens the spring-animated full-screen `ArticleReader`. Keeps its own newsprint theme (red accents).
 
 ## Other Features
@@ -35,7 +35,7 @@ Requires Node.js 20+.
 
 - **Thin client / BFF proxy** — `/api/v1/[...path]/route.ts` forwards all CMS reads/interactions (GET/POST/PUT/PATCH/DELETE) to `NEXT_PUBLIC_API_URL` / `CMS_BASE_URL`, stripping hop-by-hop headers and attaching the `wahb_access_token` cookie as a Bearer header so user-authenticated CMS routes work transparently. `/api/auth/*` (register/login/refresh/logout/me/profile/change-password) proxy to IAM; `/api/content/submit` and `/api/transcribe` are dedicated server routes.
 - **State** — Zustand stores (`auth-store`, `feed-store`, `now-playing-store`); TanStack Query for server data; the News story-slide response is adapted into the editorial `NewsSlide` shape at the fetch boundary so the magazine UI is decoupled from CMS's model.
-- **Cannot** — scrape, run FFmpeg, run ML, or write directly to the DB; For You only ever plays MP4 URLs served by CMS.
+- **Cannot** — scrape, run FFmpeg, run ML, decide atomization eligibility, or write directly to the DB; For You only plays CMS-approved playback URLs and defensively filters obvious duration leaks.
 
 ## Design System
 

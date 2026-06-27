@@ -53,6 +53,73 @@ describe('Feeds API', () => {
             expect(mockClient.mockFetchForYouFeed).not.toHaveBeenCalled();
         });
 
+        it('passes duration preference to the For You API', async () => {
+            await fetchForYouFeed(null, 15);
+
+            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('duration=15'));
+        });
+
+        it('normalizes playback_url-only For You items with a legacy media_url fallback', async () => {
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    cursor: null,
+                    items: [{
+                        id: 'chapter-1',
+                        type: 'PODCAST',
+                        title: 'Atomized chapter',
+                        playback_url: 'https://cdn.example.com/chapter.m3u8',
+                        playback_type: 'hls',
+                        fallback_playback_url: 'https://cdn.example.com/chapter.mp4',
+                    }],
+                }),
+            });
+
+            const result = await fetchForYouFeed();
+
+            expect(result.items[0]).toMatchObject({
+                playback_url: 'https://cdn.example.com/chapter.m3u8',
+                media_url: 'https://cdn.example.com/chapter.m3u8',
+            });
+        });
+
+        it('drops leaked over-30-minute raw parents but keeps atomized chapters within hard max', async () => {
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    cursor: null,
+                    items: [
+                        {
+                            id: 'long-parent',
+                            type: 'PODCAST',
+                            title: 'Long parent',
+                            media_url: 'https://cdn.example.com/parent.mp4',
+                            duration_sec: 2100,
+                        },
+                        {
+                            id: 'long-chapter',
+                            type: 'PODCAST',
+                            title: 'Contextual chapter',
+                            media_url: 'https://cdn.example.com/context.mp4',
+                            parent_id: 'parent-1',
+                            duration_sec: 2100,
+                        },
+                        {
+                            id: 'chapter',
+                            type: 'PODCAST',
+                            title: 'Chapter',
+                            media_url: 'https://cdn.example.com/chapter.mp4',
+                            duration_sec: 900,
+                        },
+                    ],
+                }),
+            });
+
+            const result = await fetchForYouFeed();
+
+            expect(result.items.map((item) => item.id)).toEqual(['long-chapter', 'chapter']);
+        });
+
         it('fetchNewsFeed calls real API', async () => {
             await fetchNewsFeed(null, 'week');
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/news?'));

@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Loader2, Mail, Lock, Zap, Settings } from 'lucide-react';
 import { useLogin } from '@/lib/hooks/use-auth';
 import { isValidEmail } from '@/lib/validation/email';
@@ -75,6 +76,14 @@ function LoginContent() {
             <main className="flex-1 px-5 flex flex-col">
                 {/* Branding */}
                 <div className="pt-8 pb-10 text-center">
+                    <Image
+                        src="/images/wahb_app_icon.png"
+                        alt=""
+                        width={72}
+                        height={72}
+                        priority
+                        className="mx-auto mb-4 h-[72px] w-[72px] rounded-2xl object-contain shadow-lg shadow-news-accent/15"
+                    />
                     <h1 className="font-serif text-3xl font-bold text-foreground tracking-wide">{t('auth.login.title')}</h1>
                     <p className="text-sm text-muted-foreground mt-2">{t('auth.login.subtitle')}</p>
                 </div>

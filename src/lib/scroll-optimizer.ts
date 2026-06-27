@@ -153,19 +153,20 @@ export class ProgressivePrefetch {
     /**
      * Update which items should have their media preloaded.
      * @param activeIndex current visible item
-     * @param items      array of objects with `id` and optional `media_url`
+     * @param items      array of objects with `id` and optional playback URLs
      * @param depth      how many items ahead/behind to preload (default 2)
      */
     update(
         activeIndex: number,
-        items: Array<{ id: string; media_url?: string | null }>,
+        items: Array<{ id: string; media_url?: string | null; playback_url?: string | null; fallback_playback_url?: string | null }>,
         depth = 2
     ) {
         const keepIds = new Set<string>();
 
         for (let i = activeIndex - 1; i <= activeIndex + depth; i++) {
             const item = items[i];
-            if (!item?.media_url) continue;
+            const href = item?.playback_url || item?.media_url || item?.fallback_playback_url;
+            if (!href) continue;
 
             keepIds.add(item.id);
 
@@ -173,7 +174,7 @@ export class ProgressivePrefetch {
                 const link = document.createElement('link');
                 link.rel = 'preload';
                 link.as = 'video';
-                link.href = item.media_url;
+                link.href = href;
                 document.head.appendChild(link);
                 this.activeLinkMap.set(item.id, link);
             }

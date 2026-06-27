@@ -25,8 +25,14 @@ import {
   mockFetchTranscript,
 } from './mock-client';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { normalizeForYouFeedItem, withLegacyMediaUrl } from '@/lib/utils/playback';
 
 const API_BASE = '/api/v1';
+export type ForYouDurationPreference = 5 | 10 | 15 | 20 | 30 | 40;
+
+function isContentItem(item: ContentItem | null): item is ContentItem {
+  return item !== null;
+}
 
 function getAnonymousSessionId(): string {
   if (typeof window === 'undefined') return '';
@@ -112,19 +118,24 @@ export async function fetchMyContent(
     throw new Error(`Failed to fetch user content: ${response.statusText}`);
   }
   const data = await response.json();
-  return data.data || data;
+  const payload = data.data || data;
+  return {
+    ...payload,
+    items: (payload.items || []).map(withLegacyMediaUrl),
+  };
 }
 
 /**
  * Fetch For You feed items
  */
-export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouResponse> {
+export async function fetchForYouFeed(cursor?: string | null, duration?: ForYouDurationPreference | null): Promise<ForYouResponse> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     return mockFetchForYouFeed(cursor);
   }
 
   const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
+  if (duration) params.set('duration', String(duration));
   params.set('limit', '20');
   params.set('exclude_seen', 'true');
 
@@ -135,7 +146,11 @@ export async function fetchForYouFeed(cursor?: string | null): Promise<ForYouRes
   }
 
   const data = await response.json();
-  return data.data || data;
+  const payload = data.data || data;
+  return {
+    ...payload,
+    items: (payload.items || []).map(normalizeForYouFeedItem).filter(isContentItem),
+  };
 }
 
 // ─── Phase 13: story → editorial slide adapter ─────────────────────────────
