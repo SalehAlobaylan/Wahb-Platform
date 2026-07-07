@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -8,28 +8,13 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/lib/stores';
 import { useUpdateProfile } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/i18n';
+import type { AuthUser } from '@/types';
 
 const MAX_BIO = 500;
 
 export default function ProfileEditPage() {
-    const router = useRouter();
     const { user, isAuthenticated, isLoading } = useAuthStore();
-    const updateProfile = useUpdateProfile();
     const t = useTranslations();
-
-    const [username, setUsername] = useState('');
-    const [bio, setBio] = useState('');
-    const [interestsText, setInterestsText] = useState('');
-    const [error, setError] = useState<string | null>(null);
-
-    // Seed defaults from the authenticated user. Re-runs only when user.id
-    // changes, so we don't fight the user while they're typing.
-    useEffect(() => {
-        if (!user) return;
-        setUsername(user.username ?? '');
-        setBio(user.bio ?? '');
-        setInterestsText((user.interests ?? []).join(', '));
-    }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (isLoading) {
         return (
@@ -49,6 +34,18 @@ export default function ProfileEditPage() {
             </div>
         );
     }
+
+    return <ProfileEditForm key={user.id} user={user} />;
+}
+
+function ProfileEditForm({ user }: { user: AuthUser }) {
+    const router = useRouter();
+    const updateProfile = useUpdateProfile();
+    const t = useTranslations();
+    const [username, setUsername] = useState(user.username ?? '');
+    const [bio, setBio] = useState(user.bio ?? '');
+    const [interestsText, setInterestsText] = useState((user.interests ?? []).join(', '));
+    const [error, setError] = useState<string | null>(null);
 
     const initial = (username || user.email).charAt(0).toUpperCase();
     const isSubmitting = updateProfile.isPending;

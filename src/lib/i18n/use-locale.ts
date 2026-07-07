@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { defaultLocale, type Locale, isLocale, getDirection } from './locales';
+import { type Locale, isLocale, getDirection } from './locales';
 import type { Messages } from './messages';
 import { getClientMessages } from './utils';
 
 const STORAGE_KEY = 'wahb_locale';
 const LOCALE_COOKIE = 'wahb_locale';
 
-function readStoredLocale(): Locale {
-  if (typeof window === 'undefined') return defaultLocale;
+function readStoredLocale(fallback: Locale): Locale {
+  if (typeof window === 'undefined') return fallback;
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (isLocale(stored)) return stored;
-  return defaultLocale;
+  return fallback;
 }
 
 function writeStoredLocale(locale: Locale) {
@@ -23,15 +23,8 @@ function writeStoredLocale(locale: Locale) {
 }
 
 export function useLocale(initialLocale: Locale, initialMessages: Messages) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [locale, setLocaleState] = useState<Locale>(() => readStoredLocale(initialLocale));
   const [messages, setMessages] = useState<Messages>(initialMessages);
-
-  useEffect(() => {
-    const stored = readStoredLocale();
-    if (stored !== locale) {
-      setLocaleState(stored);
-    }
-  }, []);
 
   useEffect(() => {
     let active = true;

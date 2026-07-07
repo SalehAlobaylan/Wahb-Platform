@@ -103,6 +103,9 @@ describe('NewsSlide', () => {
 
         fireEvent.click(screen.getByText('Featured Article Title'));
 
-        expect(mockOnOpenArticle).toHaveBeenCalledWith(mockSlide.featured);
+        expect(mockOnOpenArticle).toHaveBeenCalledWith(
+            mockSlide.featured,
+            expect.arrayContaining([mockSlide.featured]),
+        );
     });
 });
