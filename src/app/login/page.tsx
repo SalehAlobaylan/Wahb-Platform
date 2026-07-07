@@ -9,6 +9,21 @@ import { useLogin } from '@/lib/hooks/use-auth';
 import { isValidEmail } from '@/lib/validation/email';
 import { useTranslations } from '@/lib/i18n';
 
+function getSafeRedirect(rawRedirect: string | null): string {
+    if (!rawRedirect || !rawRedirect.startsWith('/') || rawRedirect.startsWith('//')) {
+        return '/';
+    }
+
+    try {
+        const parsed = new URL(rawRedirect, window.location.origin);
+        if (parsed.origin !== window.location.origin) return '/';
+        if (parsed.pathname === '/login' || parsed.pathname === '/register') return '/';
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+        return '/';
+    }
+}
+
 export default function LoginPage() {
     return (
         <Suspense>
@@ -21,6 +36,7 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const registered = searchParams.get('registered') === 'true';
+    const redirectTo = getSafeRedirect(searchParams.get('redirect'));
     const t = useTranslations();
 
     const [email, setEmail] = useState('');
@@ -45,7 +61,7 @@ function LoginContent() {
 
         try {
             await login.mutateAsync({ email, password });
-            router.push('/');
+            router.push(redirectTo);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.login.error'));
         }
@@ -177,7 +193,7 @@ function LoginContent() {
                             setError('');
                             try {
                                 await login.mutateAsync({ email: 'admin@gmail.com', password: 'admin' });
-                                router.push('/');
+                                router.push(redirectTo);
                             } catch (err) {
                                 setError(err instanceof Error ? err.message : t('auth.login.quickFail'));
                             }

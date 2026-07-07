@@ -1,5 +1,4 @@
 'use client';
-'use no memo';
 
 import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -45,12 +44,13 @@ function DurationPreferenceSelector({
     value: ForYouDurationPreference | null;
     onChange: (value: ForYouDurationPreference | null) => void;
 }) {
+    const t = useTranslations();
     return (
         <div className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/15 bg-black/35 p-1 text-white shadow-lg backdrop-blur-md">
             <button
                 type="button"
                 onClick={() => onChange(null)}
-                aria-label="All durations"
+                aria-label={t('foryou.duration.all')}
                 className={cn(
                     'flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-semibold transition-colors',
                     value === null ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
@@ -63,7 +63,7 @@ function DurationPreferenceSelector({
                     key={option}
                     type="button"
                     onClick={() => onChange(option)}
-                    aria-label={`${option} minute chapters`}
+                    aria-label={t('foryou.duration.minutes', { duration: option })}
                     className={cn(
                         'h-8 min-w-10 rounded-full px-2 text-xs font-semibold tabular-nums transition-colors',
                         value === option ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
@@ -72,6 +72,18 @@ function DurationPreferenceSelector({
                     {option}m
                 </button>
             ))}
+        </div>
+    );
+}
+
+function PlaybackProgressBar() {
+    const progress = useFeedStore((s) => s.progress);
+    return (
+        <div className="absolute bottom-[80px] inset-x-0 h-1 bg-white/10 z-30">
+            <div
+                className="h-full bg-news-accent transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(230,57,70,0.5)]"
+                style={{ width: `${progress}%` }}
+            />
         </div>
     );
 }
@@ -99,7 +111,7 @@ function ForYouPageContent() {
     const pathname = usePathname();
     const { user, isAuthenticated } = useAuthStore();
     const {
-        forYouActiveIndex, setForYouActiveIndex, resetProgress, progress,
+        forYouActiveIndex, setForYouActiveIndex, resetProgress,
         isPlaying, globalPaused,
         lastActiveForYouItemId, setLastActiveForYouItemId,
         likedIds, bookmarkedIds,
@@ -109,7 +121,6 @@ function ForYouPageContent() {
             forYouActiveIndex: s.forYouActiveIndex,
             setForYouActiveIndex: s.setForYouActiveIndex,
             resetProgress: s.resetProgress,
-            progress: s.progress,
             isPlaying: s.isPlaying,
             globalPaused: s.globalPaused,
             lastActiveForYouItemId: s.lastActiveForYouItemId,
@@ -460,7 +471,7 @@ function ForYouPageContent() {
     return (
         <div className="h-full w-full overflow-hidden relative">
             {/* Header — Profile | Feed Switcher | Search + Bookmark */}
-            <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-b from-black/70 to-transparent">
+            <header className="absolute top-0 inset-x-0 z-20 pointer-events-none bg-gradient-to-b from-black/70 to-transparent">
                 <div className="flex justify-between items-center p-4 pt-6">
                     {/* Profile avatar */}
                     <Link href="/profile" className="pointer-events-auto">
@@ -492,7 +503,7 @@ function ForYouPageContent() {
                 </div>
             </header>
 
-            <div className="pointer-events-none absolute left-0 right-0 top-[76px] z-20 flex justify-center px-3">
+            <div className="pointer-events-none absolute inset-x-0 top-[76px] z-20 flex justify-center px-3">
                 <DurationPreferenceSelector
                     value={durationPreference}
                     onChange={setDurationPreference}
@@ -522,6 +533,7 @@ function ForYouPageContent() {
                                 <ForYouCard
                                     item={item}
                                     isActive={index === forYouActiveIndex}
+                                    shouldLoadMedia={Math.abs(index - forYouActiveIndex) <= adaptiveBuffer.prefetchDepth}
                                     videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
                                 />
                             </ViewTracker>
@@ -532,10 +544,12 @@ function ForYouPageContent() {
                         <div className="flex h-full w-full snap-start snap-always items-center justify-center bg-black px-6 text-center text-white">
                             <div>
                                 <p className="text-lg font-semibold">
-                                    {durationPreference ? `No ${durationPreference}m chapters ready` : 'No feed-ready media'}
+                                    {durationPreference
+                                        ? t('foryou.empty.duration', { duration: durationPreference })
+                                        : t('foryou.empty.title')}
                                 </p>
                                 <p className="mt-2 text-sm text-white/60">
-                                    Try another duration or check back soon.
+                                    {t('foryou.empty.body')}
                                 </p>
                             </div>
                         </div>
@@ -551,12 +565,7 @@ function ForYouPageContent() {
             </PullToRefresh>
 
             {/* ── Fixed Progress Bar ─────────────────────────────── */}
-            <div className="absolute bottom-[80px] left-0 right-0 h-1 bg-white/10 z-30">
-                <div
-                    className="h-full bg-news-accent transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(230,57,70,0.5)]"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
+            <PlaybackProgressBar />
 
             {/* ── Fixed Draggable Bottom Sheet ──────────────────── */}
             {activeItem && (
@@ -688,11 +697,11 @@ function ForYouPageContent() {
             )}
 
             {/* ── Floating Action Button (Create/Plus) ───────────── */}
-            <div className="absolute left-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
+            <div className="absolute start-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
                 <Link
                     href="/create"
                     className="flex items-center justify-center w-12 h-12 rounded-full bg-news-accent hover:bg-news-accent/90 transition-all shadow-lg shadow-black/50 active:scale-95"
-                    aria-label="Create Post"
+                    aria-label={t('create.action')}
                 >
                     <Plus className="w-6 h-6 text-white" />
                 </Link>

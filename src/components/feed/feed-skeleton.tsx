@@ -15,7 +15,7 @@ export function ForYouSkeleton() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90" />
 
             {/* Content info skeleton */}
-            <div className="absolute bottom-20 left-0 right-16 p-4 space-y-3">
+            <div className="absolute bottom-20 start-0 end-16 p-4 space-y-3">
                 {/* Type badge */}
                 <div className="flex items-center gap-2">
                     <Skeleton className="h-6 w-20 rounded-full bg-muted-foreground/20" />
@@ -37,7 +37,7 @@ export function ForYouSkeleton() {
             </div>
 
             {/* Action buttons skeleton (right side) */}
-            <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5">
+            <div className="absolute end-3 bottom-28 flex flex-col items-center gap-5">
                 {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="flex flex-col items-center gap-1">
                         <Skeleton className="w-11 h-11 rounded-full bg-muted-foreground/15" />
@@ -47,7 +47,7 @@ export function ForYouSkeleton() {
             </div>
 
             {/* Progress bar skeleton */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted-foreground/15">
+            <div className="absolute bottom-0 inset-x-0 h-1 bg-muted-foreground/15">
                 <Skeleton className="h-full w-1/4 bg-news-accent/30" />
             </div>
         </div>

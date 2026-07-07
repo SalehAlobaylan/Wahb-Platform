@@ -39,7 +39,7 @@ Requires Node.js 20+.
 
 ## Design System
 
-Mobile-first, max-width app shell on a black outer canvas; warm **gold `#DAA428`** accent on neutral editorial surfaces (light: Warm Ivory; dark: True Black). The News feed owns a separate `.news-page` newsprint theme with red accents — don't replace those with gold. Arabic-first typography (`TheYearofHandicrafts`). See [`SKILL.md`](SKILL.md) for the full token contract.
+Mobile-first, max-width app shell on a black outer canvas with the red rounded-square Wahb app icon as the primary client brand asset. The News feed owns a separate `.news-page` newsprint theme with red accents. Arabic-first typography (`TheYearofHandicrafts`). See [`SKILL.md`](SKILL.md) and repo-root `DESIGN.md` for the full token contract.
 
 ## Configuration
 
@@ -48,10 +48,9 @@ Mobile-first, max-width app shell on a black outer canvas; warm **gold `#DAA428`
 | `NEXT_PUBLIC_API_URL` | yes | http://localhost:8080/api/v1 | CMS public API base (used by the `/api/v1` proxy) |
 | `CMS_BASE_URL` | fallback | http://localhost:8080/api/v1 | Alternate CMS base if `NEXT_PUBLIC_API_URL` unset |
 | `IAM_API_URL` | for auth | http://localhost:4003/api/v1 | IAM base for register/login |
+| `NEXT_PUBLIC_IAM_BASE_URL` | no | http://localhost:4003/api/v1 | Browser-side IAM base for auth helpers that need it |
 | `NEXT_PUBLIC_USE_MOCK_DATA` | no | false | Force mock-client surfaces |
 | `NEXT_PUBLIC_ENABLE_DEBUG_MODE` | no | false | Debug UI |
-
-> `NEXT_PUBLIC_IAM_BASE_URL` is referenced in code but **missing from `.env.example`** — set it if your auth flow needs a browser-side IAM base.
 
 ## Scripts
 
@@ -61,6 +60,7 @@ Mobile-first, max-width app shell on a black outer canvas; warm **gold `#DAA428`
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript (`tsc --noEmit`) |
 | `npm test` | Jest |
 | `npm run test:watch` | Jest watch mode |
 

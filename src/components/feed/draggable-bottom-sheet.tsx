@@ -171,7 +171,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
         <div
             ref={sheetRef}
             className={cn(
-                'absolute left-0 right-0 z-30',
+                'absolute inset-x-0 z-30',
                 'bottom-0',
                 'bg-card/95 backdrop-blur-xl',
                 'border-t border-border/50',

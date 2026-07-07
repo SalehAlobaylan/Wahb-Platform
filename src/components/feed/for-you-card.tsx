@@ -1,9 +1,8 @@
 'use client';
-'use no memo';
 
 import { useRef, useEffect, useCallback, useState, type MutableRefObject } from 'react';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
 import { audioPlaybackTime } from '@/lib/stores/now-playing-store';
@@ -20,6 +19,7 @@ import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
 interface ForYouCardProps {
     item: ContentItem;
     isActive: boolean;
+    shouldLoadMedia?: boolean;
     /** Ref to report current playback time (seconds) to the parent for handoff */
     videoTimeRef?: MutableRefObject<number>;
 }
@@ -29,9 +29,10 @@ interface ForYouCardProps {
  * Only handles media playback and content display.
  * Action buttons and bottom sheet are rendered at the page level.
  */
-export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
+export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: ForYouCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
+    const shouldReduceMotion = useReducedMotion();
     const wasActiveRef = useRef(false);
     const lastPersistRef = useRef(0);
     const latestPlaybackRef = useRef<{ time: number; percent: number } | null>(null);
@@ -67,6 +68,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
     );
     const playbackUrl = getPlaybackUrl(item);
     const visualPlayback = isVisualPlayback(item);
+    const canLoadMedia = Boolean(playbackUrl && (isActive || shouldLoadMedia));
     const effectiveDisplayMode: ForYouDisplayMode = visualPlayback ? forYouDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
@@ -255,24 +257,26 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                                 renderTranscriptSurface && 'opacity-20 blur-sm'
                             )}
                             priority={isActive}
-                            unoptimized
                         />
                     )}
-                    <video
-                        ref={videoRef}
-                        data-content-id={item.id}
-                        className={cn(
-                            'absolute inset-0 h-full w-full bg-black',
-                            videoFitClass,
-                            renderTranscriptSurface && 'opacity-0 pointer-events-none'
-                        )}
-                        src={playbackUrl}
-                        loop
-                        muted={false}
-                        playsInline
-                        onTimeUpdate={handleTimeUpdate}
-                        onClick={togglePlay}
-                    />
+                    {canLoadMedia && (
+                        <video
+                            ref={videoRef}
+                            data-content-id={item.id}
+                            className={cn(
+                                'absolute inset-0 h-full w-full bg-black',
+                                videoFitClass,
+                                renderTranscriptSurface && 'opacity-0 pointer-events-none'
+                            )}
+                            src={playbackUrl}
+                            preload={isActive ? 'auto' : 'metadata'}
+                            loop
+                            muted={false}
+                            playsInline
+                            onTimeUpdate={handleTimeUpdate}
+                            onClick={togglePlay}
+                        />
+                    )}
                 </>
             ) : (
                 /* Audio-only: transcript-first with subtle artwork fallback behind it. */
@@ -285,7 +289,6 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                             sizes="100vw"
                             className="object-cover opacity-60"
                             priority={isActive}
-                            unoptimized
                         />
                     ) : (
                         <div className="absolute inset-0 bg-zinc-900" />
@@ -320,7 +323,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
 
             {/* Content info — positioned above the fixed bottom sheet */}
             <div className={cn(
-                'absolute bottom-[100px] left-0 right-0 z-10 p-4 space-y-3',
+                'absolute bottom-[100px] inset-x-0 z-10 p-4 space-y-3',
                 renderTranscriptSurface && 'pointer-events-none opacity-0'
             )}>
                 {/* Type badge */}
@@ -367,9 +370,10 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
                     className="absolute inset-0 flex items-center justify-center cursor-pointer z-10 pointer-events-none"
                 >
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
+                        exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.8 }}
+                        transition={shouldReduceMotion ? { duration: 0 } : undefined}
                         className="flex items-center justify-center pointer-events-auto drop-shadow-2xl"
                         onClick={togglePlay}
                     >
@@ -379,7 +383,7 @@ export function ForYouCard({ item, isActive, videoTimeRef }: ForYouCardProps) {
             )}
 
             {isActive && globalPaused && !renderTranscriptSurface && (
-                <div className="absolute top-20 left-4 z-10 pointer-events-none">
+                <div className="absolute top-20 start-4 z-10 pointer-events-none">
                     <span className="px-2.5 py-1 rounded-full bg-black/55 border border-white/15 text-white/90 text-[11px] font-semibold tracking-wide">
                         {t('foryou.paused')}
                     </span>
@@ -409,8 +413,8 @@ function DisplayModeSelector({
     const t = useTranslations();
     return (
         <div
-            className="absolute right-4 top-24 z-20 rounded-full border border-white/15 bg-black/45 p-1 shadow-lg backdrop-blur-md"
-            aria-label="Display mode"
+            className="absolute end-4 top-24 z-20 rounded-full border border-white/15 bg-black/45 p-1 shadow-lg backdrop-blur-md"
+            aria-label={t('foryou.display.label')}
             onClick={(event) => event.stopPropagation()}
         >
             <div className="flex flex-col gap-1">
@@ -461,7 +465,7 @@ function TranscriptSurface({
         >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(230,57,70,0.22),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.48),rgba(0,0,0,0.92))]" />
 
-            <div className="relative z-10 max-w-[calc(100%-56px)] space-y-2 pr-14">
+            <div className="relative z-10 max-w-[calc(100%-56px)] space-y-2 pe-14">
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-news-accent">
                     <span className="inline-flex items-center gap-1 rounded-full border border-news-accent/30 bg-black/30 px-2.5 py-1 backdrop-blur-sm">
                         <FileText className="h-3 w-3" />
@@ -620,7 +624,7 @@ function TranscriptText({
             </div>
             <div
                 ref={listRef}
-                className="max-h-[56vh] space-y-2 overflow-y-auto overscroll-contain py-[22vh] pr-1 scrollbar-none"
+                className="max-h-[56vh] space-y-2 overflow-y-auto overscroll-contain py-[22vh] pe-1 scrollbar-none"
                 data-testid="live-transcript-list"
             >
                 {segments.map((segment, index) => {
@@ -675,7 +679,7 @@ function TranscriptReader({ text, language }: { text: string; language?: string 
                 <span>{t('transcript.title')}</span>
                 {language && <span className="normal-case">{language}</span>}
             </div>
-            <div className="max-h-[54vh] overflow-y-auto overscroll-contain pr-1">
+            <div className="max-h-[54vh] overflow-y-auto overscroll-contain pe-1">
                 <p dir="auto" className="whitespace-pre-wrap text-xl font-medium leading-9 text-white/88">
                     {text}
                 </p>

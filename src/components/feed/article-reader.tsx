@@ -1,7 +1,7 @@
 'use client';
 
 import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle, Layers, ChevronLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useFeedStore } from '@/lib/stores';
 import { useLikeMutation, useBookmarkMutation, useContentItem } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
@@ -247,6 +247,7 @@ function ArticleReaderInner({
     const bookmarkMutation = useBookmarkMutation();
     const publishedDate = formatArticleDate(article.published_at, locale);
     const articleImageUrl = getDisplayImageUrl(article);
+    const shouldReduceMotion = useReducedMotion();
 
     const getReadTime = (content?: string) => {
         if (!content) return '3m';
@@ -258,10 +259,10 @@ function ArticleReaderInner({
 
     return (
         <motion.div
-            initial={{ y: '100%' }}
+            initial={shouldReduceMotion ? false : { y: '100%' }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            exit={shouldReduceMotion ? undefined : { y: '100%' }}
+            transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden w-full h-full sm:max-w-md sm:mx-auto"
         >
                  {/* Header Navbar */}
@@ -328,13 +329,13 @@ function ArticleReaderInner({
                             <div className="w-10 h-10 rounded-sm bg-news-accent/20 flex items-center justify-center overflow-hidden border border-foreground/20">
                                 <img
                                     src={`https://api.dicebear.com/7.x/initials/svg?seed=${article.author || article.source_name || 'Wahb'}`}
-                                    alt="Author avatar"
+                                    alt={t('articleReader.authorAvatar')}
                                     className="w-full h-full object-cover"
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-foreground truncate">
-                                    {article.author || article.source_name || 'Unknown Author'}
+                                    {article.author || article.source_name || t('articleReader.unknownAuthor')}
                                 </p>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                                     {publishedDate && (
@@ -358,7 +359,7 @@ function ArticleReaderInner({
                             <BodyContent text={article.body_text || article.excerpt || ''} />
                         ) : (
                             <p className="text-muted-foreground italic text-center py-10">
-                                Full text content is not available for this item.
+                                {t('articleReader.noFullText')}
                             </p>
                         )}
                     </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, type ReactNode, type RefObject } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useCallback, type ReactNode, type RefObject } from 'react';
+import { motion, useMotionValue, useTransform, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +36,7 @@ export function PullToRefresh({
     const [canRefresh, setCanRefresh] = useState(false);
     const startY = useRef(0);
     const pullDistance = useMotionValue(0);
+    const shouldReduceMotion = useReducedMotion();
 
     const opacity = useTransform(pullDistance, [0, threshold], [0, 1]);
     const scale = useTransform(pullDistance, [0, threshold], [0.5, 1]);
@@ -63,12 +64,15 @@ export function PullToRefresh({
     }, [isPulling, isRefreshing, threshold, pullDistance]);
 
     const handleTouchEnd = useCallback(async () => {
-        if (canRefresh && !isRefreshing) {
-            await onRefresh();
+        try {
+            if (canRefresh && !isRefreshing) {
+                await onRefresh();
+            }
+        } finally {
+            setIsPulling(false);
+            setCanRefresh(false);
+            pullDistance.set(0);
         }
-        setIsPulling(false);
-        setCanRefresh(false);
-        pullDistance.set(0);
     }, [canRefresh, isRefreshing, onRefresh, pullDistance]);
 
     return (
@@ -77,10 +81,10 @@ export function PullToRefresh({
             <AnimatePresence>
                 {(isPulling || isRefreshing) && (
                     <motion.div
-                        className="absolute top-0 left-0 right-0 flex items-center justify-center z-10 py-4"
-                        initial={{ y: -50 }}
+                        className="absolute top-0 inset-x-0 flex items-center justify-center z-10 py-4"
+                        initial={shouldReduceMotion ? false : { y: -50 }}
                         animate={{ y: 0 }}
-                        exit={{ y: -50 }}
+                        exit={shouldReduceMotion ? undefined : { y: -50 }}
                         style={{ opacity }}
                     >
                         <motion.div
@@ -93,9 +97,9 @@ export function PullToRefresh({
                             style={{ scale }}
                         >
                             <motion.div
-                                style={isRefreshing ? {} : { rotate }}
-                                animate={isRefreshing ? { rotate: 360 } : {}}
-                                transition={isRefreshing ? { duration: 1, repeat: Infinity, ease: 'linear' } : {}}
+                                style={isRefreshing || shouldReduceMotion ? {} : { rotate }}
+                                animate={isRefreshing && !shouldReduceMotion ? { rotate: 360 } : {}}
+                                transition={isRefreshing && !shouldReduceMotion ? { duration: 1, repeat: Infinity, ease: 'linear' } : {}}
                             >
                                 <RefreshCw className="w-5 h-5 text-white" />
                             </motion.div>

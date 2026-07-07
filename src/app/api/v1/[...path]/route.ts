@@ -1,9 +1,38 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  buildProxyRequestHeaders,
+  buildProxyResponseHeaders,
+  buildProxyTargetUrl,
+  resolveProxyPath,
+} from './proxy-helpers';
 
 // Prefer public API base for platform proxy. `CMS_BASE_URL` is commonly used
 // by other services (e.g. Aggregation) and may point to `/internal`.
 const CMS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL;
+const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function isStateChangingMethod(method: string): boolean {
+  return STATE_CHANGING_METHODS.has(method.toUpperCase());
+}
+
+function hasAllowedOrigin(request: NextRequest): boolean {
+  if (!isStateChangingMethod(request.method)) return true;
+
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) {
+    return false;
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
 
 async function proxyRequest(
   request: NextRequest,
@@ -18,35 +47,24 @@ async function proxyRequest(
     }
 
     const { path } = await context.params;
-    const incomingUrl = new URL(request.url);
-    const targetPath = path.join('/');
-    const targetUrl = `${CMS_BASE_URL.replace(/\/$/, '')}/${targetPath}${incomingUrl.search}`;
+    const safePath = resolveProxyPath(path);
+    if (!safePath) {
+      return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    }
 
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.delete('host');
-    // Hop-by-hop / length headers must NOT be forwarded: we re-buffer the body
-    // below, and undici hard-fails the whole fetch when a forwarded
-    // content-length doesn't match the re-measured body ("Request body length
-    // does not match content-length header" → every POST 502'd). fetch
-    // computes correct values itself.
-    requestHeaders.delete('content-length');
-    requestHeaders.delete('connection');
-    requestHeaders.delete('transfer-encoding');
-    requestHeaders.delete('keep-alive');
-    requestHeaders.delete('accept-encoding');
+    if (!hasAllowedOrigin(request)) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    const incomingUrl = new URL(request.url);
+    const targetUrl = buildProxyTargetUrl(CMS_BASE_URL, safePath, incomingUrl.search);
 
     // Forward the user's access token (kept in an httpOnly cookie) as a
     // standard Bearer header so CMS UserAuthMiddleware-protected routes
     // (e.g. /content/mine, /content/submit) authenticate transparently.
-    // If the caller already set an Authorization header (rare in this app)
-    // we leave it alone.
-    if (!requestHeaders.has('authorization')) {
-        const cookieStore = await cookies();
-        const accessToken = cookieStore.get('wahb_access_token')?.value;
-        if (accessToken) {
-            requestHeaders.set('Authorization', `Bearer ${accessToken}`);
-        }
-    }
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get('wahb_access_token')?.value;
+    const requestHeaders = buildProxyRequestHeaders(request.headers, accessToken);
 
     const body = request.method === 'GET' || request.method === 'HEAD'
       ? undefined
@@ -59,11 +77,7 @@ async function proxyRequest(
       cache: 'no-store',
     });
 
-    const responseHeaders = new Headers(upstream.headers);
-    responseHeaders.delete('content-encoding');
-    responseHeaders.delete('content-length');
-    responseHeaders.delete('transfer-encoding');
-    responseHeaders.delete('connection');
+    const responseHeaders = buildProxyResponseHeaders(upstream.headers);
 
     const responseBody = await upstream.arrayBuffer();
 
@@ -72,18 +86,9 @@ async function proxyRequest(
       headers: responseHeaders,
     });
   } catch (error) {
-    // Surface the underlying cause — undici wraps real errors ("connection
-    // refused", "body length mismatch", …) in a generic "fetch failed".
-    const cause =
-      error instanceof Error && error.cause instanceof Error
-        ? error.cause.message
-        : undefined;
+    console.error('Proxy request failed', error);
     return NextResponse.json(
-      {
-        message: 'Proxy request failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        ...(cause ? { cause } : {}),
-      },
+      { message: 'Proxy request failed' },
       { status: 502 }
     );
   }

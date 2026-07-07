@@ -29,6 +29,7 @@ export function useForYouFeed(duration?: ForYouDurationPreference | null) {
     queryFn: ({ pageParam }) => fetchForYouFeed(pageParam, duration),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
+    maxPages: 5,
     staleTime: 1000 * 60, // 1 minute
   });
 }
@@ -42,6 +43,7 @@ export function useNewsFeed(window: NewsWindow = 'today') {
     queryFn: ({ pageParam }) => fetchNewsFeed(pageParam, window),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
+    maxPages: 5,
     staleTime: 1000 * 60, // 1 minute
   });
 }

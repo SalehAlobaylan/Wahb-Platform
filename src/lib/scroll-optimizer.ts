@@ -4,7 +4,7 @@
  * 1. throttleScroll      — RAF-based scroll throttle (≤ 1 call / 200ms)
  * 2. TokenBucket         — rate limiter for network fetches
  * 3. SwipeSpeedDetector  — detects fast swiping, suppresses prefetch
- * 4. ProgressivePrefetch — metadata-first, then media when near-visible
+ * 4. ProgressivePrefetch — lightweight connection hints near-visible media
  * 5. BackoffManager      — respects 429 / Retry-After from server
  * 6. AdaptiveBuffer      — limits concurrent downloads & prefetch depth
  */
@@ -144,8 +144,9 @@ export class SwipeSpeedDetector {
 // ─── 4. Progressive Prefetch ────────────────────────────────────────────────
 
 /**
- * Manages media preload links. Only preloads media for items within
- * a window of the active index; cleans up elements that scroll away.
+ * Manages lightweight connection hints for near-visible media. Avoid
+ * `<link rel="preload" as="video">` here: browsers may pull full media files
+ * on metered mobile connections before the user ever reaches the card.
  */
 export class ProgressivePrefetch {
     private activeLinkMap = new Map<string, HTMLLinkElement>();
@@ -171,10 +172,11 @@ export class ProgressivePrefetch {
             keepIds.add(item.id);
 
             if (!this.activeLinkMap.has(item.id)) {
+                const url = new URL(href, window.location.href);
                 const link = document.createElement('link');
-                link.rel = 'preload';
-                link.as = 'video';
-                link.href = href;
+                link.rel = 'preconnect';
+                link.href = url.origin;
+                link.crossOrigin = 'anonymous';
                 document.head.appendChild(link);
                 this.activeLinkMap.set(item.id, link);
             }

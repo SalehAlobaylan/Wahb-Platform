@@ -26,7 +26,7 @@ const SAVED_FEEDS: Array<{ key: SavedFeed; labelKey: string }> = [
 function SavedHeader() {
     const t = useTranslations();
     return (
-        <header className="absolute top-0 left-0 right-0 z-20 pointer-events-none bg-gradient-to-b from-background via-background/85 to-transparent pb-4">
+        <header className="absolute top-0 inset-x-0 z-20 pointer-events-none bg-gradient-to-b from-background via-background/85 to-transparent pb-4">
             <div className="flex justify-between items-center p-4 pt-6">
                 <Link href="/profile" className="pointer-events-auto">
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border hover:border-primary/40 transition-all">
@@ -81,7 +81,7 @@ function SavedFeedTabs({
                         )}
                     >
                         {t(feed.labelKey)}
-                        <span className="ml-1 text-[10px] text-muted-foreground">{counts[feed.key]}</span>
+                        <span className="ms-1 text-[10px] text-muted-foreground">{counts[feed.key]}</span>
                     </button>
                 );
             })}
@@ -104,12 +104,12 @@ function SavedToolbar({
     return (
         <div className="space-y-3">
             <label className="relative block">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                     value={search}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={t('saved.search.placeholder')}
-                    className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-news-accent/50"
+                    className="h-11 w-full rounded-xl border border-border bg-card ps-9 pe-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-news-accent/50"
                 />
             </label>
             <div className="flex items-center justify-between">
@@ -192,7 +192,7 @@ function SavedPlaybackOverlay({
             <button
                 type="button"
                 onClick={onClose}
-                className="absolute left-4 top-[calc(env(safe-area-inset-top)+1rem)] z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition-colors"
+                className="absolute start-4 top-[calc(env(safe-area-inset-top)+1rem)] z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition-colors"
                 aria-label={t('saved.overlay.close')}
             >
                 <X className="h-5 w-5" />
@@ -289,7 +289,7 @@ export default function SavedPage() {
                             {t('saved.title')}
                         </h1>
                     </div>
-                    <p className="pl-8 text-xs text-muted-foreground">{t('saved.subtitle')}</p>
+                    <p className="ps-8 text-xs text-muted-foreground">{t('saved.subtitle')}</p>
                 </div>
 
                 <div className="px-5 mb-4 space-y-4">

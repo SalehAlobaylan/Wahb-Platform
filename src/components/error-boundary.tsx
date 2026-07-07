@@ -15,6 +15,46 @@ interface ErrorBoundaryState {
     error?: Error;
 }
 
+function DefaultErrorFallback({
+    error,
+    onRetry,
+}: {
+    error?: Error;
+    onRetry: () => void;
+}) {
+    const t = useTranslations();
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-background text-foreground">
+            <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+                <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
+                    <AlertTriangle className="w-8 h-8 text-destructive" />
+                </div>
+
+                <h2 className="text-xl font-bold">{t('errors.global.title')}</h2>
+
+                <p className="text-muted-foreground text-sm">
+                    {t('errors.global.description')}
+                </p>
+
+                {process.env.NODE_ENV === 'development' && error && (
+                    <pre className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg overflow-auto max-w-full">
+                        {error.message}
+                    </pre>
+                )}
+
+                <Button
+                    onClick={onRetry}
+                    className="gap-2 mt-2 bg-news-accent text-white hover:bg-news-accent/90"
+                >
+                    <RefreshCw className="w-4 h-4" />
+                    {t('errors.global.tryAgain')}
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 /**
  * Error boundary component with retry functionality
  * Catches JavaScript errors in child component tree
@@ -45,33 +85,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             }
 
             return (
-                <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-background text-foreground">
-                    <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-                        <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
-                            <AlertTriangle className="w-8 h-8 text-destructive" />
-                        </div>
-
-                        <h2 className="text-xl font-bold">Something went wrong</h2>
-
-                        <p className="text-muted-foreground text-sm">
-                            We encountered an unexpected error. Please try again.
-                        </p>
-
-                        {process.env.NODE_ENV === 'development' && this.state.error && (
-                            <pre className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg overflow-auto max-w-full">
-                                {this.state.error.message}
-                            </pre>
-                        )}
-
-                        <Button
-                            onClick={this.handleRetry}
-                            className="gap-2 mt-2 bg-news-accent text-white hover:bg-news-accent/90"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            Try Again
-                        </Button>
-                    </div>
-                </div>
+                <DefaultErrorFallback
+                    error={this.state.error}
+                    onRetry={this.handleRetry}
+                />
             );
         }
 

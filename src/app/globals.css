@@ -234,10 +234,23 @@ footer {
   background: #c1121f;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #ff6b6b;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #ff8787;
+}
+
 /* Selection — Press Red on paper */
 ::selection {
   background: #e63946;
   color: #f8f5f2;
+}
+
+.dark ::selection {
+  background: #ff6b6b;
+  color: #111111;
 }
 
 /* Hide scrollbar utility */
