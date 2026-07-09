@@ -26,7 +26,19 @@ export function InterestsRow({
     onEdit: () => void;
 }) {
     const t = useTranslations();
-    if (interests.length === 0) return null;
+    if (interests.length === 0) {
+        return (
+            <div className="px-4">
+                <button
+                    onClick={onEdit}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-dashed border-border bg-card px-4 text-sm font-semibold text-muted-foreground hover:border-primary/40 hover:text-primary"
+                >
+                    <span>{t('profile.interests.edit')}</span>
+                    <ChevronRight className="w-5 h-5 rtl:rotate-180" />
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="relative group">

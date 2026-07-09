@@ -44,7 +44,6 @@ function ProfileEditForm({ user }: { user: AuthUser }) {
     const t = useTranslations();
     const [username, setUsername] = useState(user.username ?? '');
     const [bio, setBio] = useState(user.bio ?? '');
-    const [interestsText, setInterestsText] = useState((user.interests ?? []).join(', '));
     const [error, setError] = useState<string | null>(null);
 
     const initial = (username || user.email).charAt(0).toUpperCase();
@@ -64,16 +63,10 @@ function ProfileEditForm({ user }: { user: AuthUser }) {
             return;
         }
 
-        const interests = interestsText
-            .split(',')
-            .map((tag) => tag.trim().replace(/^#/, ''))
-            .filter(Boolean);
-
         try {
             await updateProfile.mutateAsync({
                 username: trimmedUsername,
                 bio,
-                interests,
             });
             toast.success(t('profile.edit.success'));
             setTimeout(() => router.push('/profile'), 400);
@@ -142,23 +135,6 @@ function ProfileEditForm({ user }: { user: AuthUser }) {
                     <div className="flex justify-end text-xs text-muted-foreground">
                         {bio.length}/{MAX_BIO}
                     </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <label htmlFor="interests" className="text-sm font-semibold text-foreground">
-                        {t('profile.edit.interests')}
-                    </label>
-                    <input
-                        id="interests"
-                        type="text"
-                        value={interestsText}
-                        onChange={(e) => setInterestsText(e.target.value)}
-                        placeholder={t('profile.edit.interestsPlaceholder')}
-                        className="h-11 rounded-xl border border-border bg-card px-4 text-sm text-foreground outline-none focus:border-primary"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        {t('profile.edit.interestsHelp')}
-                    </p>
                 </div>
 
                 {error && (

@@ -1,12 +1,11 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Settings, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuthStore, useFeedStore } from '@/lib/stores';
-import { useUpdateProfile, useUserStats } from '@/lib/hooks';
+import { usePreferences, useUserStats } from '@/lib/hooks';
 import { InterestsModal } from '@/components/profile/interests-modal';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { ArticleReader, ForYouCard } from '@/components/feed';
@@ -26,7 +25,6 @@ import {
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem } from '@/types';
 
-const DEFAULT_INTERESTS = ['AI', 'Saudi', 'Innovation', 'Tech'];
 const VALID_TABS: ProfileTab[] = ['saved', 'likes', 'history', 'creations'];
 
 function LoadingScreen() {
@@ -47,8 +45,8 @@ export default function ProfilePage() {
 
 function ProfileContent() {
     const { user, isAuthenticated, isLoading } = useAuthStore();
-    const updateProfile = useUpdateProfile();
     const stats = useUserStats();
+    const preferences = usePreferences(isAuthenticated);
     const router = useRouter();
     const searchParams = useSearchParams();
     const t = useTranslations();
@@ -62,14 +60,6 @@ function ProfileContent() {
         ? (tabParam as ProfileTab)
         : 'saved';
     const setTab = (tab: ProfileTab) => router.replace(`/profile?tab=${tab}`, { scroll: false });
-
-    // Read interests from the persisted user; fall back to defaults only when the
-    // field is missing entirely (new accounts) so the row never looks empty.
-    const interests = useMemo<string[]>(() => {
-        if (!user) return [];
-        if (user.interests && user.interests.length > 0) return user.interests;
-        return DEFAULT_INTERESTS;
-    }, [user]);
 
     if (isLoading) return <LoadingScreen />;
     if (!isAuthenticated || !user) return <ProfileGuest />;
@@ -112,7 +102,10 @@ function ProfileContent() {
                 <div className="pt-5 flex flex-col gap-5">
                     <ProfileHero user={user} />
                     <ProfileStats stats={stats.data} isLoading={stats.isLoading} onSelect={setTab} />
-                    <InterestsRow interests={interests} onEdit={() => setShowInterests(true)} />
+                    <InterestsRow
+                        interests={(preferences.data?.declared ?? []).map((topic) => topic.label_en || topic.label_ar)}
+                        onEdit={() => setShowInterests(true)}
+                    />
                 </div>
 
                 {/* Library tabs */}
@@ -147,21 +140,10 @@ function ProfileContent() {
             {/* Article reader overlay (news / writes) */}
             <ArticleReader article={article} onClose={() => setArticle(null)} />
 
-            {/* Interests editor — persists to IAM on save. */}
+            {/* Interests editor — persists to CMS preferences, not IAM profile. */}
             <InterestsModal
                 isOpen={showInterests}
                 onClose={() => setShowInterests(false)}
-                selected={interests}
-                onSave={(next) =>
-                    updateProfile.mutate(
-                        { interests: next },
-                        {
-                            onSuccess: () => toast.success(t('profile.edit.success')),
-                            onError: (err) =>
-                                toast.error(err instanceof Error ? err.message : t('profile.edit.failed')),
-                        }
-                    )
-                }
             />
         </>
     );

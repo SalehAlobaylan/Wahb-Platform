@@ -70,7 +70,6 @@ export async function updateProfile(payload: {
   username?: string;
   bio?: string;
   avatar_url?: string;
-  interests?: string[];
 }): Promise<AuthUser> {
   const res = await fetch('/api/auth/profile', {
     method: 'PUT',

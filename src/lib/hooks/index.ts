@@ -6,3 +6,4 @@ export * from './use-user-stats';
 export * from './use-my-likes';
 export * from './use-watch-history';
 export * from './use-infinite-scroll';
+export * from './use-preferences';
