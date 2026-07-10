@@ -11,6 +11,9 @@ describe('/api/v1 proxy helpers', () => {
     expect(resolveProxyPath(['content', 'item%201'])).toBe('content/item%201');
     expect(resolveProxyPath(['interactions', 'bookmarks'])).toBe('interactions/bookmarks');
     expect(resolveProxyPath(['transcripts', 'transcript-1'])).toBe('transcripts/transcript-1');
+    expect(resolveProxyPath(['topics', 'picker'])).toBe('topics/picker');
+    expect(resolveProxyPath(['preferences'])).toBe('preferences');
+    expect(resolveProxyPath(['preferences', 'topics', 'topic-1', 'mute'])).toBe('preferences/topics/topic-1/mute');
   });
 
   it('rejects path traversal, slash smuggling, and non-public CMS roots', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,6 @@ import {
 import type { PreferenceTopic } from '@/lib/api/preferences';
 
 interface InterestsModalProps {
-    isOpen: boolean;
     onClose: () => void;
 }
 
@@ -22,20 +21,23 @@ function topicLabel(topic: PreferenceTopic): string {
     return lang.startsWith('ar') ? topic.label_ar || topic.label_en : topic.label_en || topic.label_ar;
 }
 
-export function InterestsModal({ isOpen, onClose }: InterestsModalProps) {
+export function InterestsModal({ onClose }: InterestsModalProps) {
     const picker = useTopicPicker();
-    const prefs = usePreferences(isOpen);
+    const prefs = usePreferences(true);
     const saveDeclared = useSaveDeclaredTopics();
     const mute = useMuteTopic();
-    const [selected, setSelected] = useState<string[]>([]);
+    const [selectionOverrides, setSelectionOverrides] = useState<Record<string, boolean>>({});
 
-    useEffect(() => {
-        if (!isOpen || !prefs.data) return;
-        setSelected(prefs.data.declared.map((t) => t.id));
-    }, [isOpen, prefs.data]);
-
-    const categories = picker.data?.categories ?? [];
-    const topics = picker.data?.topics ?? [];
+    const categories = useMemo(() => picker.data?.categories ?? [], [picker.data?.categories]);
+    const topics = useMemo(() => picker.data?.topics ?? [], [picker.data?.topics]);
+    const selected = useMemo(() => {
+        const next = new Set(prefs.data?.declared.map((topic) => topic.id) ?? []);
+        for (const [id, selected] of Object.entries(selectionOverrides)) {
+            if (selected) next.add(id);
+            else next.delete(id);
+        }
+        return [...next];
+    }, [prefs.data?.declared, selectionOverrides]);
     const grouped = useMemo(() => {
         const map = new Map<string, PreferenceTopic[]>();
         for (const topic of topics) {
@@ -45,10 +47,8 @@ export function InterestsModal({ isOpen, onClose }: InterestsModalProps) {
         return map;
     }, [topics]);
 
-    if (!isOpen) return null;
-
     const toggle = (id: string) => {
-        setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+        setSelectionOverrides((prev) => ({ ...prev, [id]: !selected.includes(id) }));
     };
 
     const handleSave = async () => {

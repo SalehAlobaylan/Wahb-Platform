@@ -141,10 +141,7 @@ function ProfileContent() {
             <ArticleReader article={article} onClose={() => setArticle(null)} />
 
             {/* Interests editor — persists to CMS preferences, not IAM profile. */}
-            <InterestsModal
-                isOpen={showInterests}
-                onClose={() => setShowInterests(false)}
-            />
+            {showInterests && <InterestsModal onClose={() => setShowInterests(false)} />}
         </>
     );
 }

@@ -1,4 +1,11 @@
-const ALLOWED_PROXY_ROOTS = new Set(['feed', 'content', 'interactions', 'transcripts']);
+const ALLOWED_PROXY_ROOTS = new Set([
+  'feed',
+  'content',
+  'interactions',
+  'transcripts',
+  'topics',
+  'preferences',
+]);
 const STRIPPED_REQUEST_HEADERS = [
   'host',
   'content-length',
