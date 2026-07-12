@@ -21,6 +21,8 @@ import { FeedErrorFallback } from '@/components/error-boundary';
 import { throttleScroll } from '@/lib/scroll-optimizer';
 import { User, Search } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
+import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
+import { beginArticle, type ArticleJourney } from '@/lib/experience/journeys';
 import { useTranslations } from '@/lib/i18n';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -104,6 +106,7 @@ function NewsPageContent() {
     // API hooks
     const {
         data,
+        status,
         isLoading,
         isError,
         error,
@@ -133,6 +136,25 @@ function NewsPageContent() {
         }
         return out;
     }, [data]);
+
+    // RUX: emit the News feed-load journey terminal once per fresh load; a
+    // window switch (today/week/...) re-arms via loadKey.
+    useFeedLoadTelemetry({
+        surface: 'news',
+        status,
+        unitCount: newsSlides.length,
+        loadKey: selectedWindow,
+    });
+    const paginationTelemetry = usePaginationTelemetry('news');
+    const previousSlideCount = useRef(newsSlides.length);
+    useEffect(() => {
+        if (!isFetchingNextPage && previousSlideCount.current < newsSlides.length) {
+            paginationTelemetry.received();
+        } else if (!isFetchingNextPage && hasNextPage && previousSlideCount.current === newsSlides.length) {
+            paginationTelemetry.starved();
+        }
+        previousSlideCount.current = newsSlides.length;
+    }, [isFetchingNextPage, hasNextPage, newsSlides.length, paginationTelemetry]);
 
     // Active slide data
     const activeSlide = newsSlides[newsActiveIndex];
@@ -169,10 +191,11 @@ function NewsPageContent() {
             const now = Date.now();
             if (now - lastNewsFetchAt > 800) {
                 lastNewsFetchAt = now;
+                paginationTelemetry.arm();
                 fetchNextPage();
             }
         }
-    }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage, paginationTelemetry]);
 
     // Throttle to at most once per 200 ms (matches the For You feed) so we don't
     // read layout / force a reflow on every scroll frame during snap scrolling.
@@ -237,10 +260,21 @@ function NewsPageContent() {
         }
     }, [newsSlides.length, newsActiveIndex]);
 
+    // RUX: article-reader journey — opened on selection, ready when the reader
+    // has renderable content (immediate for feed-carried items, measured for
+    // deep-linked fetches).
+    const articleJourneyRef = useRef<ArticleJourney | null>(null);
     const handleOpenArticle = (item: ContentItem, coverage?: ContentItem[]) => {
+        articleJourneyRef.current = beginArticle(null, item.id);
         setSelectedArticle(item);
         setArticleCoverage(coverage ?? []);
     };
+    useEffect(() => {
+        if (openArticle && articleJourneyRef.current) {
+            articleJourneyRef.current.ready();
+            articleJourneyRef.current = null;
+        }
+    }, [openArticle]);
 
     const showLoading = isLoading;
 

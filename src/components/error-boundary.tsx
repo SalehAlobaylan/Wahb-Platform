@@ -4,6 +4,8 @@ import { Component, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
+import { reportClientFailure } from '@/lib/experience/journeys';
+import { surfaceForPath } from '@/lib/experience/surface';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -72,6 +74,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         // Log error to console in development
         console.error('Error caught by boundary:', error, errorInfo);
+        // Sanitized RUX signal — records that a boundary caught an error, with
+        // NO message/stack text. Surface is derived live from the path.
+        try {
+            const surface = surfaceForPath(window.location.pathname);
+            if (surface) reportClientFailure(surface, 'unknown');
+        } catch {
+            /* never let instrumentation break the boundary */
+        }
     }
 
     handleRetry = () => {

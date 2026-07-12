@@ -25,6 +25,7 @@ import {
 } from '@/lib/scroll-optimizer';
 import type { ContentItem } from '@/types';
 import type { ForYouDurationPreference } from '@/lib/api/feeds';
+import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
 
 // ── Module-level singletons (survive re-renders, reset on HMR) ──────────────
 const tokenBucket = new TokenBucket(3, 1);
@@ -141,6 +142,7 @@ function ForYouPageContent() {
     // API hooks
     const {
         data,
+        status,
         isLoading,
         isError,
         error,
@@ -168,6 +170,33 @@ function ForYouPageContent() {
         }
         return out;
     }, [data]);
+
+    // RUX: emit the For You feed-load journey terminal (rendered/empty/failed)
+    // once per fresh load; a duration switch re-arms via loadKey.
+    useFeedLoadTelemetry({
+        surface: 'foryou',
+        status,
+        unitCount: forYouItems.length,
+        loadKey: durationPreference ?? 'all',
+    });
+
+    // RUX: pagination journey. Arm when a next-page fetch begins; on completion,
+    // received if new units arrived, starved if none arrived while more were
+    // expected (a genuine pagination gap, not the end of the feed).
+    const paginationTelemetry = usePaginationTelemetry('foryou');
+    const prevFetchingNextRef = useRef(false);
+    const preFetchCountRef = useRef(0);
+    useEffect(() => {
+        if (isFetchingNextPage && !prevFetchingNextRef.current) {
+            preFetchCountRef.current = forYouItems.length;
+            paginationTelemetry.arm();
+        } else if (!isFetchingNextPage && prevFetchingNextRef.current) {
+            if (forYouItems.length > preFetchCountRef.current) paginationTelemetry.received();
+            else if (hasNextPage) paginationTelemetry.starved();
+            else paginationTelemetry.received();
+        }
+        prevFetchingNextRef.current = isFetchingNextPage;
+    }, [isFetchingNextPage, forYouItems.length, hasNextPage, paginationTelemetry]);
 
     const setDurationPreference = useCallback((duration: ForYouDurationPreference | null) => {
         const params = new URLSearchParams(Array.from(searchParams.entries()));

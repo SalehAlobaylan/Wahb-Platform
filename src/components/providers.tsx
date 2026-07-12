@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { I18nProvider, useLocale, type Locale } from '@/lib/i18n';
 import { useState, type ReactNode } from 'react';
 import { useUser } from '@/lib/hooks/use-auth';
+import { ExperienceProvider } from '@/components/experience-provider';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
@@ -48,6 +49,7 @@ export function Providers({ children, initialLocale, initialMessages }: Provider
             <I18nProvider value={{ locale: localeState.locale, messages: localeState.messages, setLocale: localeState.setLocale }}>
                 <QueryClientProvider client={queryClient}>
                     <AuthHydrator />
+                    <ExperienceProvider />
                     {children}
                     {/* Global toast surface. position=top-center so notifications
                         don't collide with the bottom nav / now-playing bar. */}

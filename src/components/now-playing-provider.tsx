@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
+import { beginHandoff } from '@/lib/experience/journeys';
 import { useNowPlayingStore, audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useFeedStore } from '@/lib/stores/feed-store';
 
@@ -116,6 +117,32 @@ export function NowPlayingProvider() {
 
         seekThenPlay();
     }, [isPlaying, audioSrc, videoActive, seekTo, clearSeek]);
+
+    // RUX handoff telemetry: when For You <video> ownership ends while a track
+    // is playing, the global <audio> must resume near the same position. We open
+    // a handoff journey on the true→false videoActive transition and settle it on
+    // the next audio progress (completed) or a deadline (failed).
+    const prevVideoActiveRef = useRef(videoActive);
+    const handoffRef = useRef<ReturnType<typeof beginHandoff> | null>(null);
+    useEffect(() => {
+        const was = prevVideoActiveRef.current;
+        prevVideoActiveRef.current = videoActive;
+        const audio = audioRef.current;
+        if (!(was && !videoActive)) return; // only on ownership release
+        const { currentItem } = useNowPlayingStore.getState();
+        if (!audio || !currentItem || !isPlaying) return;
+
+        const journey = beginHandoff('foryou', currentItem.id);
+        handoffRef.current = journey;
+        const onResumed = () => journey.completed();
+        audio.addEventListener('playing', onResumed, { once: true });
+        // If the audio has not resumed within the deadline, record a failure.
+        const deadline = setTimeout(() => journey.failed(), 4000);
+        return () => {
+            audio.removeEventListener('playing', onResumed);
+            clearTimeout(deadline);
+        };
+    }, [videoActive, isPlaying]);
 
     // Apply a one-shot UI seek request (scrubber / skip buttons). Runs
     // regardless of play/pause state. We update the audioPlaybackTime bridge

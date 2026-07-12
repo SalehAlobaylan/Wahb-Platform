@@ -12,6 +12,7 @@ import { useRequestTranscription, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
 import { getPlaybackUrl, isVisualPlayback } from '@/lib/utils/playback';
+import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem, TranscriptSegment } from '@/types';
 import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
@@ -32,6 +33,7 @@ interface ForYouCardProps {
 export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: ForYouCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [telemetryMedia, setTelemetryMedia] = useState<HTMLVideoElement | null>(null);
     const shouldReduceMotion = useReducedMotion();
     const wasActiveRef = useRef(false);
     const lastPersistRef = useRef(0);
@@ -66,6 +68,17 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
     const [currentTime, setCurrentTime] = useState(
         () => useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec ?? 0
     );
+    // RUX playback telemetry — native media events → bounded journey terminals.
+    const { notifyAttempt, notifyPlayReject } = usePlaybackTelemetry({
+        mediaElement: telemetryMedia,
+        contentId: item.id,
+        playbackType: item.playback_type,
+        surface: 'foryou',
+    });
+    const setVideoElement = useCallback((node: HTMLVideoElement | null) => {
+        videoRef.current = node;
+        setTelemetryMedia(node);
+    }, []);
     const playbackUrl = getPlaybackUrl(item);
     const visualPlayback = isVisualPlayback(item);
     const canLoadMedia = Boolean(playbackUrl && (isActive || shouldLoadMedia));
@@ -124,7 +137,10 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             if (globalPaused || !isPlaying) {
                 videoRef.current.pause();
             } else {
-                videoRef.current.play().catch(() => {
+                const wasPaused = videoRef.current.paused;
+                if (wasPaused) notifyAttempt();
+                videoRef.current.play().catch((err) => {
+                    if (wasPaused) notifyPlayReject(err);
                     setPlaying(false);
                 });
             }
@@ -142,7 +158,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             }
         }
         wasActiveRef.current = isActive;
-    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setForYouPlayback, item.id, resolveResumeTime, applyTime]);
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setForYouPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject]);
 
     // Handle playback speed
     useEffect(() => {
@@ -158,9 +174,14 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         if (globalPaused || !isPlaying) {
             videoRef.current.pause();
         } else {
-            videoRef.current.play().catch(() => setPlaying(false));
+            const wasPaused = videoRef.current.paused;
+            if (wasPaused) notifyAttempt();
+            videoRef.current.play().catch((err) => {
+                if (wasPaused) notifyPlayReject(err);
+                setPlaying(false);
+            });
         }
-    }, [isPlaying, globalPaused, isActive, setPlaying]);
+    }, [isPlaying, globalPaused, isActive, setPlaying, notifyAttempt, notifyPlayReject]);
 
     // Apply seek after metadata is loaded when duration becomes known. Prefer
     // the pending resume target (it may come from the global <audio>, which is
@@ -261,7 +282,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                     )}
                     {canLoadMedia && (
                         <video
-                            ref={videoRef}
+                            ref={setVideoElement}
                             data-content-id={item.id}
                             className={cn(
                                 'absolute inset-0 h-full w-full bg-black',
