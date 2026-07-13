@@ -1,164 +1,249 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { Check, Loader2, Plus, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { useMemo, useState } from "react";
+import { Check, Loader2, Plus, RotateCcw, X } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
-    useMuteTopic,
-    usePreferences,
-    useSaveDeclaredTopics,
-    useTopicPicker,
-} from '@/lib/hooks/use-preferences';
-import type { PreferenceTopic } from '@/lib/api/preferences';
+  useMuteTopic,
+  usePreferences,
+  useSaveDeclaredTopics,
+  useTopicPicker,
+  useUnmuteTopic,
+} from "@/lib/hooks/use-preferences";
+import type { PreferenceTopic } from "@/lib/api/preferences";
 
 interface InterestsModalProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
 function topicLabel(topic: PreferenceTopic): string {
-    const lang = typeof document !== 'undefined' ? document.documentElement.lang : 'en';
-    return lang.startsWith('ar') ? topic.label_ar || topic.label_en : topic.label_en || topic.label_ar;
+  const lang =
+    typeof document !== "undefined" ? document.documentElement.lang : "en";
+  return lang.startsWith("ar")
+    ? topic.label_ar || topic.label_en
+    : topic.label_en || topic.label_ar;
 }
 
 export function InterestsModal({ onClose }: InterestsModalProps) {
-    const picker = useTopicPicker();
-    const prefs = usePreferences(true);
-    const saveDeclared = useSaveDeclaredTopics();
-    const mute = useMuteTopic();
-    const [selectionOverrides, setSelectionOverrides] = useState<Record<string, boolean>>({});
+  const picker = useTopicPicker();
+  const prefs = usePreferences(true);
+  const saveDeclared = useSaveDeclaredTopics();
+  const mute = useMuteTopic();
+  const unmute = useUnmuteTopic();
+  const [selectionOverrides, setSelectionOverrides] = useState<
+    Record<string, boolean>
+  >({});
 
-    const categories = useMemo(() => picker.data?.categories ?? [], [picker.data?.categories]);
-    const topics = useMemo(() => picker.data?.topics ?? [], [picker.data?.topics]);
-    const selected = useMemo(() => {
-        const next = new Set(prefs.data?.declared.map((topic) => topic.id) ?? []);
-        for (const [id, selected] of Object.entries(selectionOverrides)) {
-            if (selected) next.add(id);
-            else next.delete(id);
-        }
-        return [...next];
-    }, [prefs.data?.declared, selectionOverrides]);
-    const grouped = useMemo(() => {
-        const map = new Map<string, PreferenceTopic[]>();
-        for (const topic of topics) {
-            const key = topic.category_slug || 'general';
-            map.set(key, [...(map.get(key) ?? []), topic]);
-        }
-        return map;
-    }, [topics]);
-
-    const toggle = (id: string) => {
-        setSelectionOverrides((prev) => ({ ...prev, [id]: !selected.includes(id) }));
-    };
-
-    const handleSave = async () => {
-        try {
-            await saveDeclared.mutateAsync(selected);
-            toast.success('Preferences saved');
-            onClose();
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Failed to save preferences');
-        }
-    };
-
-    const isLoading = picker.isLoading || prefs.isLoading;
-    const isSaving = saveDeclared.isPending;
-
-    return (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative w-full max-w-md bg-card border-t border-border rounded-t-2xl p-5 pb-8 animate-in slide-in-from-bottom duration-300">
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-xl font-serif font-bold text-foreground">Your Interests</h2>
-                    <button
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label="Close"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-
-                {isLoading ? (
-                    <div className="flex h-40 items-center justify-center text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    </div>
-                ) : topics.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                        Topics are being prepared. Your feed will keep using the universal ranking until the catalog is ready.
-                    </div>
-                ) : (
-                    <div className="max-h-[55vh] space-y-5 overflow-y-auto pe-1 hide-scrollbar">
-                        {categories.map((category) => {
-                            const bucket = grouped.get(category.slug) ?? [];
-                            if (bucket.length === 0) return null;
-                            return (
-                                <section key={category.slug} className="space-y-2">
-                                    <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                                        {topicLabel({
-                                            id: category.slug,
-                                            slug: category.slug,
-                                            label_ar: category.label_ar,
-                                            label_en: category.label_en,
-                                        })}
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {bucket.map((topic) => {
-                                            const active = selected.includes(topic.id);
-                                            return (
-                                                <button
-                                                    key={topic.id}
-                                                    onClick={() => toggle(topic.id)}
-                                                    className={cn(
-                                                        'px-3.5 py-2 rounded-full text-sm font-medium transition-all border',
-                                                        active
-                                                            ? 'bg-news-accent/20 text-news-accent border-news-accent/40'
-                                                            : 'bg-muted text-muted-foreground border-border hover:border-foreground/20 hover:text-foreground'
-                                                    )}
-                                                >
-                                                    <span className="flex items-center gap-1.5">
-                                                        {active ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5 opacity-50" />}
-                                                        {topicLabel(topic)}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </section>
-                            );
-                        })}
-
-                        {(prefs.data?.learned?.length ?? 0) > 0 && (
-                            <section className="space-y-2 border-t border-border pt-4">
-                                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                                    We have noticed you are into
-                                </h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {prefs.data?.learned.map((topic) => (
-                                        <button
-                                            key={topic.id}
-                                            onClick={() => mute.mutate(topic.id)}
-                                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-news-accent/50"
-                                        >
-                                            {topicLabel(topic)}
-                                            <X className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-                    </div>
-                )}
-
-                <button
-                    onClick={handleSave}
-                    disabled={isSaving || isLoading || topics.length === 0}
-                    className="mt-6 w-full py-3 rounded-xl bg-news-accent text-white font-bold text-sm tracking-wide hover:bg-news-accent/90 disabled:opacity-50 active:scale-[0.98] transition-all"
-                >
-                    {isSaving ? 'Saving...' : `Save Interests (${selected.length})`}
-                </button>
-            </div>
-        </div>
+  const categories = useMemo(
+    () => picker.data?.categories ?? [],
+    [picker.data?.categories],
+  );
+  const topics = useMemo(
+    () => picker.data?.topics ?? [],
+    [picker.data?.topics],
+  );
+  const pickerTopicIDs = useMemo(
+    () => new Set(topics.map((topic) => topic.id)),
+    [topics],
+  );
+  const selected = useMemo(() => {
+    const next = new Set(
+      (prefs.data?.declared ?? [])
+        .filter((topic) => pickerTopicIDs.has(topic.id))
+        .map((topic) => topic.id),
     );
+    for (const [id, selected] of Object.entries(selectionOverrides)) {
+      if (selected) next.add(id);
+      else next.delete(id);
+    }
+    return [...next];
+  }, [pickerTopicIDs, prefs.data?.declared, selectionOverrides]);
+  const grouped = useMemo(() => {
+    const map = new Map<string, PreferenceTopic[]>();
+    for (const topic of topics) {
+      const key = topic.category_slug || "general";
+      map.set(key, [...(map.get(key) ?? []), topic]);
+    }
+    return map;
+  }, [topics]);
+
+  const toggle = (id: string) => {
+    setSelectionOverrides((prev) => ({
+      ...prev,
+      [id]: !selected.includes(id),
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveDeclared.mutateAsync(selected);
+      toast.success("Preferences saved");
+      onClose();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save preferences",
+      );
+    }
+  };
+
+  const isLoading = picker.isLoading || prefs.isLoading;
+  const isSaving = saveDeclared.isPending;
+  const hasQueryError = picker.isError || prefs.isError;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center">
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="relative w-full max-w-md bg-card border-t border-border rounded-t-2xl p-5 pb-8 animate-in slide-in-from-bottom duration-300">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-serif font-bold text-foreground">
+            Your Interests
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex h-40 items-center justify-center text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : hasQueryError ? (
+          <div
+            className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm"
+            role="alert"
+          >
+            <p>
+              We could not load your interests. Check your connection and try
+              again.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void picker.refetch();
+                void prefs.refetch();
+              }}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+            >
+              Retry
+            </button>
+          </div>
+        ) : topics.length === 0 ? (
+          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+            Topics are being prepared. Your feed will keep using the universal
+            ranking until the catalog is ready.
+          </div>
+        ) : (
+          <div className="max-h-[55vh] space-y-5 overflow-y-auto pe-1 hide-scrollbar">
+            {categories.map((category) => {
+              const bucket = grouped.get(category.slug) ?? [];
+              if (bucket.length === 0) return null;
+              return (
+                <section key={category.slug} className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    {topicLabel({
+                      id: category.slug,
+                      slug: category.slug,
+                      label_ar: category.label_ar,
+                      label_en: category.label_en,
+                    })}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {bucket.map((topic) => {
+                      const active = selected.includes(topic.id);
+                      return (
+                        <button
+                          key={topic.id}
+                          onClick={() => toggle(topic.id)}
+                          className={cn(
+                            "px-3.5 py-2 rounded-full text-sm font-medium transition-all border",
+                            active
+                              ? "bg-news-accent/20 text-news-accent border-news-accent/40"
+                              : "bg-muted text-muted-foreground border-border hover:border-foreground/20 hover:text-foreground",
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {active ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Plus className="w-3.5 h-3.5 opacity-50" />
+                            )}
+                            {topicLabel(topic)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+
+            {(prefs.data?.learned?.length ?? 0) > 0 && (
+              <section className="space-y-2 border-t border-border pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  We have noticed you are into
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {prefs.data?.learned.map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      disabled={mute.isPending}
+                      onClick={() => mute.mutate(topic.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-news-accent/50"
+                      aria-label={`Mute ${topicLabel(topic)}`}
+                    >
+                      {topicLabel(topic)}
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(prefs.data?.muted?.length ?? 0) > 0 && (
+              <section className="space-y-2 border-t border-border pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Muted
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {prefs.data?.muted.map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      disabled={unmute.isPending}
+                      onClick={() => unmute.mutate(topic.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+                      aria-label={`Unmute ${topicLabel(topic)}`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      {topicLabel(topic)}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={handleSave}
+          disabled={
+            isSaving || isLoading || hasQueryError || topics.length === 0
+          }
+          className="mt-6 w-full py-3 rounded-xl bg-news-accent text-white font-bold text-sm tracking-wide hover:bg-news-accent/90 disabled:opacity-50 active:scale-[0.98] transition-all"
+        >
+          {isSaving ? "Saving..." : `Save Interests (${selected.length})`}
+        </button>
+      </div>
+    </div>
+  );
 }
