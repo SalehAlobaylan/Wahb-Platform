@@ -1,4 +1,5 @@
 import type { AuthUser } from '@/types';
+import { refreshSession } from '@/lib/auth/session-coordinator';
 
 export async function loginUser(email: string, password: string): Promise<{ success: boolean }> {
   const res = await fetch('/api/auth/login', {
@@ -57,7 +58,11 @@ export async function changePassword(
 }
 
 export async function fetchCurrentUser(): Promise<{ user: AuthUser | null }> {
-  const res = await fetch('/api/auth/me');
+  let res = await fetch('/api/auth/me');
+
+  if (res.status === 401 && await refreshSession()) {
+    res = await fetch('/api/auth/me');
+  }
 
   if (!res.ok) {
     return { user: null };

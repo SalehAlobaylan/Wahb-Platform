@@ -8,25 +8,35 @@ import {
   saveDeclaredTopics,
   unmuteTopic,
 } from '@/lib/api/preferences';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { identityCacheKey } from '@/lib/identity/identity-key';
 
-export const preferenceKeys = {
-  picker: ['preferences', 'picker'] as const,
-  mine: ['preferences', 'mine'] as const,
-};
+function usePreferenceKeys() {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const identityKey = identityCacheKey(userId);
+  return {
+    picker: ['preferences', identityKey, 'picker'] as const,
+    mine: ['preferences', identityKey, 'mine'] as const,
+    enabled: Boolean(userId),
+  };
+}
 
 export function useTopicPicker() {
+  const keys = usePreferenceKeys();
   return useQuery({
-    queryKey: preferenceKeys.picker,
+    queryKey: keys.picker,
     queryFn: fetchTopicPicker,
+    enabled: keys.enabled,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 export function usePreferences(enabled = true) {
+  const keys = usePreferenceKeys();
   return useQuery({
-    queryKey: preferenceKeys.mine,
+    queryKey: keys.mine,
     queryFn: fetchPreferences,
-    enabled,
+    enabled: enabled && keys.enabled,
     staleTime: 60 * 1000,
     retry: false,
   });
@@ -34,10 +44,11 @@ export function usePreferences(enabled = true) {
 
 export function useSaveDeclaredTopics() {
   const qc = useQueryClient();
+  const keys = usePreferenceKeys();
   return useMutation({
     mutationFn: saveDeclaredTopics,
     onSuccess: (data) => {
-      qc.setQueryData(preferenceKeys.mine, data);
+      qc.setQueryData(keys.mine, data);
       qc.invalidateQueries({ queryKey: ['feed'] });
     },
   });
@@ -45,10 +56,11 @@ export function useSaveDeclaredTopics() {
 
 export function useMuteTopic() {
   const qc = useQueryClient();
+  const keys = usePreferenceKeys();
   return useMutation({
     mutationFn: muteTopic,
     onSuccess: (data) => {
-      qc.setQueryData(preferenceKeys.mine, data);
+      qc.setQueryData(keys.mine, data);
       qc.invalidateQueries({ queryKey: ['feed'] });
     },
   });
@@ -56,10 +68,11 @@ export function useMuteTopic() {
 
 export function useUnmuteTopic() {
   const qc = useQueryClient();
+  const keys = usePreferenceKeys();
   return useMutation({
     mutationFn: unmuteTopic,
     onSuccess: (data) => {
-      qc.setQueryData(preferenceKeys.mine, data);
+      qc.setQueryData(keys.mine, data);
       qc.invalidateQueries({ queryKey: ['feed'] });
     },
   });

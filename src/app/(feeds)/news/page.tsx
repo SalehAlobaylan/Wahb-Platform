@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useNewsFeed, useContentItem } from '@/lib/hooks';
@@ -25,11 +25,7 @@ import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/u
 import { beginArticle, type ArticleJourney } from '@/lib/experience/journeys';
 import { useTranslations } from '@/lib/i18n';
 import { useShallow } from 'zustand/react/shallow';
-
-// Module-level throttle for infinite-scroll fetches: at most one fetch per
-// 800 ms regardless of how often the scroll handler fires. Module scope (not a
-// React ref) keeps the read/write out of render-time ref access.
-let lastNewsFetchAt = 0;
+import { PaginationAdmission } from '@/lib/feed-window/pagination-admission';
 
 const NEWS_WINDOW_OPTIONS: Array<{ value: NewsWindow; labelKey: string }> = [
     { value: 'today', labelKey: 'news.window.today' },
@@ -58,6 +54,9 @@ export default function NewsPage() {
 
 function NewsPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
+    const activeSlideIdRef = useRef<string | null>(null);
+    const renderedSlideIdsRef = useRef<string[]>([]);
+    const paginationAdmissionRef = useRef(new PaginationAdmission());
     const restoredRef = useRef(false);
     // Hide-on-scroll (LinkedIn/X): track scroll direction to conceal the sheet.
     const lastScrollTopRef = useRef(0);
@@ -167,6 +166,41 @@ function NewsPageContent() {
         [newsSlides]
     );
 
+    const requestNextPage = useCallback(() => {
+        if (!hasNextPage) return;
+        const admission = paginationAdmissionRef.current;
+        if (admission.admit({ fastSwiping: false, fetching: isFetchingNextPage }) !== 'admitted') return;
+        paginationTelemetry.arm();
+        void fetchNextPage()
+            .then((result) => {
+                if (result.isError) {
+                    const error = result.error as { status?: number; retryAfterMs?: number } | null;
+                    admission.failure(error?.status, error?.retryAfterMs);
+                } else admission.success();
+            })
+            .catch((error: { status?: number; retryAfterMs?: number }) => {
+                admission.failure(error?.status, error?.retryAfterMs);
+            });
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, paginationTelemetry]);
+
+    useLayoutEffect(() => {
+        if (newsSlides.length === 0) return;
+        const ids = newsSlides.map((slide) => slide.slide_id || slide.featured.id);
+        const changed = ids.length !== renderedSlideIdsRef.current.length ||
+            ids.some((id, index) => id !== renderedSlideIdsRef.current[index]);
+        renderedSlideIdsRef.current = ids;
+        if (!changed) {
+            activeSlideIdRef.current = ids[newsActiveIndex] ?? activeSlideIdRef.current;
+            return;
+        }
+        const anchoredIndex = activeSlideIdRef.current ? ids.indexOf(activeSlideIdRef.current) : -1;
+        const nextIndex = anchoredIndex >= 0 ? anchoredIndex : Math.min(Math.max(0, newsActiveIndex), ids.length - 1);
+        const container = feedRef.current;
+        if (container?.clientHeight) container.scrollTop = nextIndex * container.clientHeight;
+        activeSlideIdRef.current = ids[nextIndex] ?? null;
+        if (nextIndex !== newsActiveIndex) setNewsActiveIndex(nextIndex);
+    }, [newsActiveIndex, newsSlides, setNewsActiveIndex]);
+
     const rawHandleScroll = useCallback(() => {
         if (!feedRef.current) return;
         const scrollPosition = feedRef.current.scrollTop;
@@ -175,6 +209,7 @@ function NewsPageContent() {
         const newIndex = Math.round(scrollPosition / height);
 
         if (newsActiveIndex !== newIndex) {
+            activeSlideIdRef.current = newsSlides[newIndex]?.slide_id || newsSlides[newIndex]?.featured.id || null;
             setNewsActiveIndex(newIndex);
             resetProgress();
         }
@@ -183,19 +218,8 @@ function NewsPageContent() {
         // past the cached slides the server assembles pages live (seconds on a
         // remote DB), so the fetch must start well before the user hits the
         // end or they stare at an empty loading slide.
-        if (
-            hasNextPage &&
-            !isFetchingNextPage &&
-            scrollPosition + height >= scrollHeight - height * 5
-        ) {
-            const now = Date.now();
-            if (now - lastNewsFetchAt > 800) {
-                lastNewsFetchAt = now;
-                paginationTelemetry.arm();
-                fetchNextPage();
-            }
-        }
-    }, [newsActiveIndex, setNewsActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage, paginationTelemetry]);
+        if (scrollPosition + height >= scrollHeight - height * 5) requestNextPage();
+    }, [newsActiveIndex, newsSlides, requestNextPage, setNewsActiveIndex, resetProgress]);
 
     // Throttle to at most once per 200 ms (matches the For You feed) so we don't
     // read layout / force a reflow on every scroll frame during snap scrolling.
@@ -238,7 +262,8 @@ function NewsPageContent() {
         setSelectedWindow(nextWindow);
         setNewsActiveIndex(0);
         resetProgress();
-        lastNewsFetchAt = 0;
+        activeSlideIdRef.current = null;
+        renderedSlideIdsRef.current = [];
         restoredRef.current = false;
         if (feedRef.current) feedRef.current.scrollTop = 0;
     }, [selectedWindow, setNewsActiveIndex, resetProgress]);

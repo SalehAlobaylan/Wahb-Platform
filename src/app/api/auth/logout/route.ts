@@ -1,27 +1,28 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getIamBaseUrl } from '@/lib/auth/server-config';
+import { clearTokenCookies } from '@/lib/auth/token-cookies';
+import { isExactSameOrigin } from '@/lib/auth/request-policy';
 
-const IAM_URL = process.env.IAM_API_URL;
-
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  const IAM_URL = getIamBaseUrl();
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get('wahb_access_token')?.value;
+  const refreshToken = cookieStore.get('wahb_refresh_token')?.value;
 
-  // Call IAM logout if we have a token (best-effort)
-  if (IAM_URL && accessToken) {
+  // IAM revokes sessions by the refresh-token request body, not by a Bearer
+  // access token. Local clearing remains best-effort and always happens.
+  if (IAM_URL && refreshToken) {
     await fetch(`${IAM_URL}/auth/logout`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }).catch(() => {});
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => undefined);
   }
 
   // Always clear cookies regardless of IAM response
-  cookieStore.delete('wahb_access_token');
-  cookieStore.delete('wahb_refresh_token');
-  cookieStore.delete('wahb_token_expires');
+  clearTokenCookies(cookieStore);
 
   return NextResponse.json({ success: true });
 }

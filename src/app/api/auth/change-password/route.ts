@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-
-const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
+import { getIamBaseUrl } from '@/lib/auth/server-config';
+import { isExactSameOrigin } from '@/lib/auth/request-policy';
 
 type ChangePasswordBody = {
   currentPassword?: string;
@@ -19,6 +19,8 @@ async function parseError(response: Response, fallback: string) {
 }
 
 export async function POST(request: Request) {
+  if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  const IAM_URL = getIamBaseUrl();
   if (!IAM_URL) {
     return NextResponse.json({ message: 'IAM service not configured' }, { status: 500 });
   }

@@ -6,21 +6,7 @@ const ALLOWED_PROXY_ROOTS = new Set([
   'topics',
   'preferences',
 ]);
-const STRIPPED_REQUEST_HEADERS = [
-  'host',
-  'content-length',
-  'connection',
-  'transfer-encoding',
-  'keep-alive',
-  'accept-encoding',
-  'authorization',
-  'x-forwarded-for',
-  'x-forwarded-host',
-  'x-forwarded-port',
-  'x-forwarded-proto',
-  'x-real-ip',
-  'forwarded',
-];
+const SAFE_REQUEST_HEADERS = ['accept', 'content-type', 'range', 'x-request-id'];
 const STRIPPED_RESPONSE_HEADERS = [
   'content-encoding',
   'content-length',
@@ -65,9 +51,10 @@ export function buildProxyTargetUrl(baseUrl: string, safePath: string, search: s
 }
 
 export function buildProxyRequestHeaders(incoming: Headers, accessToken?: string): Headers {
-  const requestHeaders = new Headers(incoming);
-  for (const header of STRIPPED_REQUEST_HEADERS) {
-    requestHeaders.delete(header);
+  const requestHeaders = new Headers();
+  for (const header of SAFE_REQUEST_HEADERS) {
+    const value = incoming.get(header);
+    if (value) requestHeaders.set(header, value);
   }
   if (accessToken) {
     requestHeaders.set('Authorization', `Bearer ${accessToken}`);

@@ -11,11 +11,8 @@ interface NowPlayingState {
     audioSrc: string | null;
     /** Whether a bottom sheet is currently mounted (to avoid duplicate bars) */
     bottomSheetMounted: boolean;
-    /**
-     * When true, a page-level <video> element is handling playback directly.
-     * The NowPlayingProvider's <audio> must NOT play to avoid double audio.
-     */
-    videoActive: boolean;
+    /** Exactly one surface owns audible playback at a time. */
+    playbackOwner: 'none' | 'foryou' | 'global';
     /** Playback position (seconds) to resume from when handing off to <audio> */
     seekTo: number | null;
     /**
@@ -32,10 +29,10 @@ interface NowPlayingState {
     stop: () => void;
     togglePlayPause: () => void;
     setBottomSheetMounted: (mounted: boolean) => void;
-    /** Called by ForYou page to register the current item without triggering <audio> */
-    setCurrentFromVideo: (item: ContentItem, playing?: boolean) => void;
-    /** Called by ForYou page on unmount to hand off playback to <audio> */
-    handoffToAudio: (currentTime: number, shouldResume?: boolean) => void;
+    /** Called by For You to register its active media owner without triggering global audio. */
+    setCurrentFromForYou: (item: ContentItem, playing?: boolean) => void;
+    /** Called by For You on unmount to hand off playback to global audio. */
+    handoffToGlobalAudio: (currentTime: number, shouldResume?: boolean) => void;
     /** Called by NowPlayingProvider after it has seeked to the handoff position */
     clearSeek: () => void;
     /** Request an absolute seek (seconds), applied regardless of play/pause state */
@@ -74,7 +71,7 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
     isPlaying: false,
     audioSrc: null,
     bottomSheetMounted: false,
-    videoActive: false,
+    playbackOwner: 'none',
     seekTo: null,
     pendingSeek: null,
 
@@ -94,7 +91,7 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
             currentItem: null,
             isPlaying: false,
             audioSrc: null,
-            videoActive: false,
+            playbackOwner: 'none',
             seekTo: null,
         }),
 
@@ -106,17 +103,17 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
 
     setBottomSheetMounted: (mounted) => set({ bottomSheetMounted: mounted }),
 
-    setCurrentFromVideo: (item, playing = true) =>
+    setCurrentFromForYou: (item, playing = true) =>
         set(() => ({
             currentItem: item,
             audioSrc: getAudioPlaybackUrl(item) || null,
             isPlaying: playing,
-            videoActive: true,
+            playbackOwner: 'foryou',
         })),
 
-    handoffToAudio: (currentTime, shouldResume = true) =>
+    handoffToGlobalAudio: (currentTime, shouldResume = true) =>
         set({
-            videoActive: false,
+            playbackOwner: 'global',
             seekTo: currentTime,
             isPlaying: shouldResume,
         }),

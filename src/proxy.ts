@@ -72,66 +72,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         return res;
     }
 
-    // 2. Token refresh.
-    const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
-    const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-    const expiresAt = request.cookies.get(TOKEN_EXPIRES_COOKIE)?.value;
-
-    if (refreshToken) {
-        const now = Date.now();
-        const expires = Number(expiresAt || 0);
-        const expiringSoon = Number.isFinite(expires) && expires > 0 && expires - now <= 60_000;
-        // Refresh when the access token is gone (its cookie's maxAge matches the
-        // JWT lifetime, so the browser drops it at expiry) OR is within 60s of
-        // expiring. Previously this was gated on `accessToken` being present,
-        // which meant that once the access cookie was dropped the session could
-        // never refresh — leaving a valid refresh token stuck half-signed-in.
-        const needsRefresh = !accessToken || expiringSoon;
-
-        if (needsRefresh) {
-            try {
-                const iamUrl = process.env.IAM_API_URL;
-                if (iamUrl) {
-                    const res = await fetch(`${iamUrl}/auth/refresh`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refresh_token: refreshToken }),
-                    });
-
-                    if (res.ok) {
-                        const tokens = await res.json();
-                        const response = NextResponse.next();
-                        const secure = process.env.NODE_ENV === 'production';
-                        const maxAge = tokens.expires_in || 3600;
-
-                        response.cookies.set(ACCESS_TOKEN_COOKIE, tokens.access_token, {
-                            httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-                        });
-                        response.cookies.set(REFRESH_TOKEN_COOKIE, tokens.refresh_token, {
-                            httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600,
-                        });
-                        response.cookies.set(TOKEN_EXPIRES_COOKIE, String(Date.now() + maxAge * 1000), {
-                            httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-                        });
-                        setLocaleIfMissing(response, request);
-                        return response;
-                    }
-
-                    // Refresh failed — clear cookies, user becomes anonymous.
-                    const response = NextResponse.next();
-                    response.cookies.delete(ACCESS_TOKEN_COOKIE);
-                    response.cookies.delete(REFRESH_TOKEN_COOKIE);
-                    response.cookies.delete(TOKEN_EXPIRES_COOKIE);
-                    setLocaleIfMissing(response, request);
-                    return response;
-                }
-            } catch {
-                // Network or parse error — let the request through; the
-                // client-side hooks will surface auth failures on next call.
-            }
-        }
-    }
-
     const res = NextResponse.next();
     setLocaleIfMissing(res, request);
     return res;

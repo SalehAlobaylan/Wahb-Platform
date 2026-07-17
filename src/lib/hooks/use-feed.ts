@@ -19,13 +19,22 @@ import type { CommentsResponse, ContentComment, Interaction, NewsWindow } from '
 import type { BookmarkFeedFilter, BookmarkSort } from '@/lib/api/feeds';
 import type { InfiniteData } from '@tanstack/react-query';
 import type { ForYouDurationPreference } from '@/lib/api/feeds';
+import { identityCacheKey } from '@/lib/identity/identity-key';
+
+function useIdentityCacheKey(): string {
+  const userId = useAuthStore((state) =>
+    state.isAuthenticated && state.user ? state.user.id : null
+  );
+  return identityCacheKey(userId);
+}
 
 /**
  * Hook for infinite scrolling For You feed
  */
 export function useForYouFeed(duration?: ForYouDurationPreference | null) {
+  const identityKey = useIdentityCacheKey();
   return useInfiniteQuery({
-    queryKey: ['feed', 'foryou', { duration: duration ?? null }],
+    queryKey: ['feed', 'foryou', identityKey, { duration: duration ?? null }],
     queryFn: ({ pageParam }) => fetchForYouFeed(pageParam, duration),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -38,8 +47,9 @@ export function useForYouFeed(duration?: ForYouDurationPreference | null) {
  * Hook for infinite scrolling News feed
  */
 export function useNewsFeed(window: NewsWindow = 'today') {
+  const identityKey = useIdentityCacheKey();
   return useInfiniteQuery({
-    queryKey: ['feed', 'news', window],
+    queryKey: ['feed', 'news', identityKey, window],
     queryFn: ({ pageParam }) => fetchNewsFeed(pageParam, window),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -60,9 +70,10 @@ export function useBookmarks({
   sort?: BookmarkSort;
   q?: string;
 } = {}) {
+  const identityKey = useIdentityCacheKey();
   const search = q.trim();
   return useInfiniteQuery({
-    queryKey: ['bookmarks', { feed, sort, q: search }],
+    queryKey: ['bookmarks', identityKey, { feed, sort, q: search }],
     queryFn: ({ pageParam }) => fetchBookmarks({ cursor: pageParam, feed, sort, q: search }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
@@ -89,12 +100,26 @@ export function useLikeMutation() {
     // feeds on every tap and disrupted scroll. Counts refresh on the next
     // natural refetch (staleTime / window focus).
     onMutate: async ({ contentId }) => {
+      const identityGeneration = useFeedStore.getState().identityGeneration;
+      const attempt = useFeedStore.getState().beginInteractionAttempt('like', contentId);
       // Optimistic update
       toggleLike(contentId);
+      return { identityGeneration, attempt };
     },
-    onError: (_, { contentId }) => {
+    onError: (_, { contentId }, context) => {
       // Rollback on error
-      toggleLike(contentId);
+      if (context && useFeedStore.getState().isCurrentInteractionAttempt(
+        'like', contentId, context.attempt, context.identityGeneration
+      )) {
+        toggleLike(contentId);
+      }
+    },
+    onSettled: (_data, _error, { contentId }, context) => {
+      if (context) {
+        useFeedStore.getState().finishInteractionAttempt(
+          'like', contentId, context.attempt, context.identityGeneration
+        );
+      }
     },
   });
 }
@@ -105,6 +130,7 @@ export function useLikeMutation() {
 export function useBookmarkMutation() {
   const queryClient = useQueryClient();
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+  const identityKey = useIdentityCacheKey();
 
   return useMutation({
     mutationFn: async ({ contentId, isBookmarked }: { contentId: string; isBookmarked: boolean }) => {
@@ -115,6 +141,8 @@ export function useBookmarkMutation() {
       }
     },
     onMutate: async ({ contentId, isBookmarked }) => {
+      const identityGeneration = useFeedStore.getState().identityGeneration;
+      const attempt = useFeedStore.getState().beginInteractionAttempt('bookmark', contentId);
       // Optimistic update of the local id set
       toggleBookmark(contentId);
 
@@ -123,12 +151,12 @@ export function useBookmarkMutation() {
       // refetch lands, and a second tap would fire a bogus DELETE.
       let previousEntries: Array<[readonly unknown[], InfiniteData<{ cursor: string | null; items: { id: string }[] }> | undefined]> = [];
       if (isBookmarked) {
-        await queryClient.cancelQueries({ queryKey: ['bookmarks'] });
+        await queryClient.cancelQueries({ queryKey: ['bookmarks', identityKey] });
         previousEntries = queryClient.getQueriesData<InfiniteData<{ cursor: string | null; items: { id: string }[] }>>({
-          queryKey: ['bookmarks'],
+          queryKey: ['bookmarks', identityKey],
         });
         queryClient.setQueriesData<InfiniteData<{ cursor: string | null; items: { id: string }[] }>>(
-          { queryKey: ['bookmarks'] },
+          { queryKey: ['bookmarks', identityKey] },
           (current) => {
             if (!current) return current;
             return {
@@ -141,18 +169,27 @@ export function useBookmarkMutation() {
           }
         );
       }
-      return { previousEntries };
+      return { previousEntries, identityGeneration, attempt };
     },
     onError: (_, { contentId }, context) => {
       // Rollback on error
-      toggleBookmark(contentId);
+      if (context && useFeedStore.getState().isCurrentInteractionAttempt(
+        'bookmark', contentId, context.attempt, context.identityGeneration
+      )) {
+        toggleBookmark(contentId);
+      }
       for (const [queryKey, previous] of context?.previousEntries ?? []) {
         queryClient.setQueryData(queryKey, previous);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { contentId }, context) => {
+      if (context) {
+        useFeedStore.getState().finishInteractionAttempt(
+          'bookmark', contentId, context.attempt, context.identityGeneration
+        );
+      }
       // Invalidate bookmarks query
-      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+      queryClient.invalidateQueries({ queryKey: ['bookmarks', identityKey] });
     },
   });
 }
@@ -161,8 +198,9 @@ export function useBookmarkMutation() {
  * Hook for fetching a content item's comments (newest first, paginated).
  */
 export function useComments(contentId?: string | null) {
+  const identityKey = useIdentityCacheKey();
   return useInfiniteQuery({
-    queryKey: ['comments', contentId],
+    queryKey: ['comments', identityKey, contentId],
     queryFn: ({ pageParam }) => fetchComments(contentId!, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -177,6 +215,8 @@ export function useComments(contentId?: string | null) {
  */
 export function useAddCommentMutation(contentId: string) {
   const queryClient = useQueryClient();
+  const identityKey = useIdentityCacheKey();
+  const commentQueryKey = ['comments', identityKey, contentId] as const;
 
   return useMutation({
     mutationFn: ({ text }: { text: string }) => {
@@ -184,11 +224,8 @@ export function useAddCommentMutation(contentId: string) {
       return postComment(contentId, text, user?.username || undefined);
     },
     onMutate: async ({ text }) => {
-      await queryClient.cancelQueries({ queryKey: ['comments', contentId] });
-      const previous = queryClient.getQueryData<InfiniteData<CommentsResponse>>([
-        'comments',
-        contentId,
-      ]);
+      await queryClient.cancelQueries({ queryKey: commentQueryKey });
+      const previous = queryClient.getQueryData<InfiniteData<CommentsResponse>>(commentQueryKey);
 
       const { user } = useAuthStore.getState();
       const optimistic: ContentComment = {
@@ -200,7 +237,7 @@ export function useAddCommentMutation(contentId: string) {
       };
 
       queryClient.setQueryData<InfiniteData<CommentsResponse>>(
-        ['comments', contentId],
+        commentQueryKey,
         (old) => {
           if (!old || old.pages.length === 0) {
             return {
@@ -220,11 +257,11 @@ export function useAddCommentMutation(contentId: string) {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['comments', contentId], context.previous);
+        queryClient.setQueryData(commentQueryKey, context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['comments', contentId] });
+      queryClient.invalidateQueries({ queryKey: commentQueryKey });
     },
   });
 }

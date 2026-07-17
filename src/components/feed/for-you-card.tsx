@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState, type MutableRefObject } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState, type MutableRefObject } from 'react';
 import Image from 'next/image';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle } from 'lucide-react';
@@ -8,11 +8,14 @@ import { useFeedStore } from '@/lib/stores';
 import { audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useShallow } from 'zustand/react/shallow';
 import { requestRestore } from '@/lib/api/feeds';
-import { useRequestTranscription, useTranscript } from '@/lib/hooks';
+import { useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
-import { getPlaybackUrl, isVisualPlayback } from '@/lib/utils/playback';
+import { isVisualPlayback } from '@/lib/utils/playback';
 import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
+import { reportPlaybackFallback } from '@/lib/experience/journeys';
+import { attachManagedHls } from '@/lib/playback/hls-adapter';
+import { playbackCapabilitiesFor, resolvePlaybackSources, type PlaybackCapabilities } from '@/lib/playback/source-resolver';
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem, TranscriptSegment } from '@/types';
 import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
@@ -33,7 +36,16 @@ interface ForYouCardProps {
 export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: ForYouCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [telemetryMedia, setTelemetryMedia] = useState<HTMLVideoElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [telemetryMedia, setTelemetryMedia] = useState<HTMLMediaElement | null>(null);
+    // Start HLS optimistically as native so a manifest-only item mounts a
+    // probe element. Its ref immediately replaces this with the browser's
+    // actual native/MSE capability before playback begins.
+    const [playbackCapabilities, setPlaybackCapabilities] = useState<PlaybackCapabilities>(() => ({
+        nativeHls: item.playback_type === 'hls',
+        managedHls: false,
+    }));
+    const [sourceAttempt, setSourceAttempt] = useState({ itemId: item.id, attempt: 0, failed: false });
     const shouldReduceMotion = useReducedMotion();
     const wasActiveRef = useRef(false);
     const lastPersistRef = useRef(0);
@@ -42,6 +54,8 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
     // the seek landed before the element could honor it. Cleared on the first
     // timeupdate, when the playing video becomes the source of truth.
     const pendingResumeRef = useRef<number | null>(null);
+    const completedRef = useRef(false);
+    const trackingMutation = useTrackingMutation();
     const {
         isPlaying,
         globalPaused,
@@ -78,14 +92,60 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
     const setVideoElement = useCallback((node: HTMLVideoElement | null) => {
         videoRef.current = node;
         setTelemetryMedia(node);
+        setPlaybackCapabilities(playbackCapabilitiesFor(node));
     }, []);
-    const playbackUrl = getPlaybackUrl(item);
+    const setAudioElement = useCallback((node: HTMLAudioElement | null) => {
+        audioRef.current = node;
+        setTelemetryMedia(node);
+        setPlaybackCapabilities(playbackCapabilitiesFor(node));
+    }, []);
+    const playbackSources = useMemo(
+        () => resolvePlaybackSources(item, playbackCapabilities),
+        [item, playbackCapabilities]
+    );
+    const playbackAttempt = sourceAttempt.itemId === item.id ? sourceAttempt.attempt : 0;
+    const playbackFailed = sourceAttempt.itemId === item.id && sourceAttempt.failed;
+    const playbackSource = playbackSources[playbackAttempt];
+    const playbackUrl = playbackSource?.adapter === 'managed-hls' ? undefined : playbackSource?.url;
     const visualPlayback = isVisualPlayback(item);
-    const canLoadMedia = Boolean(playbackUrl && (isActive || shouldLoadMedia));
+    const canLoadMedia = Boolean(playbackSource && (isActive || shouldLoadMedia));
     const effectiveDisplayMode: ForYouDisplayMode = visualPlayback ? forYouDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
     const videoFitClass = effectiveDisplayMode === 'fill' ? 'object-cover' : 'object-contain';
+
+    const advancePlaybackSource = useCallback(() => {
+        if (playbackAttempt + 1 < playbackSources.length) {
+            const next = playbackSources[playbackAttempt + 1];
+            reportPlaybackFallback({ contentId: item.id, playbackType: next.type, surface: 'foryou' });
+            setSourceAttempt({ itemId: item.id, attempt: playbackAttempt + 1, failed: false });
+            return;
+        }
+        setSourceAttempt({ itemId: item.id, attempt: playbackAttempt, failed: true });
+    }, [item.id, playbackAttempt, playbackSources]);
+
+    // Native HLS uses the media src directly. This adapter is intentionally
+    // lazy: it is loaded only for the selected managed-HLS candidate and is
+    // destroyed before a fallback candidate or retained-window release.
+    useEffect(() => {
+        if (!canLoadMedia || playbackSource?.adapter !== 'managed-hls' || !telemetryMedia) return;
+        let cancelled = false;
+        let attachment: { destroy(): void } | null = null;
+        attachManagedHls(telemetryMedia, playbackSource.url, () => {
+            if (!cancelled) advancePlaybackSource();
+        })
+            .then((nextAttachment) => {
+                if (cancelled) nextAttachment.destroy();
+                else attachment = nextAttachment;
+            })
+            .catch(() => {
+                if (!cancelled) advancePlaybackSource();
+            });
+        return () => {
+            cancelled = true;
+            attachment?.destroy();
+        };
+    }, [advancePlaybackSource, canLoadMedia, playbackSource, telemetryMedia]);
 
     const applyTime = useCallback((timeSec?: number) => {
         if (!videoRef.current || typeof timeSec !== 'number') return;
@@ -256,7 +316,86 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         }
     };
 
-    const isArchived = item.is_archived || (!playbackUrl && item.status === 'ARCHIVED');
+    // Audio-only For You units are first-class playback units. They have the
+    // same active-card controls, position persistence, and telemetry contract
+    // as a visual card; artwork/transcript are merely the visual surface.
+    const handleAudioTimeUpdate = () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        pendingResumeRef.current = null;
+        const nextTime = audio.currentTime;
+        const percent = Number.isFinite(audio.duration) && audio.duration > 0
+            ? (nextTime / audio.duration) * 100
+            : 0;
+        if (isActive) {
+            setProgress(percent);
+            setCurrentTime(nextTime);
+        }
+        if (videoTimeRef) videoTimeRef.current = nextTime;
+        latestPlaybackRef.current = { time: nextTime, percent };
+        const now = Date.now();
+        if (now - lastPersistRef.current >= 5000) {
+            lastPersistRef.current = now;
+            setForYouPlayback(item.id, nextTime, percent);
+        }
+    };
+
+    const recordCompletion = useCallback(() => {
+        if (completedRef.current) return;
+        completedRef.current = true;
+        setPlaying(false);
+        trackingMutation.mutate({ contentId: item.id, type: 'complete' });
+    }, [item.id, setPlaying, trackingMutation]);
+
+    // Natural end is terminal for one playback run. A user tap after that is
+    // an explicit replay: reset media/progress first, then let the normal
+    // play-state path start a fresh run without emitting a second completion.
+    const togglePlayback = useCallback(() => {
+        const media = visualPlayback ? videoRef.current : audioRef.current;
+        if (completedRef.current && media) {
+            completedRef.current = false;
+            media.currentTime = 0;
+            latestPlaybackRef.current = { time: 0, percent: 0 };
+            setForYouPlayback(item.id, 0, 0);
+            setProgress(0);
+            if (videoTimeRef) videoTimeRef.current = 0;
+        }
+        togglePlay();
+    }, [item.id, setForYouPlayback, setProgress, togglePlay, videoTimeRef, visualPlayback]);
+
+    useEffect(() => {
+        // Completion is per natural playback run. A newly active card that
+        // resumes before the end retains its prior guard; an explicit replay
+        // after end is a new run only once it has sought away from the end.
+        if (!isActive) return;
+        const audio = audioRef.current;
+        if (!audio || visualPlayback) return;
+        const resume = resolveResumeTime();
+        if (resume !== null) {
+            pendingResumeRef.current = resume;
+            audio.currentTime = resume;
+        }
+        audio.playbackRate = playbackSpeed;
+        if (globalPaused || !isPlaying) {
+            audio.pause();
+            return;
+        }
+        const wasPaused = audio.paused;
+        if (wasPaused) notifyAttempt();
+        audio.play().catch((err) => {
+            if (wasPaused) notifyPlayReject(err);
+            setPlaying(false);
+        });
+        return () => audio.pause();
+    }, [isActive, visualPlayback, globalPaused, isPlaying, playbackSpeed, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying]);
+
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || visualPlayback) return;
+        audio.playbackRate = playbackSpeed;
+    }, [visualPlayback, playbackSpeed]);
+
+    const isArchived = item.is_archived || (!playbackSource && item.status === 'ARCHIVED');
 
     return (
         <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-black">
@@ -264,7 +403,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                 <ArchivedOverlay item={item} />
             )}
             {/* Background/Video */}
-            {playbackUrl && visualPlayback ? (
+            {playbackSource && visualPlayback ? (
                 <>
                     {/* Poster behind video keeps fill mode and loading states visually stable. */}
                     {item.thumbnail_url && (
@@ -291,29 +430,58 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                             )}
                             src={playbackUrl}
                             preload={isActive ? 'auto' : 'metadata'}
-                            loop
                             muted={false}
                             playsInline
                             onTimeUpdate={handleTimeUpdate}
-                            onClick={togglePlay}
+                            onEnded={recordCompletion}
+                            onError={advancePlaybackSource}
+                            onClick={togglePlayback}
                         />
                     )}
                 </>
             ) : (
                 /* Audio-only: transcript-first with subtle artwork fallback behind it. */
-                <div className="absolute inset-0">
-                    {item.thumbnail_url ? (
-                        <Image
-                            src={item.thumbnail_url}
-                            alt=""
-                            fill
-                            sizes="100vw"
-                            className="object-cover opacity-60"
-                            priority={isActive}
+                <>
+                    <div className="absolute inset-0">
+                        {item.thumbnail_url ? (
+                            <Image
+                                src={item.thumbnail_url}
+                                alt=""
+                                fill
+                                sizes="100vw"
+                                className="object-cover opacity-60"
+                                priority={isActive}
+                            />
+                        ) : (
+                            <div className="absolute inset-0 bg-zinc-900" />
+                        )}
+                    </div>
+                    {canLoadMedia && (
+                        <audio
+                            ref={setAudioElement}
+                            data-content-id={item.id}
+                            src={playbackUrl}
+                            preload={isActive ? 'auto' : 'metadata'}
+                            onTimeUpdate={handleAudioTimeUpdate}
+                            onEnded={recordCompletion}
+                            onError={advancePlaybackSource}
                         />
-                    ) : (
-                        <div className="absolute inset-0 bg-zinc-900" />
                     )}
+                </>
+            )}
+
+            {(playbackFailed || (!playbackSource && Boolean(item.playback_url || item.media_url || item.fallback_playback_url))) && !isArchived && (
+                <div className="absolute inset-x-5 top-24 z-30 rounded-xl border border-white/15 bg-black/75 p-4 text-center text-sm text-white shadow-xl backdrop-blur">
+                    <p>Playback unavailable</p>
+                    <button
+                        type="button"
+                        className="mt-3 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black"
+                        onClick={() => {
+                            setSourceAttempt({ itemId: item.id, attempt: 0, failed: false });
+                        }}
+                    >
+                        Retry
+                    </button>
                 </div>
             )}
 
@@ -322,7 +490,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                     item={item}
                     currentTime={currentTime}
                     isPlaying={isPlaying && !globalPaused}
-                    onTogglePlay={togglePlay}
+                onTogglePlay={togglePlayback}
                 />
             )}
 
@@ -332,7 +500,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                     'absolute inset-0 z-[1] bg-gradient-to-b from-black/40 via-transparent to-black/90 cursor-pointer',
                     renderTranscriptSurface && 'pointer-events-none'
                 )}
-                onClick={togglePlay}
+                onClick={togglePlayback}
             />
 
             {isActive && (
@@ -396,7 +564,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                         exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.8 }}
                         transition={shouldReduceMotion ? { duration: 0 } : undefined}
                         className="flex items-center justify-center pointer-events-auto drop-shadow-2xl"
-                        onClick={togglePlay}
+                        onClick={togglePlayback}
                     >
                         <Play className="w-16 h-16 text-white/90 fill-white/90" />
                     </motion.div>

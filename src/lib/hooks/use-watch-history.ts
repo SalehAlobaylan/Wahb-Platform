@@ -14,6 +14,7 @@ import {
   type WatchHistoryResponse,
 } from '@/lib/api/feeds';
 import { useAuthStore } from '@/lib/stores';
+import { identityCacheKey } from '@/lib/identity/identity-key';
 
 type WatchHistoryPages = InfiniteData<WatchHistoryResponse, string | null>;
 
@@ -30,7 +31,7 @@ export function useWatchHistory() {
 
   const queryKey = useMemo(
     () =>
-      ['watch-history', isAuthenticated && user ? `user:${user.id}` : 'anonymous'] as const,
+      ['watch-history', identityCacheKey(isAuthenticated && user ? user.id : null)] as const,
     [isAuthenticated, user]
   );
 

@@ -21,12 +21,12 @@ function hasAllowedOrigin(request: NextRequest): boolean {
   if (!isStateChangingMethod(request.method)) return true;
 
   const fetchSite = request.headers.get('sec-fetch-site');
-  if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) {
+  if (fetchSite && fetchSite !== 'same-origin') {
     return false;
   }
 
   const origin = request.headers.get('origin');
-  if (!origin) return true;
+  if (!origin) return false;
 
   try {
     return new URL(origin).origin === new URL(request.url).origin;
@@ -124,8 +124,7 @@ async function proxyRequest(
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch (error) {
-    console.error('Proxy request failed', error);
+  } catch {
     return NextResponse.json(
       { message: 'Proxy request failed' },
       { status: 502 }

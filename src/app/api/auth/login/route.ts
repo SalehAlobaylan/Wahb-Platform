@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-
-const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
+import { getIamBaseUrl } from '@/lib/auth/server-config';
+import { parseTokenPair, persistTokenPair } from '@/lib/auth/token-cookies';
 
 export async function POST(request: Request) {
+  const IAM_URL = getIamBaseUrl();
   if (!IAM_URL) {
     return NextResponse.json({ message: 'IAM service not configured' }, { status: 500 });
   }
@@ -21,20 +22,10 @@ export async function POST(request: Request) {
     return NextResponse.json(error, { status: res.status });
   }
 
-  const tokens = await res.json();
+  const tokens = parseTokenPair(await res.json().catch(() => null));
+  if (!tokens) return NextResponse.json({ message: 'Invalid IAM token response' }, { status: 502 });
   const cookieStore = await cookies();
-  const secure = process.env.NODE_ENV === 'production';
-  const maxAge = tokens.expires_in || 3600;
-
-  cookieStore.set('wahb_access_token', tokens.access_token, {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-  });
-  cookieStore.set('wahb_refresh_token', tokens.refresh_token, {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600,
-  });
-  cookieStore.set('wahb_token_expires', String(Date.now() + maxAge * 1000), {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-  });
+  persistTokenPair(cookieStore, tokens);
 
   return NextResponse.json({ success: true });
 }

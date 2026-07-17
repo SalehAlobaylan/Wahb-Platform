@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-
-const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
+import { getIamBaseUrl } from '@/lib/auth/server-config';
 
 export async function POST(request: Request) {
+  const IAM_URL = getIamBaseUrl();
   if (!IAM_URL) {
     return NextResponse.json({ message: 'IAM service not configured' }, { status: 500 });
   }

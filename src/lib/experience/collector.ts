@@ -7,6 +7,7 @@
 // backoff). Delivery failure is swallowed — telemetry must never surface to UX.
 
 import { getClientContext, getRelease } from './context';
+import { getAnonymousSessionId } from '@/lib/identity/session';
 import {
   RUX_SCHEMA_VERSION,
   type RuxEvent,
@@ -53,18 +54,6 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function getSessionId(): string {
-  try {
-    const existing = sessionStorage.getItem('wahb_session_id');
-    if (existing) return existing;
-    const id = newId();
-    sessionStorage.setItem('wahb_session_id', id);
-    return id;
-  } catch {
-    return 'nosession';
-  }
-}
-
 function getLocale(): string {
   try {
     return (document.documentElement.lang || 'ar').slice(0, 16);
@@ -107,7 +96,7 @@ export function emitEvent(input: EmitInput): void {
       schema_version: RUX_SCHEMA_VERSION,
       event_type: input.event_type,
       occurred_at: new Date().toISOString(),
-      session_id: getSessionId(),
+      session_id: getAnonymousSessionId() ?? 'nosession',
       page_load_id: state.pageLoadId,
       sequence: state.sequence++,
       release: getRelease(),

@@ -1,5 +1,13 @@
 # Wahb-Platform
 
+## Verification
+
+Use Node `22.13.1` and npm 10. The mandatory local gate is `npm run verify`.
+It type-checks, lints, runs unit and BFF contract tests against explicit local
+fakes only, then creates the production artifact. Jest rejects unconfigured
+and non-loopback fetches so mandatory tests cannot contact shared or public
+infrastructure.
+
 The consumer app — the product itself. A mobile-first Next.js PWA delivering Wahb's two-feed experience: **For You** (TikTok-style full-screen audio-first media units) and **News** (magazine-style story-slides). It renders feeds, plays media, and records interactions.
 
 It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwards reads/interactions to CMS and attaches the user's access token from an httpOnly cookie, so the browser never holds the token. It does **not** scrape, transcode, embed, or write to the database directly.

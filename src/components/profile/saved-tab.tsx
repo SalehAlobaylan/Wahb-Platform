@@ -28,6 +28,7 @@ export function SavedTab({ onOpen }: { onOpen: (item: ContentItem) => void }) {
         if (items.length === 0) return;
         useFeedStore.getState().seedInteractions(
             items.filter((i) => i.is_liked).map((i) => i.id),
+            items.map((i) => i.id),
             items.map((i) => i.id)
         );
     }, [items]);

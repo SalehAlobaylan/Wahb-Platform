@@ -233,6 +233,7 @@ export default function SavedPage() {
         if (allItems.length === 0) return;
         useFeedStore.getState().seedInteractions(
             allItems.filter((item) => item.is_liked).map((item) => item.id),
+            allItems.map((item) => item.id),
             allItems.map((item) => item.id)
         );
     }, [forYouItems, newsItems]);

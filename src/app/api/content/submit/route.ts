@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { isExactSameOrigin, MAX_CONTENT_UPLOAD_BYTES, readBoundedBody, readBoundedResponseBody } from '@/lib/auth/request-policy';
 
 const CMS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL;
 
@@ -15,6 +16,7 @@ const CMS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.CMS_BASE_URL
  * the whole audio buffer in memory here.
  */
 export async function POST(request: NextRequest) {
+    if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('wahb_access_token')?.value;
 
@@ -39,7 +41,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const body = await request.arrayBuffer();
+    const body = await readBoundedBody(request, MAX_CONTENT_UPLOAD_BYTES);
+    if (!body) return NextResponse.json({ message: 'Content upload is too large' }, { status: 413 });
 
     const upstream = await fetch(`${CMS_BASE_URL.replace(/\/$/, '')}/content/submit`, {
         method: 'POST',
@@ -50,7 +53,9 @@ export async function POST(request: NextRequest) {
         body,
     });
 
-    const text = await upstream.text();
+    const upstreamBody = await readBoundedResponseBody(upstream);
+    if (!upstreamBody) return NextResponse.json({ message: 'CMS response is too large' }, { status: 502 });
+    const text = new TextDecoder().decode(upstreamBody);
     let parsed: unknown;
     try {
         parsed = text ? JSON.parse(text) : null;

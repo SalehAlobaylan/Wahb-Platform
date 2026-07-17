@@ -25,32 +25,34 @@ import {
   mockFetchTranscript,
 } from './mock-client';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { getAnonymousSessionId } from '@/lib/identity/session';
 import { normalizeForYouFeedItem, withLegacyMediaUrl } from '@/lib/utils/playback';
 
 const API_BASE = '/api/v1';
 export type ForYouDurationPreference = 5 | 10 | 15 | 20 | 30 | 40;
 
-function isContentItem(item: ContentItem | null): item is ContentItem {
-  return item !== null;
+/** Bounded transport signal consumed by feed pagination admission. */
+export class FeedRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(message);
+    this.name = 'FeedRequestError';
+  }
 }
 
-function getAnonymousSessionId(): string {
-  if (typeof window === 'undefined') return '';
+function retryAfterMs(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined;
+}
 
-  try {
-    const stored = sessionStorage.getItem('wahb_session_id');
-    if (stored) return stored;
-
-    const newId =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    sessionStorage.setItem('wahb_session_id', newId);
-    return newId;
-  } catch {
-    return '';
-  }
+function isContentItem(item: ContentItem | null): item is ContentItem {
+  return item !== null;
 }
 
 // Identity for interaction/feed calls. For authenticated users we send NO
@@ -142,7 +144,7 @@ export async function fetchForYouFeed(cursor?: string | null, duration?: ForYouD
   const response = await fetch(`${API_BASE}/feed/foryou?${params}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch For You feed: ${response.statusText}`);
+    throw new FeedRequestError('For You feed request failed', response.status, retryAfterMs(response.headers.get('retry-after')));
   }
 
   const data = await response.json();
@@ -284,7 +286,7 @@ export async function fetchNewsFeed(cursor?: string | null, window: NewsWindow =
   const response = await fetch(`${API_BASE}/feed/news?${params}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch News feed: ${response.statusText}`);
+    throw new FeedRequestError('News feed request failed', response.status, retryAfterMs(response.headers.get('retry-after')));
   }
 
   const data = await response.json();

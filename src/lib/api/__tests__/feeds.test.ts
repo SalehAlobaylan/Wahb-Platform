@@ -1,5 +1,5 @@
 
-import { fetchForYouFeed, fetchNewsFeed } from '@/lib/api/feeds';
+import { FeedRequestError, fetchForYouFeed, fetchNewsFeed } from '@/lib/api/feeds';
 import * as mockClient from '@/lib/api/mock-client';
 
 // Mock the mock-client module
@@ -59,6 +59,20 @@ describe('Feeds API', () => {
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('duration=15'));
         });
 
+        it('exposes bounded retry metadata for a throttled feed request', async () => {
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: false,
+                status: 429,
+                headers: { get: (name: string) => name === 'retry-after' ? '3' : null },
+            });
+
+            await expect(fetchForYouFeed()).rejects.toMatchObject<Partial<FeedRequestError>>({
+                name: 'FeedRequestError',
+                status: 429,
+                retryAfterMs: 3_000,
+            });
+        });
+
         it('normalizes playback_url-only For You items with a legacy media_url fallback', async () => {
             (global.fetch as jest.Mock).mockResolvedValueOnce({
                 ok: true,
@@ -83,18 +97,39 @@ describe('Feeds API', () => {
             });
         });
 
-        it('drops leaked over-30-minute raw parents but keeps atomized chapters within hard max', async () => {
+        it('keeps legal raw units through 40 minutes and rejects only over-limit media', async () => {
             (global.fetch as jest.Mock).mockResolvedValueOnce({
                 ok: true,
                 json: () => Promise.resolve({
                     cursor: null,
                     items: [
                         {
+                            id: 'thirty-minute-parent',
+                            type: 'PODCAST',
+                            title: 'Thirty minute parent',
+                            media_url: 'https://cdn.example.com/thirty.mp4',
+                            duration_sec: 1800,
+                        },
+                        {
                             id: 'long-parent',
                             type: 'PODCAST',
                             title: 'Long parent',
                             media_url: 'https://cdn.example.com/parent.mp4',
                             duration_sec: 2100,
+                        },
+                        {
+                            id: 'forty-minute-parent',
+                            type: 'PODCAST',
+                            title: 'Exactly forty minutes',
+                            media_url: 'https://cdn.example.com/forty.mp4',
+                            duration_sec: 2400,
+                        },
+                        {
+                            id: 'over-limit-parent',
+                            type: 'PODCAST',
+                            title: 'Over limit',
+                            media_url: 'https://cdn.example.com/over.mp4',
+                            duration_sec: 2401,
                         },
                         {
                             id: 'long-chapter',
@@ -111,13 +146,26 @@ describe('Feeds API', () => {
                             media_url: 'https://cdn.example.com/chapter.mp4',
                             duration_sec: 900,
                         },
+                        {
+                            id: 'unknown-duration-parent',
+                            type: 'PODCAST',
+                            title: 'Duration unavailable',
+                            media_url: 'https://cdn.example.com/unknown.mp4',
+                        },
                     ],
                 }),
             });
 
             const result = await fetchForYouFeed();
 
-            expect(result.items.map((item) => item.id)).toEqual(['long-chapter', 'chapter']);
+            expect(result.items.map((item) => item.id)).toEqual([
+                'thirty-minute-parent',
+                'long-parent',
+                'forty-minute-parent',
+                'long-chapter',
+                'chapter',
+                'unknown-duration-parent',
+            ]);
         });
 
         it('fetchNewsFeed calls real API', async () => {

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-
-const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
+import { getIamBaseUrl } from '@/lib/auth/server-config';
+import { isExactSameOrigin } from '@/lib/auth/request-policy';
 
 /**
  * Proxy PUT /api/auth/profile → IAM PUT /users/profile.
@@ -12,6 +12,8 @@ const IAM_URL = process.env.IAM_API_URL || process.env.NEXT_PUBLIC_IAM_BASE_URL;
  * surface its status code and body unchanged.
  */
 export async function PUT(request: Request) {
+    if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    const IAM_URL = getIamBaseUrl();
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('wahb_access_token')?.value;
 

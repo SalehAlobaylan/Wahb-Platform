@@ -1,9 +1,12 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getIamBaseUrl } from '@/lib/auth/server-config';
+import { parseTokenPair, persistTokenPair } from '@/lib/auth/token-cookies';
+import { isExactSameOrigin } from '@/lib/auth/request-policy';
 
-const IAM_URL = process.env.IAM_API_URL;
-
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  const IAM_URL = getIamBaseUrl();
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get('wahb_refresh_token')?.value;
 
@@ -18,26 +21,16 @@ export async function POST() {
   });
 
   if (!res.ok) {
-    // Refresh failed — clear cookies
-    cookieStore.delete('wahb_access_token');
-    cookieStore.delete('wahb_refresh_token');
-    cookieStore.delete('wahb_token_expires');
-    return NextResponse.json({ message: 'Session expired' }, { status: 401 });
+    // A concurrent tab may already have rotated the shared cookie pair. A
+    // losing request must never erase that newer session.
+    return NextResponse.json({ message: 'Refresh unavailable' }, { status: res.status === 401 ? 401 : 503 });
   }
 
-  const tokens = await res.json();
-  const secure = process.env.NODE_ENV === 'production';
-  const maxAge = tokens.expires_in || 3600;
-
-  cookieStore.set('wahb_access_token', tokens.access_token, {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-  });
-  cookieStore.set('wahb_refresh_token', tokens.refresh_token, {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600,
-  });
-  cookieStore.set('wahb_token_expires', String(Date.now() + maxAge * 1000), {
-    httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge,
-  });
+  const tokens = parseTokenPair(await res.json().catch(() => null));
+  if (!tokens) {
+    return NextResponse.json({ message: 'Invalid session response' }, { status: 502 });
+  }
+  persistTokenPair(cookieStore, tokens);
 
   return NextResponse.json({ success: true });
 }

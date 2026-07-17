@@ -2,11 +2,9 @@
  * Feed Scroll & Swipe Optimization Utilities
  *
  * 1. throttleScroll      — RAF-based scroll throttle (≤ 1 call / 200ms)
- * 2. TokenBucket         — rate limiter for network fetches
- * 3. SwipeSpeedDetector  — detects fast swiping, suppresses prefetch
- * 4. ProgressivePrefetch — lightweight connection hints near-visible media
- * 5. BackoffManager      — respects 429 / Retry-After from server
- * 6. AdaptiveBuffer      — limits concurrent downloads & prefetch depth
+ * 2. SwipeSpeedDetector  — detects fast swiping, suppresses prefetch
+ * 3. ProgressivePrefetch — lightweight connection hints near-visible media
+ * 4. AdaptiveBuffer      — limits concurrent downloads & prefetch depth
  */
 
 // ─── 1. Throttled Scroll ────────────────────────────────────────────────────
@@ -50,46 +48,7 @@ export function throttleScroll(
     };
 }
 
-// ─── 2. Token Bucket Rate Limiter ───────────────────────────────────────────
-
-export class TokenBucket {
-    private tokens: number;
-    private lastRefill: number;
-
-    constructor(
-        private capacity = 3,
-        private refillRate = 1, // tokens per second
-    ) {
-        this.tokens = capacity;
-        this.lastRefill = performance.now();
-    }
-
-    /** Refills tokens based on elapsed time, capped at capacity. */
-    private refill() {
-        const now = performance.now();
-        const elapsed = (now - this.lastRefill) / 1000;
-        this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillRate);
-        this.lastRefill = now;
-    }
-
-    /** Returns true and consumes a token if available. */
-    tryConsume(): boolean {
-        this.refill();
-        if (this.tokens >= 1) {
-            this.tokens -= 1;
-            return true;
-        }
-        return false;
-    }
-
-    /** Current token count (for debugging). */
-    get available() {
-        this.refill();
-        return Math.floor(this.tokens);
-    }
-}
-
-// ─── 3. Swipe Speed Detector ────────────────────────────────────────────────
+// ─── 2. Swipe Speed Detector ────────────────────────────────────────────────
 
 export class SwipeSpeedDetector {
     private timestamps: number[] = [];
@@ -141,7 +100,7 @@ export class SwipeSpeedDetector {
     }
 }
 
-// ─── 4. Progressive Prefetch ────────────────────────────────────────────────
+// ─── 3. Progressive Prefetch ────────────────────────────────────────────────
 
 /**
  * Manages lightweight connection hints for near-visible media. Avoid
@@ -200,50 +159,7 @@ export class ProgressivePrefetch {
     }
 }
 
-// ─── 5. Backoff Manager ─────────────────────────────────────────────────────
-
-/**
- * Tracks server-side rate-limiting signals (429 / Retry-After).
- * All automatic loads should call `canProceed()` before firing.
- */
-export class BackoffManager {
-    /** Timestamp (ms) until which auto-loads are paused. */
-    backoffUntil = 0;
-
-    private baseInterval = 2000; // 2s default backoff
-    private consecutiveBackoffs = 0;
-
-    /** Returns true if we are NOT in a backoff period. */
-    canProceed(): boolean {
-        return Date.now() >= this.backoffUntil;
-    }
-
-    /** Remaining wait time in ms, or 0 if not backing off. */
-    get remainingMs(): number {
-        return Math.max(0, this.backoffUntil - Date.now());
-    }
-
-    /**
-     * Call when you receive a 429 or Retry-After response.
-     * @param retryAfterSec value from Retry-After header (seconds), or undefined
-     */
-    recordThrottle(retryAfterSec?: number) {
-        this.consecutiveBackoffs += 1;
-        const wait =
-            retryAfterSec != null
-                ? retryAfterSec * 1000
-                : this.baseInterval * Math.pow(2, Math.min(this.consecutiveBackoffs - 1, 5));
-
-        this.backoffUntil = Date.now() + wait;
-    }
-
-    /** Call on a successful response to reset the backoff counter. */
-    recordSuccess() {
-        this.consecutiveBackoffs = 0;
-    }
-}
-
-// ─── 6. Adaptive Buffer Manager ─────────────────────────────────────────────
+// ─── 4. Adaptive Buffer Manager ─────────────────────────────────────────────
 
 /**
  * Limits concurrent media downloads and adjusts prefetch depth

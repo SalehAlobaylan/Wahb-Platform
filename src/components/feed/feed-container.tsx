@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 
 interface FeedContainerProps extends HTMLAttributes<HTMLDivElement> {
     children: ReactNode;
-    onScrollEnd?: () => void;
 }
 
 /**
@@ -13,7 +12,7 @@ interface FeedContainerProps extends HTMLAttributes<HTMLDivElement> {
  * Uses CSS scroll-snap for satisfying full-page transitions
  */
 export const FeedContainer = forwardRef<HTMLDivElement, FeedContainerProps>(
-    ({ children, className, onScrollEnd, ...props }, ref) => {
+    ({ children, className, ...props }, ref) => {
         return (
             <div
                 ref={ref}

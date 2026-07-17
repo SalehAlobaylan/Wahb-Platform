@@ -20,15 +20,15 @@ function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
  * now-playing store. This ensures audio continues playing even when
  * navigating between pages.
  *
- * When `videoActive` is true (the For You page's <video> is handling
- * playback), this provider keeps the <audio> source loaded but paused
+ * When For You owns playback (visual or audio-only), this provider keeps the
+ * global <audio> source loaded but paused
  * to avoid double audio. On handoff (user leaves For You), it seeks
  * to the position reported by the <video> and resumes playback.
  */
 export function NowPlayingProvider() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const lastPersistRef = useRef(0);
-    const { audioSrc, isPlaying, videoActive, seekTo, pendingSeek, stop, clearSeek, clearPendingSeek } =
+    const { audioSrc, isPlaying, playbackOwner, seekTo, pendingSeek, stop, clearSeek, clearPendingSeek } =
         useNowPlayingStore();
 
     // Sync audio source (always keep it loaded so handoff is instant).
@@ -49,9 +49,9 @@ export function NowPlayingProvider() {
     useEffect(() => {
         const flush = () => {
             const audio = audioRef.current;
-            const { currentItem, videoActive: videoOwns } =
+            const { currentItem, playbackOwner } =
                 useNowPlayingStore.getState();
-            if (!audio || !currentItem || videoOwns || audio.currentTime <= 0) return;
+            if (!audio || !currentItem || playbackOwner === 'foryou' || audio.currentTime <= 0) return;
             persistAudioPosition(audio, currentItem.id);
         };
         window.addEventListener('pagehide', flush);
@@ -72,7 +72,7 @@ export function NowPlayingProvider() {
         if (!audio || !audioSrc) return;
 
         // While the For You <video> owns playback, or we're paused, stay paused.
-        if (videoActive || !isPlaying) {
+        if (playbackOwner === 'foryou' || !isPlaying) {
             audio.pause();
             return;
         }
@@ -116,19 +116,19 @@ export function NowPlayingProvider() {
         }
 
         seekThenPlay();
-    }, [isPlaying, audioSrc, videoActive, seekTo, clearSeek]);
+    }, [isPlaying, audioSrc, playbackOwner, seekTo, clearSeek]);
 
     // RUX handoff telemetry: when For You <video> ownership ends while a track
     // is playing, the global <audio> must resume near the same position. We open
-    // a handoff journey on the true→false videoActive transition and settle it on
+    // a handoff journey on the For You→global owner transition and settle it on
     // the next audio progress (completed) or a deadline (failed).
-    const prevVideoActiveRef = useRef(videoActive);
+    const previousOwnerRef = useRef(playbackOwner);
     const handoffRef = useRef<ReturnType<typeof beginHandoff> | null>(null);
     useEffect(() => {
-        const was = prevVideoActiveRef.current;
-        prevVideoActiveRef.current = videoActive;
+        const previousOwner = previousOwnerRef.current;
+        previousOwnerRef.current = playbackOwner;
         const audio = audioRef.current;
-        if (!(was && !videoActive)) return; // only on ownership release
+        if (!(previousOwner === 'foryou' && playbackOwner === 'global')) return;
         const { currentItem } = useNowPlayingStore.getState();
         if (!audio || !currentItem || !isPlaying) return;
 
@@ -142,7 +142,7 @@ export function NowPlayingProvider() {
             audio.removeEventListener('playing', onResumed);
             clearTimeout(deadline);
         };
-    }, [videoActive, isPlaying]);
+    }, [playbackOwner, isPlaying]);
 
     // Apply a one-shot UI seek request (scrubber / skip buttons). Runs
     // regardless of play/pause state. We update the audioPlaybackTime bridge
@@ -200,8 +200,8 @@ export function NowPlayingProvider() {
     // <video> — so a reload mid-listen doesn't lose much.
     const handleTimeUpdate = () => {
         const audio = audioRef.current;
-        const { currentItem, videoActive: videoOwns } = useNowPlayingStore.getState();
-        if (!audio || !currentItem || videoOwns) return;
+        const { currentItem, playbackOwner } = useNowPlayingStore.getState();
+        if (!audio || !currentItem || playbackOwner === 'foryou') return;
 
         audioPlaybackTime.itemId = currentItem.id;
         audioPlaybackTime.time = audio.currentTime;

@@ -21,8 +21,7 @@ import { usePublishContent } from '@/lib/hooks/use-publish-content';
 import { dataUrlToBlob } from '@/lib/api/content';
 import { useTranslations } from '@/lib/i18n/use-translations';
 import { cn } from '@/lib/utils';
-
-const DRAFT_STORAGE_KEY = 'wahb_create_draft';
+import { createDraftStorageKey } from '@/lib/identity/draft-storage';
 
 interface CreateDraft {
   title: string;
@@ -50,7 +49,8 @@ function formatDraftDate(value: string) {
 export default function CreatePage() {
   const router = useRouter();
   const hasNowPlaying = Boolean(useNowPlayingStore((state) => state.currentItem));
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  const draftStorageKey = createDraftStorageKey(isAuthenticated ? user?.id : null);
   const publish = usePublishContent();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -73,8 +73,20 @@ export default function CreatePage() {
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
 
   useEffect(() => {
-    const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (!rawDraft) return;
+    const rawDraft = localStorage.getItem(draftStorageKey);
+
+    const clearDraftFields = window.setTimeout(() => {
+      setSavedDraft(null);
+      setTitle('');
+      setBody('');
+      setAudioDataUrl(null);
+      setAudioMimeType(null);
+      setAmbientReduction(true);
+      setWarmClarity(false);
+      setLastSavedAt(null);
+      setStatusMessage(null);
+    }, 0);
+    if (!rawDraft) return () => window.clearTimeout(clearDraftFields);
 
     try {
       const draft = JSON.parse(rawDraft) as CreateDraft;
@@ -90,11 +102,15 @@ export default function CreatePage() {
         setStatusMessage('Loaded your saved draft.');
       }, 0);
 
-      return () => window.clearTimeout(restoreDraft);
+      return () => {
+        window.clearTimeout(clearDraftFields);
+        window.clearTimeout(restoreDraft);
+      };
     } catch {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(draftStorageKey);
+      return () => window.clearTimeout(clearDraftFields);
     }
-  }, []);
+  }, [draftStorageKey]);
 
   useEffect(() => {
     return () => {
@@ -114,7 +130,7 @@ export default function CreatePage() {
 
   const handleSaveDraft = () => {
     const draft = buildDraft();
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    localStorage.setItem(draftStorageKey, JSON.stringify(draft));
     setSavedDraft(draft);
     setLastSavedAt(formatSavedTime(draft.updatedAt));
     setStatusMessage('Draft saved on this device.');
@@ -138,7 +154,7 @@ export default function CreatePage() {
   };
 
   const handleDeleteDraft = () => {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(draftStorageKey);
     setSavedDraft(null);
     setTitle('');
     setBody('');
@@ -227,7 +243,7 @@ export default function CreatePage() {
       });
 
       // Drop the local draft now that the item is in CMS.
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(draftStorageKey);
       setSavedDraft(null);
 
       if (result.status === 'READY') {

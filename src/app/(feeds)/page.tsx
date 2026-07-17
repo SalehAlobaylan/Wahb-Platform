@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
@@ -17,20 +17,15 @@ import { useTranslations } from '@/lib/i18n';
 import { adjustedLikeCount } from '@/lib/utils/engagement';
 import {
     throttleScroll,
-    TokenBucket,
     SwipeSpeedDetector,
     ProgressivePrefetch,
-    BackoffManager,
     AdaptiveBuffer,
 } from '@/lib/scroll-optimizer';
+import { PaginationAdmission } from '@/lib/feed-window/pagination-admission';
 import type { ContentItem } from '@/types';
 import type { ForYouDurationPreference } from '@/lib/api/feeds';
 import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
 
-// ── Module-level singletons (survive re-renders, reset on HMR) ──────────────
-const tokenBucket = new TokenBucket(3, 1);
-const backoffMgr = new BackoffManager();
-const adaptiveBuffer = new AdaptiveBuffer();
 const durationOptions: ForYouDurationPreference[] = [5, 10, 15, 20, 30, 40];
 
 function parseDurationPreference(raw: string | null): ForYouDurationPreference | null {
@@ -108,6 +103,10 @@ export default function ForYouPage() {
 
 function ForYouPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
+    const activeAnchorIdRef = useRef<string | null>(null);
+    const renderedItemIdsRef = useRef<string[]>([]);
+    const paginationAdmissionRef = useRef(new PaginationAdmission());
+    const adaptiveBufferRef = useRef(new AdaptiveBuffer());
     const router = useRouter();
     const pathname = usePathname();
     const { user, isAuthenticated } = useAuthStore();
@@ -202,6 +201,8 @@ function ForYouPageContent() {
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         if (duration) params.set('duration', String(duration));
         else params.delete('duration');
+        activeAnchorIdRef.current = null;
+        renderedItemIdsRef.current = [];
         setForYouActiveIndex(0);
         resetProgress();
         const qs = params.toString();
@@ -215,15 +216,38 @@ function ForYouPageContent() {
 
     useEffect(() => {
         if (activeItem?.id) {
+            activeAnchorIdRef.current = activeItem.id;
             setLastActiveForYouItemId(activeItem.id);
         }
     }, [activeItem?.id, setLastActiveForYouItemId]);
 
-    useEffect(() => {
-        if (forYouItems.length > 0 && forYouActiveIndex >= forYouItems.length) {
-            setForYouActiveIndex(Math.max(0, forYouItems.length - 1));
+    // TanStack may evict the first query page as it appends the next one. Keep
+    // the visible content ID as the source of truth and correct its new array
+    // position before paint; an obsolete absolute index would otherwise snap to
+    // a different card or clamp at the end of the shortened list.
+    useLayoutEffect(() => {
+        if (forYouItems.length === 0) return;
+        const itemIds = forYouItems.map((item) => item.id);
+        const windowChanged = itemIds.length !== renderedItemIdsRef.current.length ||
+            itemIds.some((id, index) => id !== renderedItemIdsRef.current[index]);
+        renderedItemIdsRef.current = itemIds;
+        if (!windowChanged) {
+            activeAnchorIdRef.current = forYouItems[forYouActiveIndex]?.id ?? activeAnchorIdRef.current;
+            return;
         }
-    }, [forYouActiveIndex, forYouItems.length, setForYouActiveIndex]);
+        const anchorId = activeAnchorIdRef.current ?? lastActiveForYouItemId;
+        const anchoredIndex = anchorId ? forYouItems.findIndex((item) => item.id === anchorId) : -1;
+        const nextIndex = anchoredIndex >= 0
+            ? anchoredIndex
+            : Math.min(Math.max(0, forYouActiveIndex), forYouItems.length - 1);
+        const container = feedRef.current;
+        if (container && container.clientHeight > 0) {
+            const targetTop = nextIndex * container.clientHeight;
+            if (Math.abs(container.scrollTop - targetTop) > 1) container.scrollTop = targetTop;
+        }
+        activeAnchorIdRef.current = forYouItems[nextIndex]?.id ?? null;
+        if (nextIndex !== forYouActiveIndex) setForYouActiveIndex(nextIndex);
+    }, [forYouActiveIndex, forYouItems, lastActiveForYouItemId, setForYouActiveIndex]);
 
     // Sync server-side interaction flags into the local sets so like/bookmark
     // icons reflect reality (e.g. interactions made in a previous session).
@@ -231,13 +255,14 @@ function ForYouPageContent() {
         if (forYouItems.length === 0) return;
         useFeedStore.getState().seedInteractions(
             forYouItems.filter((i) => i.is_liked).map((i) => i.id),
-            forYouItems.filter((i) => i.is_bookmarked).map((i) => i.id)
+            forYouItems.filter((i) => i.is_bookmarked).map((i) => i.id),
+            forYouItems.map((i) => i.id)
         );
     }, [forYouItems]);
 
     // Now Playing — register metadata so the bar shows on other pages
-    const setCurrentFromVideo = useNowPlayingStore((s) => s.setCurrentFromVideo);
-    const handoffToAudio = useNowPlayingStore((s) => s.handoffToAudio);
+    const setCurrentFromForYou = useNowPlayingStore((s) => s.setCurrentFromForYou);
+    const handoffToGlobalAudio = useNowPlayingStore((s) => s.handoffToGlobalAudio);
     const videoTimeRef = useRef(0);
     const [showSeekMenu, setShowSeekMenu] = useState(false);
     const sheetRef = useRef<DraggableBottomSheetHandle>(null);
@@ -255,7 +280,7 @@ function ForYouPageContent() {
     useEffect(() => {
         swipeDetectorRef.current = new SwipeSpeedDetector(3, 1000, 800, (fast) => {
             setFastSwiping(fast);
-            adaptiveBuffer.setFastSwiping(fast);
+            adaptiveBufferRef.current.setFastSwiping(fast);
         });
         prefetchRef.current = new ProgressivePrefetch();
 
@@ -271,10 +296,28 @@ function ForYouPageContent() {
             prefetchRef.current.update(
                 forYouActiveIndex,
                 forYouItems,
-                adaptiveBuffer.prefetchDepth
+                adaptiveBufferRef.current.prefetchDepth
             );
         }
     }, [forYouActiveIndex, forYouItems]);
+
+    const requestNextPage = useCallback(() => {
+        if (!hasNextPage) return;
+        const admission = paginationAdmissionRef.current;
+        if (admission.admit({ fastSwiping: isFastSwiping, fetching: isFetchingNextPage }) !== 'admitted') return;
+        void fetchNextPage()
+            .then((result) => {
+                if (result.isError) {
+                    const error = result.error as { status?: number; retryAfterMs?: number } | null;
+                    admission.failure(error?.status, error?.retryAfterMs);
+                } else {
+                    admission.success();
+                }
+            })
+            .catch((error: { status?: number; retryAfterMs?: number }) => {
+                admission.failure(error?.status, error?.retryAfterMs);
+            });
+    }, [fetchNextPage, hasNextPage, isFastSwiping, isFetchingNextPage]);
 
     // ── Throttled scroll handler ─────────────────────────────────────────
     const rawHandleScroll = useCallback(() => {
@@ -286,6 +329,7 @@ function ForYouPageContent() {
         const newIndex = Math.round(scrollPosition / height);
 
         if (forYouActiveIndex !== newIndex) {
+            activeAnchorIdRef.current = forYouItems[newIndex]?.id ?? null;
             setForYouActiveIndex(newIndex);
             resetProgress();
 
@@ -293,19 +337,10 @@ function ForYouPageContent() {
             swipeDetectorRef.current?.recordSwipe();
         }
 
-        // Gated infinite scroll: token bucket + backoff + fast-swipe check
+        // All automatic pagination paths share one per-query admission state.
         const nearBottom = scrollPosition + height >= scrollHeight - height * 2;
-        if (
-            nearBottom &&
-            hasNextPage &&
-            !isFetchingNextPage &&
-            !isFastSwiping &&
-            backoffMgr.canProceed() &&
-            tokenBucket.tryConsume()
-        ) {
-            fetchNextPage();
-        }
-    }, [forYouActiveIndex, setForYouActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage, isFastSwiping]);
+        if (nearBottom) requestNextPage();
+    }, [forYouActiveIndex, forYouItems, requestNextPage, setForYouActiveIndex, resetProgress]);
 
     // Wrap with throttle (fires at most once per 200ms)
     const handleScroll = useMemo(
@@ -319,10 +354,8 @@ function ForYouPageContent() {
         if (isFastSwiping || !feedRef.current || !hasNextPage || isFetchingNextPage) return;
         const { scrollTop, clientHeight, scrollHeight } = feedRef.current;
         const nearBottom = scrollTop + clientHeight >= scrollHeight - clientHeight * 2;
-        if (nearBottom && backoffMgr.canProceed() && tokenBucket.tryConsume()) {
-            fetchNextPage();
-        }
-    }, [isFastSwiping, hasNextPage, isFetchingNextPage, fetchNextPage]);
+        if (nearBottom) requestNextPage();
+    }, [isFastSwiping, hasNextPage, isFetchingNextPage, requestNextPage]);
 
     useEffect(() => {
         shouldResumeOnHandoffRef.current = !globalPaused && isPlaying;
@@ -355,9 +388,7 @@ function ForYouPageContent() {
 
         const idx = forYouItems.findIndex((item) => item.id === targetItemId);
         if (idx < 0) {
-            if (hasNextPage && !isFetchingNextPage) {
-                fetchNextPage();
-            }
+            requestNextPage();
             return;
         }
 
@@ -370,12 +401,12 @@ function ForYouPageContent() {
         if (Math.abs(feedRef.current.scrollTop - targetTop) > 2) {
             feedRef.current.scrollTo({ top: targetTop, behavior: 'smooth' });
         }
-    }, [searchParams, forYouItems, forYouActiveIndex, setForYouActiveIndex, resetProgress, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    }, [searchParams, forYouItems, forYouActiveIndex, setForYouActiveIndex, resetProgress, requestNextPage]);
 
     // Register active item with the now-playing store (metadata only, no <audio> playback)
     useEffect(() => {
         if (activeItem && getPlaybackUrl(activeItem)) {
-            setCurrentFromVideo(activeItem, !globalPaused && isPlaying);
+            setCurrentFromForYou(activeItem, !globalPaused && isPlaying);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeItem?.id, globalPaused, isPlaying]);
@@ -385,7 +416,7 @@ function ForYouPageContent() {
         return () => {
             const { currentItem } = useNowPlayingStore.getState();
             if (currentItem) {
-                handoffToAudio(videoTimeRef.current, shouldResumeOnHandoffRef.current);
+                handoffToGlobalAudio(videoTimeRef.current, shouldResumeOnHandoffRef.current);
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -562,7 +593,7 @@ function ForYouPageContent() {
                                 <ForYouCard
                                     item={item}
                                     isActive={index === forYouActiveIndex}
-                                    shouldLoadMedia={Math.abs(index - forYouActiveIndex) <= adaptiveBuffer.prefetchDepth}
+                                    shouldLoadMedia={Math.abs(index - forYouActiveIndex) <= adaptiveBufferRef.current.prefetchDepth}
                                     videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
                                 />
                             </ViewTracker>
@@ -661,6 +692,18 @@ function ForYouPageContent() {
                                 </div>
                             </button>
 
+                            {/* Create — kept in the sheet so it never obscures feed content in RTL/LTR. */}
+                            <Link
+                                href="/create"
+                                className="flex flex-col items-center gap-1"
+                                aria-label={t('create.action')}
+                            >
+                                <div className="w-10 h-10 rounded-full bg-news-accent flex items-center justify-center transition-all hover:bg-news-accent/90 active:scale-95">
+                                    <Plus className="w-5 h-5 text-white" />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground font-medium">{t('create.action')}</span>
+                            </Link>
+
                             {/* Rewind */}
                             <div ref={rewindButtonRef} className="relative">
                                 <button
@@ -724,17 +767,6 @@ function ForYouPageContent() {
                     </DraggableBottomSheet>
                 </div>
             )}
-
-            {/* ── Floating Action Button (Create/Plus) ───────────── */}
-            <div className="absolute start-4 bottom-[calc(env(safe-area-inset-bottom)+8rem)] z-40 pointer-events-auto">
-                <Link
-                    href="/create"
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-news-accent hover:bg-news-accent/90 transition-all shadow-lg shadow-black/50 active:scale-95"
-                    aria-label={t('create.action')}
-                >
-                    <Plus className="w-6 h-6 text-white" />
-                </Link>
-            </div>
         </div>
     );
 }

@@ -1,7 +1,6 @@
 import type { ContentItem } from '@/types';
 
 export const FOR_YOU_HARD_MAX_DURATION_SEC = 40 * 60;
-export const FOR_YOU_RAW_PARENT_MAX_DURATION_SEC = 30 * 60;
 
 export function getPlaybackUrl(item: Pick<ContentItem, 'playback_url' | 'media_url' | 'fallback_playback_url'>): string | undefined {
   return item.playback_url || item.media_url || item.fallback_playback_url || undefined;
@@ -26,10 +25,9 @@ export function withLegacyMediaUrl<T extends ContentItem>(item: T): T {
   return { ...item, media_url: playbackUrl };
 }
 
-export function isForYouDurationAllowed(item: Pick<ContentItem, 'duration_sec' | 'parent_id'>): boolean {
+export function isForYouDurationAllowed(item: Pick<ContentItem, 'duration_sec'>): boolean {
   if (!item.duration_sec) return true;
-  const maxDuration = item.parent_id ? FOR_YOU_HARD_MAX_DURATION_SEC : FOR_YOU_RAW_PARENT_MAX_DURATION_SEC;
-  return item.duration_sec <= maxDuration;
+  return item.duration_sec <= FOR_YOU_HARD_MAX_DURATION_SEC;
 }
 
 export function normalizeForYouFeedItem<T extends ContentItem>(item: T): T | null {

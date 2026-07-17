@@ -36,14 +36,20 @@ describe('/api/v1 proxy helpers', () => {
   it('bridges the httpOnly cookie token and strips client-supplied forwarding headers', () => {
     const headers = buildProxyRequestHeaders(new Headers({
       authorization: 'Bearer attacker-token',
+      cookie: 'wahb_refresh_token=secret; arbitrary=value',
+      origin: 'https://attacker.example',
       'x-forwarded-for': '203.0.113.1',
       'x-forwarded-host': 'evil.example',
+      'x-arbitrary-client-header': 'do-not-forward',
       'content-type': 'application/json',
     }), 'cookie-token');
 
     expect(headers.get('authorization')).toBe('Bearer cookie-token');
+    expect(headers.get('cookie')).toBeNull();
+    expect(headers.get('origin')).toBeNull();
     expect(headers.get('x-forwarded-for')).toBeNull();
     expect(headers.get('x-forwarded-host')).toBeNull();
+    expect(headers.get('x-arbitrary-client-header')).toBeNull();
     expect(headers.get('content-type')).toBe('application/json');
   });
 

@@ -7,9 +7,10 @@ import type { ContentItem } from '@/types';
 jest.mock('@/lib/hooks', () => ({
     useTranscript: jest.fn(),
     useRequestTranscription: jest.fn(),
+    useTrackingMutation: jest.fn(),
 }));
 
-import { useRequestTranscription, useTranscript } from '@/lib/hooks';
+import { useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
 jest.mock('@/lib/stores/auth-store', () => ({
@@ -18,6 +19,7 @@ jest.mock('@/lib/stores/auth-store', () => ({
 
 const mockUseTranscript = useTranscript as jest.Mock;
 const mockUseRequestTranscription = useRequestTranscription as jest.Mock;
+const mockUseTrackingMutation = useTrackingMutation as jest.Mock;
 const mockUseAuthStore = useAuthStore as unknown as jest.Mock;
 
 const mockItem: ContentItem = {
@@ -41,6 +43,7 @@ const mockItem: ContentItem = {
 
 describe('ForYouCard', () => {
     const mutate = jest.fn();
+    const trackingMutate = jest.fn();
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -61,6 +64,8 @@ describe('ForYouCard', () => {
             isError: false,
             error: null,
         });
+        trackingMutate.mockReset();
+        mockUseTrackingMutation.mockReturnValue({ mutate: trackingMutate });
     });
 
     it('renders video in fit mode by default', () => {
@@ -206,6 +211,7 @@ describe('ForYouCard', () => {
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Audio transcript fallback text.')).toBeInTheDocument();
+        expect(document.querySelector('audio')).toHaveAttribute('src', 'http://example.com/audio.mp3');
     });
 
     it('renders atomized playback_url-only video chapters', () => {
@@ -225,7 +231,41 @@ describe('ForYouCard', () => {
 
         const video = container.querySelector('video');
         expect(video).toBeInTheDocument();
-        expect(video).toHaveAttribute('src', 'http://example.com/chapter.m3u8');
+        // JSDOM has no native HLS capability, so the card must select CMS's
+        // declared MP4 fallback instead of assigning an unsupported manifest.
+        expect(video).toHaveAttribute('src', 'http://example.com/chapter.mp4');
+    });
+
+    it('advances once to the next approved playback candidate after a media error', () => {
+        const fallbackItem: ContentItem = {
+            ...mockItem,
+            playback_url: 'http://example.com/primary.mp4',
+            playback_type: 'mp4',
+            fallback_playback_url: 'http://example.com/fallback.mp4',
+        };
+        const { container } = renderWithProviders(<ForYouCard item={fallbackItem} isActive />);
+        const video = container.querySelector('video')!;
+
+        expect(video).toHaveAttribute('src', 'http://example.com/primary.mp4');
+        fireEvent.error(video);
+
+        expect(container.querySelector('video')).toHaveAttribute('src', 'http://example.com/fallback.mp4');
+    });
+
+    it('requires an explicit replay after natural end and counts each playback run once', () => {
+        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const video = container.querySelector('video')!;
+        Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 120 });
+        Object.defineProperty(video, 'duration', { configurable: true, value: 120 });
+
+        fireEvent.ended(video);
+        fireEvent.ended(video);
+        expect(trackingMutate).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(video);
+        expect(video.currentTime).toBe(0);
+        fireEvent.ended(video);
+        expect(trackingMutate).toHaveBeenCalledTimes(2);
     });
 
     it('does not fetch transcript content for inactive offscreen cards', () => {
