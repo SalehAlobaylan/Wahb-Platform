@@ -51,26 +51,28 @@ Mobile-first, max-width app shell on a black outer canvas with the red rounded-s
 
 ## Configuration
 
-| Variable | Required | Default | Purpose |
-|----------|----------|---------|---------|
-| `NEXT_PUBLIC_API_URL` | yes | http://localhost:8080/api/v1 | CMS public API base (used by the `/api/v1` proxy) |
-| `CMS_BASE_URL` | fallback | http://localhost:8080/api/v1 | Alternate CMS base if `NEXT_PUBLIC_API_URL` unset |
-| `IAM_API_URL` | for auth | http://localhost:4003/api/v1 | IAM base for register/login |
-| `NEXT_PUBLIC_IAM_BASE_URL` | no | http://localhost:4003/api/v1 | Browser-side IAM base for auth helpers that need it |
-| `NEXT_PUBLIC_USE_MOCK_DATA` | no | false | Force mock-client surfaces |
-| `NEXT_PUBLIC_ENABLE_DEBUG_MODE` | no | false | Debug UI |
+| Variable                        | Required                | Default                      | Purpose                                                                    |
+| ------------------------------- | ----------------------- | ---------------------------- | -------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`           | yes                     | http://localhost:8080/api/v1 | CMS public API base (used by the `/api/v1` proxy)                          |
+| `CMS_BASE_URL`                  | fallback                | http://localhost:8080/api/v1 | Alternate CMS base if `NEXT_PUBLIC_API_URL` unset                          |
+| `IAM_API_URL`                   | for auth                | http://localhost:4003/api/v1 | IAM base for register/login                                                |
+| `NEXT_PUBLIC_IAM_BASE_URL`      | no                      | http://localhost:4003/api/v1 | Browser-side IAM base for auth helpers that need it                        |
+| `NEXT_PUBLIC_USE_MOCK_DATA`     | no                      | false                        | Force mock-client surfaces                                                 |
+| `NEXT_PUBLIC_ENABLE_DEBUG_MODE` | no                      | false                        | Debug UI                                                                   |
+| `APPLE_APP_ID_PREFIX`           | production mobile links | —                            | 10-character Apple Team ID used by the AASA endpoint                       |
+| `ANDROID_APP_LINK_CERT_SHA256`  | production mobile links | —                            | Comma-separated release signing SHA-256 fingerprints for Android App Links |
 
 ## Scripts
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start dev server (:3000) |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript (`tsc --noEmit`) |
-| `npm test` | Jest |
-| `npm run test:watch` | Jest watch mode |
+| Command              | Purpose                     |
+| -------------------- | --------------------------- |
+| `npm run dev`        | Start dev server (:3000)    |
+| `npm run build`      | Production build            |
+| `npm run start`      | Serve the production build  |
+| `npm run lint`       | ESLint                      |
+| `npm run typecheck`  | TypeScript (`tsc --noEmit`) |
+| `npm test`           | Jest                        |
+| `npm run test:watch` | Jest watch mode             |
 
 ## Project Structure
 
