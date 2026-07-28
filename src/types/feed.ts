@@ -175,7 +175,7 @@ export interface NewsSlide {
   story?: StoryMeta;
 }
 
-export interface ForYouResponse {
+export interface PodsResponse {
   cursor: string | null;
   items: ContentItem[];
 }

@@ -22,7 +22,7 @@ interface PlaybackTelemetryInput {
  * and notifyPlayReject(err) in the play() promise .catch(). Native `playing` /
  * `waiting` / `error` are wired here — no continuous `timeupdate` telemetry.
  */
-export function usePlaybackTelemetry({ mediaElement, contentId, playbackType, surface = 'foryou' }: PlaybackTelemetryInput) {
+export function usePlaybackTelemetry({ mediaElement, contentId, playbackType, surface = 'pods' }: PlaybackTelemetryInput) {
   const journeyRef = useRef<PlaybackJourney | null>(null);
   // openRef dedups repeated attempt calls: the card has two effects that both
   // call play() on activation, but they represent ONE startup attempt. openRef

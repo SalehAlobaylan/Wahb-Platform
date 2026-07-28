@@ -1,10 +1,10 @@
 
-import { FeedRequestError, fetchForYouFeed, fetchNewsFeed } from '@/lib/api/feeds';
+import { FeedRequestError, fetchPodsFeed, fetchNewsFeed } from '@/lib/api/feeds';
 import * as mockClient from '@/lib/api/mock-client';
 
 // Mock the mock-client module
 jest.mock('@/lib/api/mock-client', () => ({
-    mockFetchForYouFeed: jest.fn(),
+    mockFetchPodsFeed: jest.fn(),
     mockFetchNewsFeed: jest.fn(),
 }));
 
@@ -25,9 +25,9 @@ describe('Feeds API', () => {
             process.env.NEXT_PUBLIC_USE_MOCK_DATA = 'true';
         });
 
-        it('fetchForYouFeed calls mockFetchForYouFeed', async () => {
-            await fetchForYouFeed();
-            expect(mockClient.mockFetchForYouFeed).toHaveBeenCalled();
+        it('fetchPodsFeed calls mockFetchPodsFeed', async () => {
+            await fetchPodsFeed();
+            expect(mockClient.mockFetchPodsFeed).toHaveBeenCalled();
         });
 
         it('fetchNewsFeed calls mockFetchNewsFeed', async () => {
@@ -47,14 +47,14 @@ describe('Feeds API', () => {
             ) as jest.Mock;
         });
 
-        it('fetchForYouFeed calls real API', async () => {
-            await fetchForYouFeed();
-            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/foryou?'));
-            expect(mockClient.mockFetchForYouFeed).not.toHaveBeenCalled();
+        it('fetchPodsFeed calls real API', async () => {
+            await fetchPodsFeed();
+            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/pods?'));
+            expect(mockClient.mockFetchPodsFeed).not.toHaveBeenCalled();
         });
 
-        it('passes duration preference to the For You API', async () => {
-            await fetchForYouFeed(null, 15);
+        it('passes duration preference to the Pods API', async () => {
+            await fetchPodsFeed(null, 15);
 
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('duration=15'));
         });
@@ -66,14 +66,14 @@ describe('Feeds API', () => {
                 headers: { get: (name: string) => name === 'retry-after' ? '3' : null },
             });
 
-            await expect(fetchForYouFeed()).rejects.toMatchObject<Partial<FeedRequestError>>({
+            await expect(fetchPodsFeed()).rejects.toMatchObject<Partial<FeedRequestError>>({
                 name: 'FeedRequestError',
                 status: 429,
                 retryAfterMs: 3_000,
             });
         });
 
-        it('normalizes playback_url-only For You items with a legacy media_url fallback', async () => {
+        it('normalizes playback_url-only Pods items with a legacy media_url fallback', async () => {
             (global.fetch as jest.Mock).mockResolvedValueOnce({
                 ok: true,
                 json: () => Promise.resolve({
@@ -89,7 +89,7 @@ describe('Feeds API', () => {
                 }),
             });
 
-            const result = await fetchForYouFeed();
+            const result = await fetchPodsFeed();
 
             expect(result.items[0]).toMatchObject({
                 playback_url: 'https://cdn.example.com/chapter.m3u8',
@@ -156,7 +156,7 @@ describe('Feeds API', () => {
                 }),
             });
 
-            const result = await fetchForYouFeed();
+            const result = await fetchPodsFeed();
 
             expect(result.items.map((item) => item.id)).toEqual([
                 'thirty-minute-parent',

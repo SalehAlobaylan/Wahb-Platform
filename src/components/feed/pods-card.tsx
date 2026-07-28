@@ -18,9 +18,9 @@ import { attachManagedHls } from '@/lib/playback/hls-adapter';
 import { playbackCapabilitiesFor, resolvePlaybackSources, type PlaybackCapabilities } from '@/lib/playback/source-resolver';
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem, TranscriptSegment } from '@/types';
-import type { ForYouDisplayMode } from '@/lib/stores/feed-store';
+import type { PodsDisplayMode } from '@/lib/stores/feed-store';
 
-interface ForYouCardProps {
+interface PodsCardProps {
     item: ContentItem;
     isActive: boolean;
     shouldLoadMedia?: boolean;
@@ -29,11 +29,11 @@ interface ForYouCardProps {
 }
 
 /**
- * Full-screen video/audio card for For You feed.
+ * Full-screen video/audio card for Pods feed.
  * Only handles media playback and content display.
  * Action buttons and bottom sheet are rendered at the page level.
  */
-export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: ForYouCardProps) {
+export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: PodsCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -62,10 +62,10 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         setPlaying,
         togglePlay,
         setProgress,
-        setForYouPlayback,
+        setPodsPlayback,
         playbackSpeed,
-        forYouDisplayMode,
-        setForYouDisplayMode,
+        podsDisplayMode,
+        setPodsDisplayMode,
     } = useFeedStore(
         useShallow((s) => ({
             isPlaying: s.isPlaying,
@@ -73,21 +73,21 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             setPlaying: s.setPlaying,
             togglePlay: s.togglePlay,
             setProgress: s.setProgress,
-            setForYouPlayback: s.setForYouPlayback,
+            setPodsPlayback: s.setPodsPlayback,
             playbackSpeed: s.playbackSpeed,
-            forYouDisplayMode: s.forYouDisplayMode,
-            setForYouDisplayMode: s.setForYouDisplayMode,
+            podsDisplayMode: s.podsDisplayMode,
+            setPodsDisplayMode: s.setPodsDisplayMode,
         }))
     );
     const [currentTime, setCurrentTime] = useState(
-        () => useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec ?? 0
+        () => useFeedStore.getState().podsPlaybackById[item.id]?.timeSec ?? 0
     );
     // RUX playback telemetry — native media events → bounded journey terminals.
     const { notifyAttempt, notifyPlayReject } = usePlaybackTelemetry({
         mediaElement: telemetryMedia,
         contentId: item.id,
         playbackType: item.playback_type,
-        surface: 'foryou',
+        surface: 'pods',
     });
     const setVideoElement = useCallback((node: HTMLVideoElement | null) => {
         videoRef.current = node;
@@ -109,7 +109,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
     const playbackUrl = playbackSource?.adapter === 'managed-hls' ? undefined : playbackSource?.url;
     const visualPlayback = isVisualPlayback(item);
     const canLoadMedia = Boolean(playbackSource && (isActive || shouldLoadMedia));
-    const effectiveDisplayMode: ForYouDisplayMode = visualPlayback ? forYouDisplayMode : 'transcript';
+    const effectiveDisplayMode: PodsDisplayMode = visualPlayback ? podsDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
     const videoFitClass = effectiveDisplayMode === 'fill' ? 'object-cover' : 'object-contain';
@@ -117,7 +117,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
     const advancePlaybackSource = useCallback(() => {
         if (playbackAttempt + 1 < playbackSources.length) {
             const next = playbackSources[playbackAttempt + 1];
-            reportPlaybackFallback({ contentId: item.id, playbackType: next.type, surface: 'foryou' });
+            reportPlaybackFallback({ contentId: item.id, playbackType: next.type, surface: 'pods' });
             setSourceAttempt({ itemId: item.id, attempt: playbackAttempt + 1, failed: false });
             return;
         }
@@ -175,7 +175,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         if (videoRef.current && videoRef.current.currentTime > 0.5) {
             return null;
         }
-        const saved = useFeedStore.getState().forYouPlaybackById[item.id];
+        const saved = useFeedStore.getState().podsPlaybackById[item.id];
         return typeof saved?.timeSec === 'number' ? saved.timeSec : null;
     }, [item.id]);
 
@@ -190,7 +190,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                     pendingResumeRef.current = resume;
                     applyTime(resume);
                 }
-                const saved = useFeedStore.getState().forYouPlaybackById[item.id];
+                const saved = useFeedStore.getState().podsPlaybackById[item.id];
                 setProgress(saved?.progress ?? 0);
             }
 
@@ -212,13 +212,13 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             if (wasActiveRef.current) {
                 const latest = latestPlaybackRef.current;
                 if (latest) {
-                    setForYouPlayback(item.id, latest.time, latest.percent);
+                    setPodsPlayback(item.id, latest.time, latest.percent);
                     lastPersistRef.current = Date.now();
                 }
             }
         }
         wasActiveRef.current = isActive;
-    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setForYouPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject]);
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setPodsPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject]);
 
     // Handle playback speed
     useEffect(() => {
@@ -253,7 +253,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             if (!isActive) return;
             const target =
                 pendingResumeRef.current ??
-                useFeedStore.getState().forYouPlaybackById[item.id]?.timeSec;
+                useFeedStore.getState().podsPlaybackById[item.id]?.timeSec;
             applyTime(target);
         };
 
@@ -272,10 +272,10 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         return () => {
             const latest = latestPlaybackRef.current;
             if (latest) {
-                setForYouPlayback(item.id, latest.time, latest.percent);
+                setPodsPlayback(item.id, latest.time, latest.percent);
             }
         };
-    }, [item.id, setForYouPlayback]);
+    }, [item.id, setPodsPlayback]);
 
     // Unmount cleanups never run on a hard refresh or tab close, so also flush
     // the exact position on pagehide (active card only — it's the one playing).
@@ -284,12 +284,12 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         const flush = () => {
             const latest = latestPlaybackRef.current;
             if (latest) {
-                setForYouPlayback(item.id, latest.time, latest.percent);
+                setPodsPlayback(item.id, latest.time, latest.percent);
             }
         };
         window.addEventListener('pagehide', flush);
         return () => window.removeEventListener('pagehide', flush);
-    }, [isActive, item.id, setForYouPlayback]);
+    }, [isActive, item.id, setPodsPlayback]);
 
     const handleTimeUpdate = () => {
         if (!videoRef.current) return;
@@ -307,16 +307,16 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         }
         latestPlaybackRef.current = { time: nextTime, percent: safePercent };
         // Persist the resume position at most once per ~5s. Previously this ran
-        // on every timeupdate (~4×/s); since forYouPlaybackById is persisted,
+        // on every timeupdate (~4×/s); since podsPlaybackById is persisted,
         // that serialized + wrote the whole store to localStorage every tick.
         const now = Date.now();
         if (now - lastPersistRef.current >= 5000) {
             lastPersistRef.current = now;
-            setForYouPlayback(item.id, nextTime, safePercent);
+            setPodsPlayback(item.id, nextTime, safePercent);
         }
     };
 
-    // Audio-only For You units are first-class playback units. They have the
+    // Audio-only Pods units are first-class playback units. They have the
     // same active-card controls, position persistence, and telemetry contract
     // as a visual card; artwork/transcript are merely the visual surface.
     const handleAudioTimeUpdate = () => {
@@ -336,7 +336,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
         const now = Date.now();
         if (now - lastPersistRef.current >= 5000) {
             lastPersistRef.current = now;
-            setForYouPlayback(item.id, nextTime, percent);
+            setPodsPlayback(item.id, nextTime, percent);
         }
     };
 
@@ -356,12 +356,12 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             completedRef.current = false;
             media.currentTime = 0;
             latestPlaybackRef.current = { time: 0, percent: 0 };
-            setForYouPlayback(item.id, 0, 0);
+            setPodsPlayback(item.id, 0, 0);
             setProgress(0);
             if (videoTimeRef) videoTimeRef.current = 0;
         }
         togglePlay();
-    }, [item.id, setForYouPlayback, setProgress, togglePlay, videoTimeRef, visualPlayback]);
+    }, [item.id, setPodsPlayback, setProgress, togglePlay, videoTimeRef, visualPlayback]);
 
     useEffect(() => {
         // Completion is per natural playback run. A newly active card that
@@ -506,7 +506,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             {isActive && (
                 <DisplayModeSelector
                     mode={effectiveDisplayMode}
-                    onChange={setForYouDisplayMode}
+                    onChange={setPodsDisplayMode}
                 />
             )}
 
@@ -519,7 +519,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
                 <div className="flex items-center gap-2">
                     <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-news-accent/90 text-white backdrop-blur-md flex items-center gap-1">
                         <Headphones className="w-3 h-3" />
-                        {item.type === 'PODCAST' ? t('foryou.badge.podcast') : t('foryou.badge.audio')}
+                        {item.type === 'PODCAST' ? t('pods.badge.podcast') : t('pods.badge.audio')}
                     </span>
                     {item.source_name && (
                         <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase border border-white/30 text-white/90 backdrop-blur-sm">
@@ -574,7 +574,7 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
             {isActive && globalPaused && !renderTranscriptSurface && (
                 <div className="absolute top-20 start-4 z-10 pointer-events-none">
                     <span className="px-2.5 py-1 rounded-full bg-black/55 border border-white/15 text-white/90 text-[11px] font-semibold tracking-wide">
-                        {t('foryou.paused')}
+                        {t('pods.paused')}
                     </span>
                 </div>
             )}
@@ -583,27 +583,27 @@ export function ForYouCard({ item, isActive, shouldLoadMedia = false, videoTimeR
 }
 
 const DISPLAY_MODES: Array<{
-    mode: ForYouDisplayMode;
+    mode: PodsDisplayMode;
     label: string;
     icon: typeof Minimize2;
 }> = [
-    { mode: 'fit', label: 'foryou.display.fit', icon: Minimize2 },
-    { mode: 'fill', label: 'foryou.display.fill', icon: Maximize2 },
-    { mode: 'transcript', label: 'foryou.display.transcript', icon: FileText },
+    { mode: 'fit', label: 'pods.display.fit', icon: Minimize2 },
+    { mode: 'fill', label: 'pods.display.fill', icon: Maximize2 },
+    { mode: 'transcript', label: 'pods.display.transcript', icon: FileText },
 ];
 
 function DisplayModeSelector({
     mode,
     onChange,
 }: {
-    mode: ForYouDisplayMode;
-    onChange: (mode: ForYouDisplayMode) => void;
+    mode: PodsDisplayMode;
+    onChange: (mode: PodsDisplayMode) => void;
 }) {
     const t = useTranslations();
     return (
         <div
             className="absolute end-4 top-24 z-20 rounded-full border border-white/15 bg-black/45 p-1 shadow-lg backdrop-blur-md"
-            aria-label={t('foryou.display.label')}
+            aria-label={t('pods.display.label')}
             onClick={(event) => event.stopPropagation()}
         >
             <div className="flex flex-col gap-1">
@@ -715,7 +715,7 @@ function TranscriptSurface({
             {!isPlaying && (
                 <div className="pointer-events-none absolute bottom-24 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-md">
                     <PauseCircle className="h-4 w-4 text-news-accent" />
-                    {t('foryou.paused')}
+                    {t('pods.paused')}
                 </div>
             )}
         </div>
@@ -912,11 +912,11 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                 setMessage(res.message);
             } else {
                 setState('pending');
-                setMessage(t('foryou.archived.requested'));
+                setMessage(t('pods.archived.requested'));
             }
         } catch (err) {
             setState('error');
-            setMessage(err instanceof Error ? err.message : t('foryou.archived.failed'));
+            setMessage(err instanceof Error ? err.message : t('pods.archived.failed'));
         } finally {
             setRequesting(false);
         }
@@ -931,9 +931,9 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                 <div className="rounded-full bg-white/10 p-4">
                     <Archive className="h-10 w-10 text-white/80" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">{t('foryou.archived.title')}</h3>
+                <h3 className="text-lg font-semibold text-white">{t('pods.archived.title')}</h3>
                 <p className="max-w-xs text-sm text-white/70">
-                    {state === 'idle' && t('foryou.archived.tap')}
+                    {state === 'idle' && t('pods.archived.tap')}
                     {state === 'pending' && message}
                     {state === 'throttled' && message}
                     {state === 'error' && message}
@@ -945,13 +945,13 @@ function ArchivedOverlay({ item }: { item: ContentItem }) {
                     className="rounded-full bg-white/15 px-5 py-2 text-sm font-semibold text-white hover:bg-white/25 disabled:opacity-50"
                 >
                     {requesting ? (
-                        <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {t('foryou.archived.requesting')}</span>
+                        <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {t('pods.archived.requesting')}</span>
                     ) : state === 'pending' ? (
-                        t('foryou.archived.restoreQueued')
+                        t('pods.archived.restoreQueued')
                     ) : state === 'throttled' ? (
-                        t('foryou.archived.already')
+                        t('pods.archived.already')
                     ) : (
-                        t('foryou.archived.restore')
+                        t('pods.archived.restore')
                     )}
                 </button>
             </div>

@@ -1,6 +1,6 @@
 import type { ContentItem } from '@/types';
 
-export const FOR_YOU_HARD_MAX_DURATION_SEC = 40 * 60;
+export const PODS_HARD_MAX_DURATION_SEC = 40 * 60;
 
 export function getPlaybackUrl(item: Pick<ContentItem, 'playback_url' | 'media_url' | 'fallback_playback_url'>): string | undefined {
   return item.playback_url || item.media_url || item.fallback_playback_url || undefined;
@@ -25,12 +25,12 @@ export function withLegacyMediaUrl<T extends ContentItem>(item: T): T {
   return { ...item, media_url: playbackUrl };
 }
 
-export function isForYouDurationAllowed(item: Pick<ContentItem, 'duration_sec'>): boolean {
+export function isPodsDurationAllowed(item: Pick<ContentItem, 'duration_sec'>): boolean {
   if (!item.duration_sec) return true;
-  return item.duration_sec <= FOR_YOU_HARD_MAX_DURATION_SEC;
+  return item.duration_sec <= PODS_HARD_MAX_DURATION_SEC;
 }
 
-export function normalizeForYouFeedItem<T extends ContentItem>(item: T): T | null {
-  if (!isForYouDurationAllowed(item)) return null;
+export function normalizePodsFeedItem<T extends ContentItem>(item: T): T | null {
+  if (!isPodsDurationAllowed(item)) return null;
   return withLegacyMediaUrl(item);
 }

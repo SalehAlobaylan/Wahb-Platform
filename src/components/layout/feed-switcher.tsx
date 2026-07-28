@@ -7,7 +7,7 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
 
-type FeedType = 'foryou' | 'news' | 'saved';
+type FeedType = 'pods' | 'news' | 'saved';
 
 interface NewsWindowOption {
     value: string;
@@ -43,7 +43,7 @@ export function FeedSwitcher({
     const activeFeed: FeedType = value ?? (
         pathname === '/news' ? 'news' :
             pathname === '/saved' ? 'saved' :
-                'foryou'
+                'pods'
     );
 
     const handleClick = (feed: FeedType) => {
@@ -55,7 +55,7 @@ export function FeedSwitcher({
     const hasWindowMenu = Boolean(newsWindowOptions && newsWindowOptions.length > 0 && onNewsWindowChange);
 
     const tabs: { key: FeedType; label: string; href: string }[] = [
-        { key: 'foryou', label: t('feeds.foryou'), href: '/' },
+        { key: 'pods', label: t('feeds.pods'), href: '/' },
         { key: 'news', label: t('feeds.news'), href: '/news' },
         { key: 'saved', label: t('feeds.saved'), href: '/saved' },
     ];

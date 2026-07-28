@@ -7,7 +7,7 @@ import { identityCacheKey } from '@/lib/identity/identity-key';
 
 /**
  * Infinite-query hook for the authenticated user's liked content. Returns the
- * same ForYouResponse envelope as bookmarks, so the Likes tab reuses the shared
+ * same PodsResponse envelope as bookmarks, so the Likes tab reuses the shared
  * saved-row UI. Unlike is handled optimistically via useLikeMutation.
  */
 export function useMyLikes() {

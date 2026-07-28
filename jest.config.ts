@@ -13,7 +13,7 @@ const customJestConfig = {
     modulePathIgnorePatterns: ['<rootDir>/.next/'],
     testPathIgnorePatterns: ['<rootDir>/tests/e2e/'],
     moduleNameMapper: {
-        // Handle module aliases (this will be automatically configured for you soon)
+        // Handle module aliases (this will be automatically configured pods soon)
         '^@/(.*)$': '<rootDir>/src/$1',
     },
 };

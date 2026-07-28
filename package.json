@@ -1,7 +1,7 @@
 {
   "name": "wahb-platform",
   "version": "0.1.0",
-  "description": "Mobile-first social platform with audio-first MP4 For You feed and magazine-style News feed",
+  "description": "Mobile-first social platform with audio-first MP4 Pods feed and magazine-style News feed",
   "private": true,
   "engines": {
     "node": ">=22 <23",

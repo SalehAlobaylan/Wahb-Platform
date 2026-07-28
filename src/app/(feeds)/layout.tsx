@@ -7,7 +7,7 @@ interface FeedsLayoutProps {
 }
 
 /**
- * Shared layout for feed pages (For You and News)
+ * Shared layout for feed pages (Pods and News)
  * Provides full-screen container for snap-scroll feeds
  */
 export default function FeedsLayout({ children }: FeedsLayoutProps) {

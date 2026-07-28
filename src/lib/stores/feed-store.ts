@@ -7,23 +7,23 @@ import {
   type PlaybackProgress,
 } from '@/lib/feed-window/progress-cache';
 
-export type ForYouDisplayMode = 'fit' | 'fill' | 'transcript';
+export type PodsDisplayMode = 'fit' | 'fill' | 'transcript';
 export type InteractionKind = 'like' | 'bookmark';
 
 interface FeedState {
   // Active feed state
-  forYouActiveIndex: number;
+  podsActiveIndex: number;
   newsActiveIndex: number;
   isPlaying: boolean;
   globalPaused: boolean;
   playbackSpeed: number;
-  forYouDisplayMode: ForYouDisplayMode;
+  podsDisplayMode: PodsDisplayMode;
   // When a News story has no real post image, the hero shows only a small source
   // logo. This persisted preference lets the reader expand it to a larger view.
   newsSourceImageExpanded: boolean;
   progress: number;
-  forYouPlaybackById: Record<string, PlaybackProgress>;
-  lastActiveForYouItemId: string | null;
+  podsPlaybackById: Record<string, PlaybackProgress>;
+  lastActivePodsItemId: string | null;
 
   // Scroll optimization
   isFastSwiping: boolean;
@@ -33,16 +33,16 @@ interface FeedState {
   likedIds: Set<string>;
 
   // Actions
-  setForYouActiveIndex: (index: number) => void;
+  setPodsActiveIndex: (index: number) => void;
   setNewsActiveIndex: (index: number) => void;
   togglePlay: () => void;
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
-  setForYouDisplayMode: (mode: ForYouDisplayMode) => void;
+  setPodsDisplayMode: (mode: PodsDisplayMode) => void;
   setNewsSourceImageExpanded: (expanded: boolean) => void;
   setProgress: (progress: number) => void;
-  setForYouPlayback: (id: string, timeSec: number, progress: number) => void;
-  setLastActiveForYouItemId: (id: string | null) => void;
+  setPodsPlayback: (id: string, timeSec: number, progress: number) => void;
+  setLastActivePodsItemId: (id: string | null) => void;
   toggleBookmark: (id: string) => void;
   toggleLike: (id: string) => void;
   /** Apply authoritative flags for the content ids present in a response. */
@@ -65,16 +65,16 @@ export const useFeedStore = create<FeedState>()(
   persist(
     (set, get) => ({
       // Initial state
-      forYouActiveIndex: 0,
+      podsActiveIndex: 0,
       newsActiveIndex: 0,
       isPlaying: true,
       globalPaused: false,
       playbackSpeed: 1.0,
-      forYouDisplayMode: 'fit',
+      podsDisplayMode: 'fit',
       newsSourceImageExpanded: false,
       progress: 0,
-      forYouPlaybackById: {},
-      lastActiveForYouItemId: null,
+      podsPlaybackById: {},
+      lastActivePodsItemId: null,
       isFastSwiping: false,
       bookmarkedIds: new Set<string>(),
       likedIds: new Set<string>(),
@@ -83,7 +83,7 @@ export const useFeedStore = create<FeedState>()(
       nextInteractionAttempt: 1,
 
       // Actions
-      setForYouActiveIndex: (index) => set({ forYouActiveIndex: index }),
+      setPodsActiveIndex: (index) => set({ podsActiveIndex: index }),
 
       setNewsActiveIndex: (index) => set({ newsActiveIndex: index }),
 
@@ -99,18 +99,18 @@ export const useFeedStore = create<FeedState>()(
 
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
-      setForYouDisplayMode: (mode) => set({ forYouDisplayMode: mode }),
+      setPodsDisplayMode: (mode) => set({ podsDisplayMode: mode }),
 
       setNewsSourceImageExpanded: (expanded) => set({ newsSourceImageExpanded: expanded }),
 
       setProgress: (progress) => set({ progress }),
 
-      setForYouPlayback: (id, timeSec, progress) =>
+      setPodsPlayback: (id, timeSec, progress) =>
         set((state) => ({
-          forYouPlaybackById: writeRecentPlayback(state.forYouPlaybackById, id, timeSec, progress),
+          podsPlaybackById: writeRecentPlayback(state.podsPlaybackById, id, timeSec, progress),
         })),
 
-      setLastActiveForYouItemId: (id) => set({ lastActiveForYouItemId: id }),
+      setLastActivePodsItemId: (id) => set({ lastActivePodsItemId: id }),
 
       setFastSwiping: (fast) => set({ isFastSwiping: fast }),
 
@@ -141,9 +141,9 @@ export const useFeedStore = create<FeedState>()(
       resetInteractionState: () => set((state) => ({
         likedIds: new Set<string>(),
         bookmarkedIds: new Set<string>(),
-        forYouPlaybackById: {},
-        lastActiveForYouItemId: null,
-        forYouActiveIndex: 0,
+        podsPlaybackById: {},
+        lastActivePodsItemId: null,
+        podsActiveIndex: 0,
         newsActiveIndex: 0,
         progress: 0,
         identityGeneration: state.identityGeneration + 1,
@@ -197,10 +197,10 @@ export const useFeedStore = create<FeedState>()(
       migrate: (persistedState) => migrateFeedPersistedState(persistedState) as unknown as FeedState,
       partialize: (state) => ({
         playbackSpeed: state.playbackSpeed,
-        forYouDisplayMode: state.forYouDisplayMode,
+        podsDisplayMode: state.podsDisplayMode,
         newsSourceImageExpanded: state.newsSourceImageExpanded,
-        forYouPlaybackById: state.forYouPlaybackById,
-        lastActiveForYouItemId: state.lastActiveForYouItemId,
+        podsPlaybackById: state.podsPlaybackById,
+        lastActivePodsItemId: state.lastActivePodsItemId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -208,7 +208,7 @@ export const useFeedStore = create<FeedState>()(
           // values so they cannot cross an account or anonymous-session boundary.
           state.bookmarkedIds = new Set<string>();
           state.likedIds = new Set<string>();
-          state.forYouPlaybackById = pruneRecentPlayback(state.forYouPlaybackById);
+          state.podsPlaybackById = pruneRecentPlayback(state.podsPlaybackById);
         }
       },
     }

@@ -1,7 +1,7 @@
 
 import { ContentItem, NewsSlide } from '@/types';
 
-export const MOCK_FORYOU_ITEMS: ContentItem[] = [
+export const MOCK_PODS_ITEMS: ContentItem[] = [
     {
         id: '1',
         type: 'VIDEO',
@@ -247,4 +247,3 @@ export const MOCK_NEWS_SLIDES: NewsSlide[] = [
         ],
     },
 ];
-

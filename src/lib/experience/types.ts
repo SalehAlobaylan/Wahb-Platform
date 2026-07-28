@@ -13,7 +13,7 @@
 export const RUX_SCHEMA_VERSION = 1 as const;
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
-export const RUX_SURFACES = ['foryou', 'news'] as const;
+export const RUX_SURFACES = ['pods', 'news'] as const;
 export type RuxSurface = (typeof RUX_SURFACES)[number];
 
 // ── Event catalog (V1, fixed — no arbitrary custom events) ───────────────────
@@ -27,7 +27,7 @@ export const RUX_EVENT_TYPES = [
   'pagination_requested',
   'pagination_received',
   'pagination_starved',
-  // playback (For You + global audio)
+  // playback (Pods + global audio)
   'playback_attempted',
   'playback_started',
   'playback_waiting',

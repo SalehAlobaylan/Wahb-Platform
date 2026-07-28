@@ -16,8 +16,8 @@ describe('auth identity transitions', () => {
     useFeedStore.setState({
       likedIds: new Set(),
       bookmarkedIds: new Set(),
-      forYouPlaybackById: {},
-      lastActiveForYouItemId: null,
+      podsPlaybackById: {},
+      lastActivePodsItemId: null,
       identityGeneration: 0,
       interactionAttempts: {},
     });
@@ -26,15 +26,15 @@ describe('auth identity transitions', () => {
   it('clears anonymous/private feed state before the first authenticated identity', () => {
     useFeedStore.setState({
       likedIds: new Set(['anonymous-like']),
-      forYouPlaybackById: { item: { timeSec: 12, progress: 10, updatedAt: Date.now() } },
-      lastActiveForYouItemId: 'item',
+      podsPlaybackById: { item: { timeSec: 12, progress: 10, updatedAt: Date.now() } },
+      lastActivePodsItemId: 'item',
     });
 
     useAuthStore.getState().setUser(user('account-a'));
 
     expect(useFeedStore.getState().likedIds).toEqual(new Set());
-    expect(useFeedStore.getState().forYouPlaybackById).toEqual({});
-    expect(useFeedStore.getState().lastActiveForYouItemId).toBeNull();
+    expect(useFeedStore.getState().podsPlaybackById).toEqual({});
+    expect(useFeedStore.getState().lastActivePodsItemId).toBeNull();
   });
 
   it('invalidates stale optimistic work when a different account replaces the current one', () => {

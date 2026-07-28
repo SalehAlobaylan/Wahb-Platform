@@ -1,6 +1,6 @@
 
 import type {
-  ForYouResponse,
+  PodsResponse,
   NewsResponse,
   NewsSlide,
   ContentItem,
@@ -15,7 +15,7 @@ import type {
   NewsWindow,
 } from '@/types';
 import {
-  mockFetchForYouFeed,
+  mockFetchPodsFeed,
   mockFetchNewsFeed,
   mockFetchContentItem,
   mockRecordInteraction,
@@ -26,10 +26,10 @@ import {
 } from './mock-client';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { getAnonymousSessionId } from '@/lib/identity/session';
-import { normalizeForYouFeedItem, withLegacyMediaUrl } from '@/lib/utils/playback';
+import { normalizePodsFeedItem, withLegacyMediaUrl } from '@/lib/utils/playback';
 
 const API_BASE = '/api/v1';
-export type ForYouDurationPreference = 5 | 10 | 15 | 20 | 30 | 40;
+export type PodsDurationPreference = 5 | 10 | 15 | 20 | 30 | 40;
 
 /** Bounded transport signal consumed by feed pagination admission. */
 export class FeedRequestError extends Error {
@@ -85,7 +85,7 @@ function getIdentityBody(): Record<string, string> {
 
 /**
  * Fetch the authenticated user's own content (PODCAST or ARTICLE).
- * Hits CMS /api/v1/content/mine. Cursor pagination matches the For You feed.
+ * Hits CMS /api/v1/content/mine. Cursor pagination matches the Pods feed.
  */
 export interface MyContentItem {
   id: string;
@@ -128,11 +128,11 @@ export async function fetchMyContent(
 }
 
 /**
- * Fetch For You feed items
+ * Fetch Pods feed items
  */
-export async function fetchForYouFeed(cursor?: string | null, duration?: ForYouDurationPreference | null): Promise<ForYouResponse> {
+export async function fetchPodsFeed(cursor?: string | null, duration?: PodsDurationPreference | null): Promise<PodsResponse> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-    return mockFetchForYouFeed(cursor);
+    return mockFetchPodsFeed(cursor);
   }
 
   const params = getIdentityParams();
@@ -141,17 +141,17 @@ export async function fetchForYouFeed(cursor?: string | null, duration?: ForYouD
   params.set('limit', '20');
   params.set('exclude_seen', 'true');
 
-  const response = await fetch(`${API_BASE}/feed/foryou?${params}`);
+  const response = await fetch(`${API_BASE}/feed/pods?${params}`);
 
   if (!response.ok) {
-    throw new FeedRequestError('For You feed request failed', response.status, retryAfterMs(response.headers.get('retry-after')));
+    throw new FeedRequestError('Pods feed request failed', response.status, retryAfterMs(response.headers.get('retry-after')));
   }
 
   const data = await response.json();
   const payload = data.data || data;
   return {
     ...payload,
-    items: (payload.items || []).map(normalizeForYouFeedItem).filter(isContentItem),
+    items: (payload.items || []).map(normalizePodsFeedItem).filter(isContentItem),
   };
 }
 
@@ -408,7 +408,7 @@ export async function removeInteraction(
 /**
  * Fetch user's bookmarked items
  */
-export type BookmarkFeedFilter = 'all' | 'foryou' | 'news';
+export type BookmarkFeedFilter = 'all' | 'pods' | 'news';
 export type BookmarkSort = 'saved_desc' | 'saved_asc';
 
 export interface FetchBookmarksOptions {
@@ -418,7 +418,7 @@ export interface FetchBookmarksOptions {
   q?: string;
 }
 
-export async function fetchBookmarks(options: FetchBookmarksOptions = {}): Promise<ForYouResponse> {
+export async function fetchBookmarks(options: FetchBookmarksOptions = {}): Promise<PodsResponse> {
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
     return mockFetchBookmarks(options.cursor);
   }
@@ -442,9 +442,9 @@ export async function fetchBookmarks(options: FetchBookmarksOptions = {}): Promi
 
 /**
  * Fetch the current user's liked content, newest-like first. Mirrors the
- * bookmarks endpoint shape (ForYouResponse) so it can reuse the same row UI.
+ * bookmarks endpoint shape (PodsResponse) so it can reuse the same row UI.
  */
-export async function fetchMyLikes(cursor?: string | null): Promise<ForYouResponse> {
+export async function fetchMyLikes(cursor?: string | null): Promise<PodsResponse> {
   const params = getIdentityParams();
   if (cursor) params.set('cursor', cursor);
   params.set('limit', '20');

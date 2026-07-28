@@ -35,7 +35,7 @@ const NEWS_WINDOW_OPTIONS: Array<{ value: NewsWindow; labelKey: string }> = [
 
 export default function NewsPage() {
     // useSearchParams must live under a Suspense boundary (same pattern as the
-    // For You page).
+    // Pods page).
     return (
         <Suspense
             fallback={
@@ -221,7 +221,7 @@ function NewsPageContent() {
         if (scrollPosition + height >= scrollHeight - height * 5) requestNextPage();
     }, [newsActiveIndex, newsSlides, requestNextPage, setNewsActiveIndex, resetProgress]);
 
-    // Throttle to at most once per 200 ms (matches the For You feed) so we don't
+    // Throttle to at most once per 200 ms (matches the Pods feed) so we don't
     // read layout / force a reflow on every scroll frame during snap scrolling.
     // The throttled wrapper is built inside an effect (never at render) and
     // delegates to the latest rawHandleScroll via a ref, so the stable

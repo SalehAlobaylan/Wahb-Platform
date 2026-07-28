@@ -1,6 +1,6 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test-utils';
-import { ForYouCard } from '@/components/feed/for-you-card';
+import { PodsCard } from '@/components/feed/pods-card';
 import { useFeedStore } from '@/lib/stores';
 import type { ContentItem } from '@/types';
 
@@ -41,7 +41,7 @@ const mockItem: ContentItem = {
     is_bookmarked: false,
 };
 
-describe('ForYouCard', () => {
+describe('PodsCard', () => {
     const mutate = jest.fn();
     const trackingMutate = jest.fn();
 
@@ -52,8 +52,8 @@ describe('ForYouCard', () => {
             globalPaused: false,
             playbackSpeed: 1,
             progress: 0,
-            forYouDisplayMode: 'fit',
-            forYouPlaybackById: {},
+            podsDisplayMode: 'fit',
+            podsPlaybackById: {},
         });
         mockUseAuthStore.mockReturnValue({ isAuthenticated: false });
         mockUseTranscript.mockReturnValue({ data: null, isLoading: false, error: null });
@@ -69,7 +69,7 @@ describe('ForYouCard', () => {
     });
 
     it('renders video in fit mode by default', () => {
-        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={mockItem} isActive />);
 
         expect(screen.getByText('Test Video Title')).toBeInTheDocument();
         expect(screen.getByText('Test Source')).toBeInTheDocument();
@@ -77,15 +77,15 @@ describe('ForYouCard', () => {
     });
 
     it('renders video in fill mode when selected', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'fill' });
+        useFeedStore.setState({ podsDisplayMode: 'fill' });
 
-        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={mockItem} isActive />);
 
         expect(container.querySelector('video')).toHaveClass('object-cover');
     });
 
     it('renders timestamped transcript as a live-caption surface while keeping the video mounted', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
         mockUseTranscript.mockReturnValue({
             data: {
                 id: 'transcript-1',
@@ -102,7 +102,7 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={mockItem} isActive />);
 
         expect(screen.getByTestId('transcript-surface')).toBeInTheDocument();
         expect(screen.getByText('Live Transcript')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('ForYouCard', () => {
     });
 
     it('updates the active caption segment from video time updates', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
         mockUseTranscript.mockReturnValue({
             data: {
                 id: 'transcript-1',
@@ -132,7 +132,7 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={mockItem} isActive />);
         const video = container.querySelector('video')!;
 
         Object.defineProperty(video, 'currentTime', { configurable: true, value: 3 });
@@ -144,7 +144,7 @@ describe('ForYouCard', () => {
     });
 
     it('falls back to reader mode when transcript has no timestamped segments', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
         mockUseTranscript.mockReturnValue({
             data: {
                 id: 'transcript-1',
@@ -157,14 +157,14 @@ describe('ForYouCard', () => {
             error: null,
         });
 
-        renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        renderWithProviders(<PodsCard item={mockItem} isActive />);
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Plain full transcript without timestamps.')).toBeInTheDocument();
     });
 
     it('renders a safe no-transcript state', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
         const itemWithoutTranscript: ContentItem = {
             ...mockItem,
             transcript_id: undefined,
@@ -172,14 +172,14 @@ describe('ForYouCard', () => {
             excerpt: undefined,
         };
 
-        renderWithProviders(<ForYouCard item={itemWithoutTranscript} isActive />);
+        renderWithProviders(<PodsCard item={itemWithoutTranscript} isActive />);
 
         expect(screen.getByText('No transcript available')).toBeInTheDocument();
         expect(screen.getByText('Sign in to generate a transcript')).toBeInTheDocument();
     });
 
     it('can trigger transcript generation from the empty state', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
         mockUseAuthStore.mockReturnValue({ isAuthenticated: true });
         const itemWithoutTranscript: ContentItem = {
             ...mockItem,
@@ -188,7 +188,7 @@ describe('ForYouCard', () => {
             excerpt: undefined,
         };
 
-        renderWithProviders(<ForYouCard item={itemWithoutTranscript} isActive />);
+        renderWithProviders(<PodsCard item={itemWithoutTranscript} isActive />);
         fireEvent.click(screen.getByRole('button', { name: 'Generate Transcript' }));
 
         expect(mutate).toHaveBeenCalledWith('test-1');
@@ -207,7 +207,7 @@ describe('ForYouCard', () => {
             body_text: 'Audio transcript fallback text.',
         };
 
-        renderWithProviders(<ForYouCard item={audioOnlyItem} isActive />);
+        renderWithProviders(<PodsCard item={audioOnlyItem} isActive />);
 
         expect(screen.getByTestId('transcript-reader')).toBeInTheDocument();
         expect(screen.getByText('Audio transcript fallback text.')).toBeInTheDocument();
@@ -227,7 +227,7 @@ describe('ForYouCard', () => {
             chapter_index: 0,
         };
 
-        const { container } = renderWithProviders(<ForYouCard item={chapterItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={chapterItem} isActive />);
 
         const video = container.querySelector('video');
         expect(video).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('ForYouCard', () => {
             playback_type: 'mp4',
             fallback_playback_url: 'http://example.com/fallback.mp4',
         };
-        const { container } = renderWithProviders(<ForYouCard item={fallbackItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={fallbackItem} isActive />);
         const video = container.querySelector('video')!;
 
         expect(video).toHaveAttribute('src', 'http://example.com/primary.mp4');
@@ -253,7 +253,7 @@ describe('ForYouCard', () => {
     });
 
     it('requires an explicit replay after natural end and counts each playback run once', () => {
-        const { container } = renderWithProviders(<ForYouCard item={mockItem} isActive />);
+        const { container } = renderWithProviders(<PodsCard item={mockItem} isActive />);
         const video = container.querySelector('video')!;
         Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 120 });
         Object.defineProperty(video, 'duration', { configurable: true, value: 120 });
@@ -269,9 +269,9 @@ describe('ForYouCard', () => {
     });
 
     it('does not fetch transcript content for inactive offscreen cards', () => {
-        useFeedStore.setState({ forYouDisplayMode: 'transcript' });
+        useFeedStore.setState({ podsDisplayMode: 'transcript' });
 
-        renderWithProviders(<ForYouCard item={mockItem} isActive={false} />);
+        renderWithProviders(<PodsCard item={mockItem} isActive={false} />);
 
         expect(mockUseTranscript).not.toHaveBeenCalled();
         expect(screen.queryByText('Transcript')).not.toBeInTheDocument();

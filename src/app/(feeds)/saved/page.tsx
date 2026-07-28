@@ -8,18 +8,18 @@ import { useFeedStore } from '@/lib/stores';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
-import { ArticleReader, ForYouCard } from '@/components/feed';
-import { SavedList, isForYouItem } from '@/components/saved';
+import { ArticleReader, PodsCard } from '@/components/feed';
+import { SavedList, isPodsItem } from '@/components/saved';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/lib/i18n';
 import { flattenPages } from '@/lib/utils/pages';
 import type { BookmarkSort } from '@/lib/api/feeds';
 import type { ContentItem } from '@/types';
 
-type SavedFeed = 'foryou' | 'news';
+type SavedFeed = 'pods' | 'news';
 
 const SAVED_FEEDS: Array<{ key: SavedFeed; labelKey: string }> = [
-    { key: 'foryou', labelKey: 'saved.tabs.foryou' },
+    { key: 'pods', labelKey: 'saved.tabs.pods' },
     { key: 'news', labelKey: 'saved.tabs.news' },
 ];
 
@@ -53,17 +53,17 @@ function SavedHeader() {
 
 function SavedFeedTabs({
     activeFeed,
-    forYouCount,
+    podsCount,
     newsCount,
     onChange,
 }: {
     activeFeed: SavedFeed;
-    forYouCount: number;
+    podsCount: number;
     newsCount: number;
     onChange: (feed: SavedFeed) => void;
 }) {
     const t = useTranslations();
-    const counts: Record<SavedFeed, number> = { foryou: forYouCount, news: newsCount };
+    const counts: Record<SavedFeed, number> = { pods: podsCount, news: newsCount };
     return (
         <div className="grid grid-cols-2 rounded-xl border border-border bg-muted/40 p-1">
             {SAVED_FEEDS.map((feed) => {
@@ -139,13 +139,13 @@ function SavedEmptyState({
     const t = useTranslations();
     const title = hasSearch
         ? t('saved.empty.search.title')
-        : activeFeed === 'foryou'
-            ? t('saved.empty.foryou.title')
+        : activeFeed === 'pods'
+            ? t('saved.empty.pods.title')
             : t('saved.empty.news.title');
     const body = hasSearch
         ? t('saved.empty.search.body')
-        : activeFeed === 'foryou'
-            ? t('saved.empty.foryou.body')
+        : activeFeed === 'pods'
+            ? t('saved.empty.pods.body')
             : t('saved.empty.news.body');
 
     return (
@@ -188,7 +188,7 @@ function SavedPlaybackOverlay({
 
     return (
         <div className="fixed inset-0 z-50 bg-black">
-            <ForYouCard item={item} isActive />
+            <PodsCard item={item} isActive />
             <button
                 type="button"
                 onClick={onClose}
@@ -202,7 +202,7 @@ function SavedPlaybackOverlay({
 }
 
 export default function SavedPage() {
-    const [activeFeed, setActiveFeed] = useState<SavedFeed>('foryou');
+    const [activeFeed, setActiveFeed] = useState<SavedFeed>('pods');
     const [sort, setSort] = useState<BookmarkSort>('saved_desc');
     const [search, setSearch] = useState('');
     const [selectedArticle, setSelectedArticle] = useState<ContentItem | null>(null);
@@ -211,14 +211,14 @@ export default function SavedPage() {
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const t = useTranslations();
 
-    const forYouQuery = useBookmarks({ feed: 'foryou', sort, q: deferredSearch });
+    const podsQuery = useBookmarks({ feed: 'pods', sort, q: deferredSearch });
     const newsQuery = useBookmarks({ feed: 'news', sort, q: deferredSearch });
-    const activeQuery = activeFeed === 'foryou' ? forYouQuery : newsQuery;
+    const activeQuery = activeFeed === 'pods' ? podsQuery : newsQuery;
     const bookmarkMutation = useBookmarkMutation();
 
-    const forYouItems = useMemo(() => flattenPages(forYouQuery.data), [forYouQuery.data]);
+    const podsItems = useMemo(() => flattenPages(podsQuery.data), [podsQuery.data]);
     const newsItems = useMemo(() => flattenPages(newsQuery.data), [newsQuery.data]);
-    const activeItems = activeFeed === 'foryou' ? forYouItems : newsItems;
+    const activeItems = activeFeed === 'pods' ? podsItems : newsItems;
 
     const sentinelRef = useInfiniteScroll({
         hasNextPage: Boolean(activeQuery.hasNextPage),
@@ -229,21 +229,21 @@ export default function SavedPage() {
     });
 
     useEffect(() => {
-        const allItems = [...forYouItems, ...newsItems];
+        const allItems = [...podsItems, ...newsItems];
         if (allItems.length === 0) return;
         useFeedStore.getState().seedInteractions(
             allItems.filter((item) => item.is_liked).map((item) => item.id),
             allItems.map((item) => item.id),
             allItems.map((item) => item.id)
         );
-    }, [forYouItems, newsItems]);
+    }, [podsItems, newsItems]);
 
     useEffect(() => {
         scrollRef.current?.scrollTo({ top: 0 });
     }, [activeFeed, deferredSearch, sort]);
 
     const handleOpenItem = (item: ContentItem) => {
-        if (isForYouItem(item)) {
+        if (isPodsItem(item)) {
             setSelectedPlayback(item);
             return;
         }
@@ -262,7 +262,7 @@ export default function SavedPage() {
 
     const isInitialLoading =
         activeQuery.isLoading ||
-        (activeFeed === 'foryou' && forYouQuery.isLoading) ||
+        (activeFeed === 'pods' && podsQuery.isLoading) ||
         (activeFeed === 'news' && newsQuery.isLoading);
     const isError = activeQuery.isError;
     const hasSearch = deferredSearch.length > 0;
@@ -296,7 +296,7 @@ export default function SavedPage() {
                 <div className="px-5 mb-4 space-y-4">
                     <SavedFeedTabs
                         activeFeed={activeFeed}
-                        forYouCount={forYouItems.length}
+                        podsCount={podsItems.length}
                         newsCount={newsItems.length}
                         onChange={setActiveFeed}
                     />

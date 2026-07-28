@@ -3,10 +3,10 @@
 import { Suspense, useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useForYouFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
+import { usePodsFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
 import { useShallow } from 'zustand/react/shallow';
-import { FeedContainer, ForYouCard, ForYouSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs, PullToRefresh } from '@/components/feed';
+import { FeedContainer, PodsCard, PodsSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs, PullToRefresh } from '@/components/feed';
 import type { DraggableBottomSheetHandle } from '@/components/feed/draggable-bottom-sheet';
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
@@ -23,22 +23,22 @@ import {
 } from '@/lib/scroll-optimizer';
 import { PaginationAdmission } from '@/lib/feed-window/pagination-admission';
 import type { ContentItem } from '@/types';
-import type { ForYouDurationPreference } from '@/lib/api/feeds';
+import type { PodsDurationPreference } from '@/lib/api/feeds';
 import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
 
-const durationOptions: ForYouDurationPreference[] = [5, 10, 15, 20, 30, 40];
+const durationOptions: PodsDurationPreference[] = [5, 10, 15, 20, 30, 40];
 
-function parseDurationPreference(raw: string | null): ForYouDurationPreference | null {
+function parseDurationPreference(raw: string | null): PodsDurationPreference | null {
     const value = Number(raw);
-    return durationOptions.includes(value as ForYouDurationPreference) ? value as ForYouDurationPreference : null;
+    return durationOptions.includes(value as PodsDurationPreference) ? value as PodsDurationPreference : null;
 }
 
 function DurationPreferenceSelector({
     value,
     onChange,
 }: {
-    value: ForYouDurationPreference | null;
-    onChange: (value: ForYouDurationPreference | null) => void;
+    value: PodsDurationPreference | null;
+    onChange: (value: PodsDurationPreference | null) => void;
 }) {
     const t = useTranslations();
     return (
@@ -46,7 +46,7 @@ function DurationPreferenceSelector({
             <button
                 type="button"
                 onClick={() => onChange(null)}
-                aria-label={t('foryou.duration.all')}
+                aria-label={t('pods.duration.all')}
                 className={cn(
                     'flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-semibold transition-colors',
                     value === null ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
@@ -59,7 +59,7 @@ function DurationPreferenceSelector({
                     key={option}
                     type="button"
                     onClick={() => onChange(option)}
-                    aria-label={t('foryou.duration.minutes', { duration: option })}
+                    aria-label={t('pods.duration.minutes', { duration: option })}
                     className={cn(
                         'h-8 min-w-10 rounded-full px-2 text-xs font-semibold tabular-nums transition-colors',
                         value === option ? 'bg-white text-black' : 'text-white/80 hover:bg-white/15'
@@ -84,24 +84,24 @@ function PlaybackProgressBar() {
     );
 }
 
-export default function ForYouPage() {
+export default function PodsPage() {
     return (
         <Suspense
             fallback={
                 <div className="h-full w-full overflow-hidden relative">
                     <FeedContainer>
-                        <ForYouSkeleton />
-                        <ForYouSkeleton />
+                        <PodsSkeleton />
+                        <PodsSkeleton />
                     </FeedContainer>
                 </div>
             }
         >
-            <ForYouPageContent />
+            <PodsPageContent />
         </Suspense>
     );
 }
 
-function ForYouPageContent() {
+function PodsPageContent() {
     const feedRef = useRef<HTMLDivElement>(null);
     const activeAnchorIdRef = useRef<string | null>(null);
     const renderedItemIdsRef = useRef<string[]>([]);
@@ -111,20 +111,20 @@ function ForYouPageContent() {
     const pathname = usePathname();
     const { user, isAuthenticated } = useAuthStore();
     const {
-        forYouActiveIndex, setForYouActiveIndex, resetProgress,
+        podsActiveIndex, setPodsActiveIndex, resetProgress,
         isPlaying, globalPaused,
-        lastActiveForYouItemId, setLastActiveForYouItemId,
+        lastActivePodsItemId, setLastActivePodsItemId,
         likedIds, bookmarkedIds,
         isFastSwiping, setFastSwiping,
     } = useFeedStore(
         useShallow((s) => ({
-            forYouActiveIndex: s.forYouActiveIndex,
-            setForYouActiveIndex: s.setForYouActiveIndex,
+            podsActiveIndex: s.podsActiveIndex,
+            setPodsActiveIndex: s.setPodsActiveIndex,
             resetProgress: s.resetProgress,
             isPlaying: s.isPlaying,
             globalPaused: s.globalPaused,
-            lastActiveForYouItemId: s.lastActiveForYouItemId,
-            setLastActiveForYouItemId: s.setLastActiveForYouItemId,
+            lastActivePodsItemId: s.lastActivePodsItemId,
+            setLastActivePodsItemId: s.setLastActivePodsItemId,
             likedIds: s.likedIds,
             bookmarkedIds: s.bookmarkedIds,
             isFastSwiping: s.isFastSwiping,
@@ -149,13 +149,13 @@ function ForYouPageContent() {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
-    } = useForYouFeed(durationPreference);
+    } = usePodsFeed(durationPreference);
 
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
 
     // Combine all pages; dedupe by id so cursor overlap does not duplicate keys
-    const forYouItems = useMemo(() => {
+    const podsItems = useMemo(() => {
         if (!data?.pages) return [];
         const seen = new Set<string>();
         const out: ContentItem[] = [];
@@ -170,98 +170,98 @@ function ForYouPageContent() {
         return out;
     }, [data]);
 
-    // RUX: emit the For You feed-load journey terminal (rendered/empty/failed)
+    // RUX: emit the Pods feed-load journey terminal (rendered/empty/failed)
     // once per fresh load; a duration switch re-arms via loadKey.
     useFeedLoadTelemetry({
-        surface: 'foryou',
+        surface: 'pods',
         status,
-        unitCount: forYouItems.length,
+        unitCount: podsItems.length,
         loadKey: durationPreference ?? 'all',
     });
 
     // RUX: pagination journey. Arm when a next-page fetch begins; on completion,
     // received if new units arrived, starved if none arrived while more were
     // expected (a genuine pagination gap, not the end of the feed).
-    const paginationTelemetry = usePaginationTelemetry('foryou');
+    const paginationTelemetry = usePaginationTelemetry('pods');
     const prevFetchingNextRef = useRef(false);
     const preFetchCountRef = useRef(0);
     useEffect(() => {
         if (isFetchingNextPage && !prevFetchingNextRef.current) {
-            preFetchCountRef.current = forYouItems.length;
+            preFetchCountRef.current = podsItems.length;
             paginationTelemetry.arm();
         } else if (!isFetchingNextPage && prevFetchingNextRef.current) {
-            if (forYouItems.length > preFetchCountRef.current) paginationTelemetry.received();
+            if (podsItems.length > preFetchCountRef.current) paginationTelemetry.received();
             else if (hasNextPage) paginationTelemetry.starved();
             else paginationTelemetry.received();
         }
         prevFetchingNextRef.current = isFetchingNextPage;
-    }, [isFetchingNextPage, forYouItems.length, hasNextPage, paginationTelemetry]);
+    }, [isFetchingNextPage, podsItems.length, hasNextPage, paginationTelemetry]);
 
-    const setDurationPreference = useCallback((duration: ForYouDurationPreference | null) => {
+    const setDurationPreference = useCallback((duration: PodsDurationPreference | null) => {
         const params = new URLSearchParams(Array.from(searchParams.entries()));
         if (duration) params.set('duration', String(duration));
         else params.delete('duration');
         activeAnchorIdRef.current = null;
         renderedItemIdsRef.current = [];
-        setForYouActiveIndex(0);
+        setPodsActiveIndex(0);
         resetProgress();
         const qs = params.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    }, [pathname, resetProgress, router, searchParams, setForYouActiveIndex]);
+    }, [pathname, resetProgress, router, searchParams, setPodsActiveIndex]);
 
     // Current active item — drives the fixed bottom sheet
-    const activeItem = forYouItems[forYouActiveIndex] ?? null;
+    const activeItem = podsItems[podsActiveIndex] ?? null;
     const isLiked = activeItem ? likedIds.has(activeItem.id) : false;
     const isBookmarked = activeItem ? bookmarkedIds.has(activeItem.id) : false;
 
     useEffect(() => {
         if (activeItem?.id) {
             activeAnchorIdRef.current = activeItem.id;
-            setLastActiveForYouItemId(activeItem.id);
+            setLastActivePodsItemId(activeItem.id);
         }
-    }, [activeItem?.id, setLastActiveForYouItemId]);
+    }, [activeItem?.id, setLastActivePodsItemId]);
 
     // TanStack may evict the first query page as it appends the next one. Keep
     // the visible content ID as the source of truth and correct its new array
     // position before paint; an obsolete absolute index would otherwise snap to
     // a different card or clamp at the end of the shortened list.
     useLayoutEffect(() => {
-        if (forYouItems.length === 0) return;
-        const itemIds = forYouItems.map((item) => item.id);
+        if (podsItems.length === 0) return;
+        const itemIds = podsItems.map((item) => item.id);
         const windowChanged = itemIds.length !== renderedItemIdsRef.current.length ||
             itemIds.some((id, index) => id !== renderedItemIdsRef.current[index]);
         renderedItemIdsRef.current = itemIds;
         if (!windowChanged) {
-            activeAnchorIdRef.current = forYouItems[forYouActiveIndex]?.id ?? activeAnchorIdRef.current;
+            activeAnchorIdRef.current = podsItems[podsActiveIndex]?.id ?? activeAnchorIdRef.current;
             return;
         }
-        const anchorId = activeAnchorIdRef.current ?? lastActiveForYouItemId;
-        const anchoredIndex = anchorId ? forYouItems.findIndex((item) => item.id === anchorId) : -1;
+        const anchorId = activeAnchorIdRef.current ?? lastActivePodsItemId;
+        const anchoredIndex = anchorId ? podsItems.findIndex((item) => item.id === anchorId) : -1;
         const nextIndex = anchoredIndex >= 0
             ? anchoredIndex
-            : Math.min(Math.max(0, forYouActiveIndex), forYouItems.length - 1);
+            : Math.min(Math.max(0, podsActiveIndex), podsItems.length - 1);
         const container = feedRef.current;
         if (container && container.clientHeight > 0) {
             const targetTop = nextIndex * container.clientHeight;
             if (Math.abs(container.scrollTop - targetTop) > 1) container.scrollTop = targetTop;
         }
-        activeAnchorIdRef.current = forYouItems[nextIndex]?.id ?? null;
-        if (nextIndex !== forYouActiveIndex) setForYouActiveIndex(nextIndex);
-    }, [forYouActiveIndex, forYouItems, lastActiveForYouItemId, setForYouActiveIndex]);
+        activeAnchorIdRef.current = podsItems[nextIndex]?.id ?? null;
+        if (nextIndex !== podsActiveIndex) setPodsActiveIndex(nextIndex);
+    }, [podsActiveIndex, podsItems, lastActivePodsItemId, setPodsActiveIndex]);
 
     // Sync server-side interaction flags into the local sets so like/bookmark
     // icons reflect reality (e.g. interactions made in a previous session).
     useEffect(() => {
-        if (forYouItems.length === 0) return;
+        if (podsItems.length === 0) return;
         useFeedStore.getState().seedInteractions(
-            forYouItems.filter((i) => i.is_liked).map((i) => i.id),
-            forYouItems.filter((i) => i.is_bookmarked).map((i) => i.id),
-            forYouItems.map((i) => i.id)
+            podsItems.filter((i) => i.is_liked).map((i) => i.id),
+            podsItems.filter((i) => i.is_bookmarked).map((i) => i.id),
+            podsItems.map((i) => i.id)
         );
-    }, [forYouItems]);
+    }, [podsItems]);
 
     // Now Playing — register metadata so the bar shows on other pages
-    const setCurrentFromForYou = useNowPlayingStore((s) => s.setCurrentFromForYou);
+    const setCurrentFromPods = useNowPlayingStore((s) => s.setCurrentFromPods);
     const handoffToGlobalAudio = useNowPlayingStore((s) => s.handoffToGlobalAudio);
     const videoTimeRef = useRef(0);
     const [showSeekMenu, setShowSeekMenu] = useState(false);
@@ -292,14 +292,14 @@ function ForYouPageContent() {
 
     // Update progressive prefetch when active index or items change
     useEffect(() => {
-        if (prefetchRef.current && forYouItems.length > 0) {
+        if (prefetchRef.current && podsItems.length > 0) {
             prefetchRef.current.update(
-                forYouActiveIndex,
-                forYouItems,
+                podsActiveIndex,
+                podsItems,
                 adaptiveBufferRef.current.prefetchDepth
             );
         }
-    }, [forYouActiveIndex, forYouItems]);
+    }, [podsActiveIndex, podsItems]);
 
     const requestNextPage = useCallback(() => {
         if (!hasNextPage) return;
@@ -328,9 +328,9 @@ function ForYouPageContent() {
         const scrollHeight = feedRef.current.scrollHeight;
         const newIndex = Math.round(scrollPosition / height);
 
-        if (forYouActiveIndex !== newIndex) {
-            activeAnchorIdRef.current = forYouItems[newIndex]?.id ?? null;
-            setForYouActiveIndex(newIndex);
+        if (podsActiveIndex !== newIndex) {
+            activeAnchorIdRef.current = podsItems[newIndex]?.id ?? null;
+            setPodsActiveIndex(newIndex);
             resetProgress();
 
             // Record this swipe for speed detection
@@ -340,7 +340,7 @@ function ForYouPageContent() {
         // All automatic pagination paths share one per-query admission state.
         const nearBottom = scrollPosition + height >= scrollHeight - height * 2;
         if (nearBottom) requestNextPage();
-    }, [forYouActiveIndex, forYouItems, requestNextPage, setForYouActiveIndex, resetProgress]);
+    }, [podsActiveIndex, podsItems, requestNextPage, setPodsActiveIndex, resetProgress]);
 
     // Wrap with throttle (fires at most once per 200ms)
     const handleScroll = useMemo(
@@ -364,36 +364,36 @@ function ForYouPageContent() {
     // Restore scroll position once on mount
     useEffect(() => {
         if (!feedRef.current || hasRestoredScrollRef.current) return;
-        if (forYouItems.length === 0) return;
+        if (podsItems.length === 0) return;
         if (feedRef.current.clientHeight <= 0) return;
 
-        const idMatchedIndex = lastActiveForYouItemId
-            ? forYouItems.findIndex((item) => item.id === lastActiveForYouItemId)
+        const idMatchedIndex = lastActivePodsItemId
+            ? podsItems.findIndex((item) => item.id === lastActivePodsItemId)
             : -1;
-        const preferredIndex = idMatchedIndex >= 0 ? idMatchedIndex : forYouActiveIndex;
-        const safeIndex = Math.min(Math.max(0, preferredIndex), Math.max(0, forYouItems.length - 1));
+        const preferredIndex = idMatchedIndex >= 0 ? idMatchedIndex : podsActiveIndex;
+        const safeIndex = Math.min(Math.max(0, preferredIndex), Math.max(0, podsItems.length - 1));
 
-        if (safeIndex !== forYouActiveIndex) {
-            setForYouActiveIndex(safeIndex);
+        if (safeIndex !== podsActiveIndex) {
+            setPodsActiveIndex(safeIndex);
         }
 
         feedRef.current.scrollTop = safeIndex * feedRef.current.clientHeight;
         hasRestoredScrollRef.current = true;
-    }, [forYouActiveIndex, forYouItems, lastActiveForYouItemId, setForYouActiveIndex]);
+    }, [podsActiveIndex, podsItems, lastActivePodsItemId, setPodsActiveIndex]);
 
     // Deep-link support: /?item=<content_id>
     useEffect(() => {
         const targetItemId = searchParams.get('item');
-        if (!targetItemId || !feedRef.current || forYouItems.length === 0) return;
+        if (!targetItemId || !feedRef.current || podsItems.length === 0) return;
 
-        const idx = forYouItems.findIndex((item) => item.id === targetItemId);
+        const idx = podsItems.findIndex((item) => item.id === targetItemId);
         if (idx < 0) {
             requestNextPage();
             return;
         }
 
-        if (forYouActiveIndex !== idx) {
-            setForYouActiveIndex(idx);
+        if (podsActiveIndex !== idx) {
+            setPodsActiveIndex(idx);
             resetProgress();
         }
 
@@ -401,17 +401,17 @@ function ForYouPageContent() {
         if (Math.abs(feedRef.current.scrollTop - targetTop) > 2) {
             feedRef.current.scrollTo({ top: targetTop, behavior: 'smooth' });
         }
-    }, [searchParams, forYouItems, forYouActiveIndex, setForYouActiveIndex, resetProgress, requestNextPage]);
+    }, [searchParams, podsItems, podsActiveIndex, setPodsActiveIndex, resetProgress, requestNextPage]);
 
     // Register active item with the now-playing store (metadata only, no <audio> playback)
     useEffect(() => {
         if (activeItem && getPlaybackUrl(activeItem)) {
-            setCurrentFromForYou(activeItem, !globalPaused && isPlaying);
+            setCurrentFromPods(activeItem, !globalPaused && isPlaying);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeItem?.id, globalPaused, isPlaying]);
 
-    // On unmount (user leaves For You page): hand off playback to <audio> provider
+    // On unmount (user leaves Pods page): hand off playback to <audio> provider
     useEffect(() => {
         return () => {
             const { currentItem } = useNowPlayingStore.getState();
@@ -453,7 +453,7 @@ function ForYouPageContent() {
         videoTimeRef.current = nextTime;
 
         const nextProgress = duration && duration > 0 ? (nextTime / duration) * 100 : 0;
-        useFeedStore.getState().setForYouPlayback(activeItem.id, nextTime, nextProgress);
+        useFeedStore.getState().setPodsPlayback(activeItem.id, nextTime, nextProgress);
         useFeedStore.getState().setProgress(nextProgress);
     }, [activeItem]);
 
@@ -522,7 +522,7 @@ function ForYouPageContent() {
             <div className="h-full w-full bg-background">
                     <FeedErrorFallback
                         onRetry={() => refetch()}
-                        message={error?.message || t('feed.error.foryou')}
+                        message={error?.message || t('feed.error.pods')}
                     />
             </div>
         );
@@ -584,32 +584,32 @@ function ForYouPageContent() {
                 <FeedContainer ref={feedRef} onScroll={handleScroll}>
                     {showLoading ? (
                         <>
-                            <ForYouSkeleton />
-                            <ForYouSkeleton />
+                            <PodsSkeleton />
+                            <PodsSkeleton />
                         </>
                     ) : (
-                        forYouItems.map((item, index) => (
+                        podsItems.map((item, index) => (
                             <ViewTracker key={item.id} contentId={item.id} className="h-full w-full snap-start snap-always">
-                                <ForYouCard
+                                <PodsCard
                                     item={item}
-                                    isActive={index === forYouActiveIndex}
-                                    shouldLoadMedia={Math.abs(index - forYouActiveIndex) <= adaptiveBufferRef.current.prefetchDepth}
-                                    videoTimeRef={index === forYouActiveIndex ? videoTimeRef : undefined}
+                                    isActive={index === podsActiveIndex}
+                                    shouldLoadMedia={Math.abs(index - podsActiveIndex) <= adaptiveBufferRef.current.prefetchDepth}
+                                    videoTimeRef={index === podsActiveIndex ? videoTimeRef : undefined}
                                 />
                             </ViewTracker>
                         ))
                     )}
 
-                    {!showLoading && forYouItems.length === 0 && (
+                    {!showLoading && podsItems.length === 0 && (
                         <div className="flex h-full w-full snap-start snap-always items-center justify-center bg-black px-6 text-center text-white">
                             <div>
                                 <p className="text-lg font-semibold">
                                     {durationPreference
-                                        ? t('foryou.empty.duration', { duration: durationPreference })
-                                        : t('foryou.empty.title')}
+                                        ? t('pods.empty.duration', { duration: durationPreference })
+                                        : t('pods.empty.title')}
                                 </p>
                                 <p className="mt-2 text-sm text-white/60">
-                                    {t('foryou.empty.body')}
+                                    {t('pods.empty.body')}
                                 </p>
                             </div>
                         </div>
@@ -708,7 +708,7 @@ function ForYouPageContent() {
                             <div ref={rewindButtonRef} className="relative">
                                 <button
                                     className="flex flex-col items-center gap-1"
-                                    aria-label={t('foryou.seek.backSeconds', { count: 15 })}
+                                    aria-label={t('pods.seek.backSeconds', { count: 15 })}
                                     onPointerDown={startRewindPress}
                                     onPointerUp={endRewindPress}
                                     onPointerCancel={cancelRewindPress}
@@ -723,7 +723,7 @@ function ForYouPageContent() {
                                     <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-all">
                                         <RotateCcw className="w-4 h-4 text-foreground" />
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground">{t('foryou.seek.backSeconds', { count: 15 })}</span>
+                                    <span className="text-[10px] text-muted-foreground">{t('pods.seek.backSeconds', { count: 15 })}</span>
                                 </button>
 
                                 {showSeekMenu && (
@@ -737,7 +737,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                {t('foryou.seek.forwardMinute')}
+                                                {t('pods.seek.forwardMinute')}
                                             </button>
                                             <button
                                                 className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
@@ -746,7 +746,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                {t('foryou.seek.forward', { count: 15 })}
+                                                {t('pods.seek.forward', { count: 15 })}
                                             </button>
                                             <button
                                                 className="rounded-lg px-2.5 py-2 text-xs whitespace-nowrap hover:bg-muted/60"
@@ -755,7 +755,7 @@ function ForYouPageContent() {
                                                     setShowSeekMenu(false);
                                                 }}
                                             >
-                                                {t('foryou.seek.back')}
+                                                {t('pods.seek.back')}
                                             </button>
                                             </div>
                                         </div>

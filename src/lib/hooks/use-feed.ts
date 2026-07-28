@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchForYouFeed,
+  fetchPodsFeed,
   fetchNewsFeed,
   fetchBookmarks,
   fetchComments,
@@ -18,7 +18,7 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import type { CommentsResponse, ContentComment, Interaction, NewsWindow } from '@/types';
 import type { BookmarkFeedFilter, BookmarkSort } from '@/lib/api/feeds';
 import type { InfiniteData } from '@tanstack/react-query';
-import type { ForYouDurationPreference } from '@/lib/api/feeds';
+import type { PodsDurationPreference } from '@/lib/api/feeds';
 import { identityCacheKey } from '@/lib/identity/identity-key';
 
 function useIdentityCacheKey(): string {
@@ -29,13 +29,13 @@ function useIdentityCacheKey(): string {
 }
 
 /**
- * Hook for infinite scrolling For You feed
+ * Hook for infinite scrolling Pods feed
  */
-export function useForYouFeed(duration?: ForYouDurationPreference | null) {
+export function usePodsFeed(duration?: PodsDurationPreference | null) {
   const identityKey = useIdentityCacheKey();
   return useInfiniteQuery({
-    queryKey: ['feed', 'foryou', identityKey, { duration: duration ?? null }],
-    queryFn: ({ pageParam }) => fetchForYouFeed(pageParam, duration),
+    queryKey: ['feed', 'pods', identityKey, { duration: duration ?? null }],
+    queryFn: ({ pageParam }) => fetchPodsFeed(pageParam, duration),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
     maxPages: 5,

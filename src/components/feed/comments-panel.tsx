@@ -10,7 +10,7 @@ import type { ContentComment } from '@/types';
 
 /**
  * Server-backed comments: input + list with optimistic posting and
- * cursor-paginated "load more". Shared by the For You / News bottom sheets
+ * cursor-paginated "load more". Shared by the Pods / News bottom sheets
  * and the ArticleReader so there is exactly one implementation.
  */
 export function CommentsPanel({ contentItemId }: { contentItemId?: string }) {

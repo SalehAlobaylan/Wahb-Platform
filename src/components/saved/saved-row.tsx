@@ -25,8 +25,8 @@ const TYPE_LABEL_KEYS: Record<ContentType, string> = {
     COMMENT: 'saved.badge.comment',
 };
 
-/** Whether the item plays in the For You overlay (vs. opening as an article). */
-export function isForYouItem(item: ContentItem): boolean {
+/** Whether the item plays in the Pods overlay (vs. opening as an article). */
+export function isPodsItem(item: ContentItem): boolean {
     return item.type === 'VIDEO' || item.type === 'PODCAST';
 }
 
@@ -87,7 +87,7 @@ export function SavedRow({
                         />
                     ) : (
                         <div className="flex h-full w-full items-center justify-center bg-muted">
-                            {isForYouItem(item) ? (
+                            {isPodsItem(item) ? (
                                 item.type === 'VIDEO' ? (
                                     <Video className="h-5 w-5 text-muted-foreground" />
                                 ) : (
@@ -98,7 +98,7 @@ export function SavedRow({
                             )}
                         </div>
                     )}
-                    {isForYouItem(item) && (
+                    {isPodsItem(item) && (
                         <span className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition-opacity group-hover:opacity-100">
                             <Play className="h-5 w-5 fill-white text-white drop-shadow" />
                         </span>

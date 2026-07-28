@@ -26,10 +26,10 @@ describe('now playing ownership', () => {
     });
   });
 
-  it('hands an audio-only For You item to global audio without conflating media type and owner', () => {
+  it('hands an audio-only Pods item to global audio without conflating media type and owner', () => {
     const store = useNowPlayingStore.getState();
-    store.setCurrentFromForYou(item, true);
-    expect(useNowPlayingStore.getState()).toMatchObject({ playbackOwner: 'foryou', isPlaying: true });
+    store.setCurrentFromPods(item, true);
+    expect(useNowPlayingStore.getState()).toMatchObject({ playbackOwner: 'pods', isPlaying: true });
 
     useNowPlayingStore.getState().handoffToGlobalAudio(42, true);
     expect(useNowPlayingStore.getState()).toMatchObject({
@@ -40,7 +40,7 @@ describe('now playing ownership', () => {
   });
 
   it('clears ownership when playback stops', () => {
-    useNowPlayingStore.getState().setCurrentFromForYou(item);
+    useNowPlayingStore.getState().setCurrentFromPods(item);
     useNowPlayingStore.getState().stop();
     expect(useNowPlayingStore.getState()).toMatchObject({ playbackOwner: 'none', currentItem: null });
   });

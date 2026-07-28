@@ -3,9 +3,9 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * Loading skeleton for For You feed cards
+ * Loading skeleton for Pods feed cards
  */
-export function ForYouSkeleton() {
+export function PodsSkeleton() {
     return (
         <div className="relative w-full h-full snap-start shrink-0 overflow-hidden bg-background">
             {/* Background skeleton */}

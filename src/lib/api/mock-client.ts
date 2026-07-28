@@ -1,12 +1,12 @@
 
-import { ForYouResponse, NewsResponse, ContentItem, Interaction, Transcript } from '@/types';
-import { MOCK_FORYOU_ITEMS, MOCK_NEWS_SLIDES } from '@/lib/mocks/data';
+import { PodsResponse, NewsResponse, ContentItem, Interaction, Transcript } from '@/types';
+import { MOCK_PODS_ITEMS, MOCK_NEWS_SLIDES } from '@/lib/mocks/data';
 
 const SIMULATED_DELAY_MS = 800;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function mockFetchForYouFeed(cursor?: string | null): Promise<ForYouResponse> {
+export async function mockFetchPodsFeed(cursor?: string | null): Promise<PodsResponse> {
     await delay(SIMULATED_DELAY_MS);
 
     // Simple pagination simulation
@@ -16,7 +16,7 @@ export async function mockFetchForYouFeed(cursor?: string | null): Promise<ForYo
 
     return {
         cursor: 'next-cursor-token', // Infinite scroll simulation
-        items: MOCK_FORYOU_ITEMS,
+        items: MOCK_PODS_ITEMS,
     };
 }
 
@@ -32,7 +32,7 @@ export async function mockFetchNewsFeed(cursor?: string | null): Promise<NewsRes
 export async function mockFetchContentItem(id: string): Promise<ContentItem> {
     await delay(SIMULATED_DELAY_MS);
 
-    const item = MOCK_FORYOU_ITEMS.find(i => i.id === id) ||
+    const item = MOCK_PODS_ITEMS.find(i => i.id === id) ||
         MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...(s.coverage ?? []), ...s.related]).find(i => i.id === id);
 
     if (!item) {
@@ -64,7 +64,7 @@ export async function mockRemoveInteraction(
     await delay(300);
 }
 
-export async function mockFetchBookmarks(cursor?: string): Promise<ForYouResponse> {
+export async function mockFetchBookmarks(cursor?: string): Promise<PodsResponse> {
     await delay(SIMULATED_DELAY_MS);
     return {
         cursor: null,
@@ -81,7 +81,7 @@ export async function mockSearchContent(query: string): Promise<ContentItem[]> {
 
     // Collect all content items from both feeds
     const allItems: ContentItem[] = [
-        ...MOCK_FORYOU_ITEMS,
+        ...MOCK_PODS_ITEMS,
         ...MOCK_NEWS_SLIDES.flatMap(s => [s.featured, ...(s.coverage ?? []), ...s.related]),
     ];
 

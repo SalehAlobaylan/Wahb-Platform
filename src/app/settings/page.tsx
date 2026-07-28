@@ -635,9 +635,9 @@ function ChangePasswordPanel({ onBack, t }: { onBack: () => void; t: (key: strin
     );
 }
 
-type HistoryFeedTab = 'foryou' | 'news';
+type HistoryFeedTab = 'pods' | 'news';
 
-function isForYouHistoryItem(item: WatchHistoryItem): boolean {
+function isPodsHistoryItem(item: WatchHistoryItem): boolean {
     return item.type === 'VIDEO' || item.type === 'PODCAST';
 }
 
@@ -650,7 +650,7 @@ function HistoryPanel({
 }) {
     const router = useRouter();
     const [confirmClear, setConfirmClear] = useState(false);
-    const [activeFeed, setActiveFeed] = useState<HistoryFeedTab>('foryou');
+    const [activeFeed, setActiveFeed] = useState<HistoryFeedTab>('pods');
 
     const {
         items: allItems,
@@ -664,9 +664,9 @@ function HistoryPanel({
         isClearing,
     } = useWatchHistory();
 
-    const forYouItems = useMemo(() => allItems.filter(isForYouHistoryItem), [allItems]);
-    const newsItems = useMemo(() => allItems.filter((item) => !isForYouHistoryItem(item)), [allItems]);
-    const visibleItems = activeFeed === 'foryou' ? forYouItems : newsItems;
+    const podsItems = useMemo(() => allItems.filter(isPodsHistoryItem), [allItems]);
+    const newsItems = useMemo(() => allItems.filter((item) => !isPodsHistoryItem(item)), [allItems]);
+    const visibleItems = activeFeed === 'pods' ? podsItems : newsItems;
 
     const handleOpenItem = (item: WatchHistoryItem) => {
         const id = encodeURIComponent(item.content_id);
@@ -686,17 +686,17 @@ function HistoryPanel({
                         <div className="grid grid-cols-2 rounded-xl border border-border bg-muted/40 p-1">
                             <button
                                 type="button"
-                                onClick={() => setActiveFeed('foryou')}
+                                onClick={() => setActiveFeed('pods')}
                                 className={cn(
                                     'h-9 rounded-lg text-xs font-semibold transition-colors',
-                                    activeFeed === 'foryou'
+                                    activeFeed === 'pods'
                                         ? 'bg-card text-foreground shadow-sm'
                                         : 'text-muted-foreground hover:text-foreground'
                                 )}
                             >
-                                {t('settings.history.tabs.foryou')}
+                                {t('settings.history.tabs.pods')}
                                 <span className="ml-1 text-[10px] text-muted-foreground">
-                                    {forYouItems.length}
+                                    {podsItems.length}
                                 </span>
                             </button>
                             <button
@@ -797,13 +797,13 @@ function HistoryPanel({
                             <Clock className="w-6 h-6 text-muted-foreground" />
                         </div>
                         <h3 className="font-serif text-base font-semibold text-foreground">
-                            {activeFeed === 'foryou'
-                                ? t('settings.history.empty.foryou.title')
+                            {activeFeed === 'pods'
+                                ? t('settings.history.empty.pods.title')
                                 : t('settings.history.empty.news.title')}
                         </h3>
                         <p className="text-sm text-muted-foreground leading-relaxed max-w-[240px]">
-                            {activeFeed === 'foryou'
-                                ? t('settings.history.empty.foryou.body')
+                            {activeFeed === 'pods'
+                                ? t('settings.history.empty.pods.body')
                                 : t('settings.history.empty.news.body')}
                         </p>
                     </div>

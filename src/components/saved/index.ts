@@ -1,2 +1,2 @@
-export { SavedRow, isForYouItem, type SavedRowAction } from './saved-row';
+export { SavedRow, isPodsItem, type SavedRowAction } from './saved-row';
 export { SavedList } from './saved-list';

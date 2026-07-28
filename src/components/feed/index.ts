@@ -1,7 +1,7 @@
 export { FeedContainer } from './feed-container';
-export { ForYouCard } from './for-you-card';
+export { PodsCard } from './pods-card';
 export { NewsSlide } from './news-slide';
-export { ForYouSkeleton, NewsSlideSkeleton } from './feed-skeleton';
+export { PodsSkeleton, NewsSlideSkeleton } from './feed-skeleton';
 export { PullToRefresh } from './pull-to-refresh';
 export { ViewTracker, useViewTracking } from './view-tracker';
 export { DraggableBottomSheet } from './draggable-bottom-sheet';

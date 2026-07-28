@@ -54,7 +54,7 @@ export function ProfileGuest() {
                             { icon: Heart, label: t('profile.guest.feature.likes') },
                             { icon: Bookmark, label: t('profile.guest.feature.saved') },
                             { icon: AudioLines, label: t('profile.guest.feature.history') },
-                            { icon: Sparkles, label: t('profile.guest.feature.foryou') },
+                            { icon: Sparkles, label: t('profile.guest.feature.pods') },
                         ].map(({ icon: Icon, label }) => (
                             <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/40 border border-border/50">
                                 <Icon className="w-3.5 h-3.5 text-muted-foreground" />

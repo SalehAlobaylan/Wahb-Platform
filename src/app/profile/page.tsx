@@ -8,8 +8,8 @@ import { useAuthStore, useFeedStore } from '@/lib/stores';
 import { usePreferences, useUserStats } from '@/lib/hooks';
 import { InterestsModal } from '@/components/profile/interests-modal';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
-import { ArticleReader, ForYouCard } from '@/components/feed';
-import { isForYouItem } from '@/components/saved';
+import { ArticleReader, PodsCard } from '@/components/feed';
+import { isPodsItem } from '@/components/saved';
 import {
     ProfileGuest,
     ProfileHero,
@@ -67,7 +67,7 @@ function ProfileContent() {
     const handle = `@${user.username || user.email.split('@')[0]}`;
 
     const openContentItem = (item: ContentItem) => {
-        if (isForYouItem(item)) setPlayback(item);
+        if (isPodsItem(item)) setPlayback(item);
         else setArticle(item);
     };
 
@@ -122,10 +122,10 @@ function ProfileContent() {
 
             {!playback && <GlobalNowPlayingBar />}
 
-            {/* For You playback overlay (audio / video) */}
+            {/* Pods playback overlay (audio / video) */}
             {playback && (
                 <div className="fixed inset-0 z-50 bg-black">
-                    <ForYouCard item={playback} isActive />
+                    <PodsCard item={playback} isActive />
                     <button
                         type="button"
                         onClick={closePlayback}

@@ -10,7 +10,7 @@ import { identityCacheKey } from '@/lib/identity/identity-key';
 import { SavedList } from '@/components/saved';
 import { useTranslations } from '@/lib/i18n';
 import { flattenPages } from '@/lib/utils/pages';
-import type { ContentItem, ForYouResponse } from '@/types';
+import type { ContentItem, PodsResponse } from '@/types';
 import { TabEmpty, TabSkeleton } from './tab-states';
 
 export function LikesTab({ onOpen }: { onOpen: (item: ContentItem) => void }) {
@@ -55,7 +55,7 @@ export function LikesTab({ onOpen }: { onOpen: (item: ContentItem) => void }) {
         likeMutation.mutate({ contentId: item.id, isLiked: true });
         // Optimistically drop the row from the cached likes pages so it stays
         // gone across remounts (mirrors how bookmarks are removed from cache).
-        queryClient.setQueryData<InfiniteData<ForYouResponse>>(['my-likes', identityKey], (current) => {
+        queryClient.setQueryData<InfiniteData<PodsResponse>>(['my-likes', identityKey], (current) => {
             if (!current) return current;
             return {
                 ...current,

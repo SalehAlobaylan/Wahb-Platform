@@ -7,7 +7,7 @@ import {
 
 describe('/api/v1 proxy helpers', () => {
   it('normalizes safe public CMS paths', () => {
-    expect(resolveProxyPath(['feed', 'foryou'])).toBe('feed/foryou');
+    expect(resolveProxyPath(['feed', 'pods'])).toBe('feed/pods');
     expect(resolveProxyPath(['content', 'item%201'])).toBe('content/item%201');
     expect(resolveProxyPath(['interactions', 'bookmarks'])).toBe('interactions/bookmarks');
     expect(resolveProxyPath(['transcripts', 'transcript-1'])).toBe('transcripts/transcript-1');
@@ -28,9 +28,9 @@ describe('/api/v1 proxy helpers', () => {
   it('keeps proxy targets under the configured public API base', () => {
     expect(buildProxyTargetUrl(
       'https://cms.example.com/api/v1',
-      'feed/foryou',
+      'feed/pods',
       '?limit=20'
-    )).toBe('https://cms.example.com/api/v1/feed/foryou?limit=20');
+    )).toBe('https://cms.example.com/api/v1/feed/pods?limit=20');
   });
 
   it('bridges the httpOnly cookie token and strips client-supplied forwarding headers', () => {

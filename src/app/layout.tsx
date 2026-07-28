@@ -33,7 +33,7 @@ const arabicFont = localFont({
 
 export const metadata: Metadata = {
   title: "Wahb - Discover Audio & News",
-  description: "Mobile-first social platform with audio-first MP4 For You feed and magazine-style News feed",
+  description: "Mobile-first social platform with audio-first MP4 Pods feed and magazine-style News feed",
   keywords: ["podcast", "news", "audio", "social media", "discovery"],
   authors: [{ name: "Wahb Team" }],
   icons: {

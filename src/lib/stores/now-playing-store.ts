@@ -12,7 +12,7 @@ interface NowPlayingState {
     /** Whether a bottom sheet is currently mounted (to avoid duplicate bars) */
     bottomSheetMounted: boolean;
     /** Exactly one surface owns audible playback at a time. */
-    playbackOwner: 'none' | 'foryou' | 'global';
+    playbackOwner: 'none' | 'pods' | 'global';
     /** Playback position (seconds) to resume from when handing off to <audio> */
     seekTo: number | null;
     /**
@@ -29,9 +29,9 @@ interface NowPlayingState {
     stop: () => void;
     togglePlayPause: () => void;
     setBottomSheetMounted: (mounted: boolean) => void;
-    /** Called by For You to register its active media owner without triggering global audio. */
-    setCurrentFromForYou: (item: ContentItem, playing?: boolean) => void;
-    /** Called by For You on unmount to hand off playback to global audio. */
+    /** Called by Pods to register its active media owner without triggering global audio. */
+    setCurrentFromPods: (item: ContentItem, playing?: boolean) => void;
+    /** Called by Pods on unmount to hand off playback to global audio. */
     handoffToGlobalAudio: (currentTime: number, shouldResume?: boolean) => void;
     /** Called by NowPlayingProvider after it has seeked to the handoff position */
     clearSeek: () => void;
@@ -44,7 +44,7 @@ interface NowPlayingState {
 /**
  * Non-reactive bridge carrying the exact position of the global <audio>
  * element. Updated on every audio timeupdate; consumed (read once, then
- * cleared) by ForYouCard when the <video> takes playback back, so progress
+ * cleared) by PodsCard when the <video> takes playback back, so progress
  * made while listening via the bar is never lost. Kept outside the store on
  * purpose — it changes ~4×/s and must not trigger re-renders.
  *
@@ -103,12 +103,12 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
 
     setBottomSheetMounted: (mounted) => set({ bottomSheetMounted: mounted }),
 
-    setCurrentFromForYou: (item, playing = true) =>
+    setCurrentFromPods: (item, playing = true) =>
         set(() => ({
             currentItem: item,
             audioSrc: getAudioPlaybackUrl(item) || null,
             isPlaying: playing,
-            playbackOwner: 'foryou',
+            playbackOwner: 'pods',
         })),
 
     handoffToGlobalAudio: (currentTime, shouldResume = true) =>

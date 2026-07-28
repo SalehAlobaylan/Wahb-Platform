@@ -5,14 +5,14 @@ import { beginHandoff } from '@/lib/experience/journeys';
 import { useNowPlayingStore, audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useFeedStore } from '@/lib/stores/feed-store';
 
-/** Write the audio position into the feed store so For You can resume from it. */
+/** Write the audio position into the feed store so Pods can resume from it. */
 function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
     const duration = audio.duration;
     const percent =
         Number.isFinite(duration) && duration > 0
             ? (audio.currentTime / duration) * 100
             : 0;
-    useFeedStore.getState().setForYouPlayback(itemId, audio.currentTime, percent);
+    useFeedStore.getState().setPodsPlayback(itemId, audio.currentTime, percent);
 }
 
 /**
@@ -20,9 +20,9 @@ function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
  * now-playing store. This ensures audio continues playing even when
  * navigating between pages.
  *
- * When For You owns playback (visual or audio-only), this provider keeps the
+ * When Pods owns playback (visual or audio-only), this provider keeps the
  * global <audio> source loaded but paused
- * to avoid double audio. On handoff (user leaves For You), it seeks
+ * to avoid double audio. On handoff (user leaves Pods), it seeks
  * to the position reported by the <video> and resumes playback.
  */
 export function NowPlayingProvider() {
@@ -51,7 +51,7 @@ export function NowPlayingProvider() {
             const audio = audioRef.current;
             const { currentItem, playbackOwner } =
                 useNowPlayingStore.getState();
-            if (!audio || !currentItem || playbackOwner === 'foryou' || audio.currentTime <= 0) return;
+            if (!audio || !currentItem || playbackOwner === 'pods' || audio.currentTime <= 0) return;
             persistAudioPosition(audio, currentItem.id);
         };
         window.addEventListener('pagehide', flush);
@@ -71,8 +71,8 @@ export function NowPlayingProvider() {
         const audio = audioRef.current;
         if (!audio || !audioSrc) return;
 
-        // While the For You <video> owns playback, or we're paused, stay paused.
-        if (playbackOwner === 'foryou' || !isPlaying) {
+        // While the Pods <video> owns playback, or we're paused, stay paused.
+        if (playbackOwner === 'pods' || !isPlaying) {
             audio.pause();
             return;
         }
@@ -118,9 +118,9 @@ export function NowPlayingProvider() {
         seekThenPlay();
     }, [isPlaying, audioSrc, playbackOwner, seekTo, clearSeek]);
 
-    // RUX handoff telemetry: when For You <video> ownership ends while a track
+    // RUX handoff telemetry: when Pods <video> ownership ends while a track
     // is playing, the global <audio> must resume near the same position. We open
-    // a handoff journey on the For You→global owner transition and settle it on
+    // a handoff journey on the Pods→global owner transition and settle it on
     // the next audio progress (completed) or a deadline (failed).
     const previousOwnerRef = useRef(playbackOwner);
     const handoffRef = useRef<ReturnType<typeof beginHandoff> | null>(null);
@@ -128,11 +128,11 @@ export function NowPlayingProvider() {
         const previousOwner = previousOwnerRef.current;
         previousOwnerRef.current = playbackOwner;
         const audio = audioRef.current;
-        if (!(previousOwner === 'foryou' && playbackOwner === 'global')) return;
+        if (!(previousOwner === 'pods' && playbackOwner === 'global')) return;
         const { currentItem } = useNowPlayingStore.getState();
         if (!audio || !currentItem || !isPlaying) return;
 
-        const journey = beginHandoff('foryou', currentItem.id);
+        const journey = beginHandoff('pods', currentItem.id);
         handoffRef.current = journey;
         const onResumed = () => journey.completed();
         audio.addEventListener('playing', onResumed, { once: true });
@@ -194,14 +194,14 @@ export function NowPlayingProvider() {
         }
     };
 
-    // Track the exact position while the <audio> owns playback so For You can
+    // Track the exact position while the <audio> owns playback so Pods can
     // resume from it (audioPlaybackTime is read once by the card on return),
     // and persist a resume point at most every 5s — same cadence as the
     // <video> — so a reload mid-listen doesn't lose much.
     const handleTimeUpdate = () => {
         const audio = audioRef.current;
         const { currentItem, playbackOwner } = useNowPlayingStore.getState();
-        if (!audio || !currentItem || playbackOwner === 'foryou') return;
+        if (!audio || !currentItem || playbackOwner === 'pods') return;
 
         audioPlaybackTime.itemId = currentItem.id;
         audioPlaybackTime.time = audio.currentTime;

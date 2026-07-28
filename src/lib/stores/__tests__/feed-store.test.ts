@@ -34,11 +34,11 @@ describe('feed interaction identity state', () => {
     useFeedStore.setState({
       likedIds: new Set(['like']),
       bookmarkedIds: new Set(['bookmark']),
-      forYouPlaybackById: {
+      podsPlaybackById: {
         item: { timeSec: 42, progress: 50, updatedAt: 1_800_000_000_000 },
       },
-      lastActiveForYouItemId: 'item',
-      forYouActiveIndex: 4,
+      lastActivePodsItemId: 'item',
+      podsActiveIndex: 4,
       newsActiveIndex: 2,
       progress: 50,
       identityGeneration: 4,
@@ -48,9 +48,9 @@ describe('feed interaction identity state', () => {
 
     expect(useFeedStore.getState().likedIds).toEqual(new Set());
     expect(useFeedStore.getState().bookmarkedIds).toEqual(new Set());
-    expect(useFeedStore.getState().forYouPlaybackById).toEqual({});
-    expect(useFeedStore.getState().lastActiveForYouItemId).toBeNull();
-    expect(useFeedStore.getState().forYouActiveIndex).toBe(0);
+    expect(useFeedStore.getState().podsPlaybackById).toEqual({});
+    expect(useFeedStore.getState().lastActivePodsItemId).toBeNull();
+    expect(useFeedStore.getState().podsActiveIndex).toBe(0);
     expect(useFeedStore.getState().newsActiveIndex).toBe(0);
     expect(useFeedStore.getState().progress).toBe(0);
     expect(useFeedStore.getState().identityGeneration).toBe(5);
@@ -85,9 +85,9 @@ describe('feed interaction identity state', () => {
         bookmarkedIds: ['account-a-bookmark'],
         sessionId: 'legacy-session',
         playbackSpeed: 1.5,
-        forYouDisplayMode: 'transcript',
+        podsDisplayMode: 'transcript',
       })
-    ).toEqual({ playbackSpeed: 1.5, forYouDisplayMode: 'transcript' });
+    ).toEqual({ playbackSpeed: 1.5, podsDisplayMode: 'transcript' });
     expect(migrateFeedPersistedState(null)).toEqual({});
   });
 });

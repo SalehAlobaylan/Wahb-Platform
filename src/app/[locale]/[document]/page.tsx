@@ -110,7 +110,7 @@ const english: Record<LegalDocument, Copy> = {
       },
       {
         heading: "What happens next",
-        body: "Reported content is hidden for you immediately where applicable and is sent to the moderation workflow for review. Reporting does not guarantee removal, but it helps us investigate.",
+        body: "Reported content is hidden pods immediately where applicable and is sent to the moderation workflow for review. Reporting does not guarantee removal, but it helps us investigate.",
       },
       {
         heading: "Urgent risk",

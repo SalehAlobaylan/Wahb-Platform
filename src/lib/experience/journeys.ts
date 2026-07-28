@@ -31,7 +31,7 @@ function durationSince(start: number): number {
   return Math.max(0, Math.round(nowMs() - start));
 }
 
-// ── Feed load journey (For You + News) ───────────────────────────────────────
+// ── Feed load journey (Pods + News) ───────────────────────────────────────
 // feed_requested (diagnostic) → one terminal: feed_rendered | feed_failed |
 // feed_empty. Only the terminal event counts toward SLIs.
 
@@ -119,7 +119,7 @@ export function beginPagination(surface: RuxSurface): PaginationJourney {
   };
 }
 
-// ── Playback journey (For You card + global audio) ───────────────────────────
+// ── Playback journey (Pods card + global audio) ───────────────────────────
 // playback_attempted (diagnostic) → exactly one startup terminal:
 //   playback_started         — first progress after the attempt (success)
 //   playback_failed          — media error OR play() promise rejection
