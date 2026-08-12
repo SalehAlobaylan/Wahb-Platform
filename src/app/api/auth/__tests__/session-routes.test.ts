@@ -5,6 +5,7 @@ jest.mock('next/server', () => ({
 
 import { POST as refresh } from '@/app/api/auth/refresh/route';
 import { POST as clearSession } from '@/app/api/auth/session/clear/route';
+import { GET as currentUser } from '@/app/api/auth/me/route';
 import { cookies } from 'next/headers';
 
 const mockCookies = cookies as jest.Mock;
@@ -84,5 +85,56 @@ describe('auth refresh route', () => {
 
     expect(response.status).toBe(403);
     expect(cookieStore.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('current-user route', () => {
+  const cookieStore = {
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  beforeEach(() => {
+    process.env.IAM_API_URL = 'http://iam.test';
+    mockCookies.mockResolvedValue(cookieStore);
+    cookieStore.get.mockReset();
+    cookieStore.delete.mockReset();
+    global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    delete process.env.IAM_API_URL;
+  });
+
+  it('returns a successful anonymous state without attempting refresh', async () => {
+    cookieStore.get.mockReturnValue(undefined);
+
+    const response = await currentUser();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ user: null });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 only when a refreshable session exists', async () => {
+    cookieStore.get.mockImplementation((name: string) => name === 'wahb_refresh_token' ? { value: 'refresh-cookie' } : undefined);
+
+    const response = await currentUser();
+
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('clears an orphaned access credential without initiating refresh', async () => {
+    cookieStore.get.mockImplementation((name: string) => name === 'wahb_access_token' ? { value: 'expired-access' } : undefined);
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 401 });
+
+    const response = await currentUser();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ user: null });
+    expect(cookieStore.delete).toHaveBeenCalledWith('wahb_access_token');
+    expect(cookieStore.delete).toHaveBeenCalledWith('wahb_token_expires');
   });
 });

@@ -36,7 +36,7 @@ function durationSince(start: number): number {
 // feed_empty. Only the terminal event counts toward SLIs.
 
 export interface FeedLoadJourney {
-  rendered(): void;
+  rendered(contentId?: string): void;
   empty(): void;
   failed(failureClass?: RuxFailureClass): void;
 }
@@ -54,12 +54,13 @@ export function beginFeedLoad(surface: RuxSurface): FeedLoadJourney {
   };
 
   return {
-    rendered() {
+    rendered(contentId?: string) {
       settle(() =>
         emitEvent({
           event_type: 'feed_rendered',
           surface,
           journey_id: id,
+          content_id: contentId ?? null,
           measurements: { duration_ms: durationSince(start), visible: !isHidden() },
         })
       );

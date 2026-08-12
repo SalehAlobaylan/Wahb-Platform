@@ -3,7 +3,7 @@
 import { Suspense, useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { usePodsFeed, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
+import { usePodsFeed, usePodsFeedFreshness, useLikeMutation, useBookmarkMutation } from '@/lib/hooks';
 import { useFeedStore, useNowPlayingStore, useAuthStore } from '@/lib/stores';
 import { useShallow } from 'zustand/react/shallow';
 import { FeedContainer, PodsCard, PodsSkeleton, ViewTracker, DraggableBottomSheet, BottomSheetTabs, PullToRefresh } from '@/components/feed';
@@ -153,6 +153,8 @@ function PodsPageContent() {
 
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
+	const activeSessionId = data?.pages[0]?.session_id;
+	const freshness = usePodsFeedFreshness(activeSessionId);
 
     // Combine all pages; dedupe by id so cursor overlap does not duplicate keys
     const podsItems = useMemo(() => {
@@ -176,6 +178,7 @@ function PodsPageContent() {
         surface: 'pods',
         status,
         unitCount: podsItems.length,
+        renderedContentID: podsItems[0]?.id,
         loadKey: durationPreference ?? 'all',
     });
 
@@ -569,6 +572,13 @@ function PodsPageContent() {
                     onChange={setDurationPreference}
                 />
             </div>
+			{freshness.data && (
+				<div className="pointer-events-none absolute inset-x-0 top-[122px] z-20 flex justify-center px-3">
+					<button type="button" className="pointer-events-auto rounded-full bg-news-accent px-4 py-2 text-xs font-semibold text-white shadow-lg" onClick={() => void refetch()}>
+						{t('pods.newContent')}
+					</button>
+				</div>
+			)}
 
             {/* Feed content. PullToRefresh reads scrollTop from feedRef so it
                 doesn't add a second scroll container; pulling down at the

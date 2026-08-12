@@ -2,7 +2,9 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchPodsFeed,
+  createPodsFeedSession,
+  fetchPodsFeedSession,
+  fetchPodsFeedSessionFreshness,
   fetchNewsFeed,
   fetchBookmarks,
   fetchComments,
@@ -35,12 +37,26 @@ export function usePodsFeed(duration?: PodsDurationPreference | null) {
   const identityKey = useIdentityCacheKey();
   return useInfiniteQuery({
     queryKey: ['feed', 'pods', identityKey, { duration: duration ?? null }],
-    queryFn: ({ pageParam }) => fetchPodsFeed(pageParam, duration),
-    initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => lastPage.cursor,
+	queryFn: ({ pageParam }) => pageParam === null
+	  ? createPodsFeedSession(duration)
+	  : fetchPodsFeedSession(pageParam.sessionId, pageParam.cursor),
+	initialPageParam: null as null | { sessionId: string; cursor: string },
+	getNextPageParam: (lastPage) => lastPage.cursor ? { sessionId: lastPage.session_id, cursor: lastPage.cursor } : undefined,
     maxPages: 5,
     staleTime: 1000 * 60, // 1 minute
   });
+}
+
+export function usePodsFeedFreshness(sessionId?: string) {
+	const identityKey = useIdentityCacheKey();
+	return useQuery({
+		queryKey: ['feed', 'pods', 'freshness', identityKey, sessionId],
+		queryFn: () => fetchPodsFeedSessionFreshness(sessionId!),
+		enabled: Boolean(sessionId),
+		refetchInterval: 60_000,
+		staleTime: 30_000,
+		retry: 1,
+	});
 }
 
 /**

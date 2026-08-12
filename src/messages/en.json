@@ -345,6 +345,7 @@
   "pods.empty.title": "No feed-ready media",
   "pods.empty.duration": "No {duration}m chapters ready",
   "pods.empty.body": "Try another duration or check back soon.",
+  "pods.newContent": "New content — refresh",
   "pods.duration.all": "All durations",
   "pods.duration.minutes": "{duration} minute chapters",
   "pods.display.label": "Display mode",

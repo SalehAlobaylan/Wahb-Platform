@@ -1,5 +1,5 @@
 
-import { FeedRequestError, fetchPodsFeed, fetchNewsFeed } from '@/lib/api/feeds';
+import { FeedRequestError, createPodsFeedSession, fetchPodsFeed, fetchNewsFeed } from '@/lib/api/feeds';
 import * as mockClient from '@/lib/api/mock-client';
 
 // Mock the mock-client module
@@ -58,6 +58,23 @@ describe('Feeds API', () => {
 
             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('duration=15'));
         });
+
+		it('creates and runtime-validates a frozen Pods session', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ session_id: '550e8400-e29b-41d4-a716-446655440000', expires_at: '2026-08-10T00:00:00Z', cursor: null, caught_up: false, items: [] }),
+			});
+			await expect(createPodsFeedSession(15)).resolves.toMatchObject({ session_id: '550e8400-e29b-41d4-a716-446655440000' });
+			expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/pods/sessions?'), { method: 'POST' });
+		});
+
+		it('rejects malformed frozen-session timestamps', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ session_id: '550e8400-e29b-41d4-a716-446655440000', expires_at: 'not-a-date', cursor: null, caught_up: false, items: [] }),
+			});
+			await expect(createPodsFeedSession()).rejects.toThrow('Invalid Pods session expiry');
+		});
 
         it('exposes bounded retry metadata for a throttled feed request', async () => {
             (global.fetch as jest.Mock).mockResolvedValueOnce({

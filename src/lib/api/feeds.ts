@@ -1,6 +1,7 @@
 
 import type {
   PodsResponse,
+  PodsSessionResponse,
   NewsResponse,
   NewsSlide,
   ContentItem,
@@ -54,6 +55,8 @@ function retryAfterMs(value: string | null, now = Date.now()): number | undefine
 function isContentItem(item: ContentItem | null): item is ContentItem {
   return item !== null;
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Identity for interaction/feed calls. For authenticated users we send NO
 // identity field: the /api/v1 proxy injects the user's JWT from the httpOnly
@@ -153,6 +156,75 @@ export async function fetchPodsFeed(cursor?: string | null, duration?: PodsDurat
     ...payload,
     items: (payload.items || []).map(normalizePodsFeedItem).filter(isContentItem),
   };
+}
+
+function parsePodsSessionResponse(value: unknown): PodsSessionResponse {
+  const payload = value && typeof value === 'object' && 'data' in value
+    ? (value as { data?: unknown }).data
+    : value;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid Pods session response');
+  const raw = payload as Record<string, unknown>;
+  if (typeof raw.session_id !== 'string' || !UUID_PATTERN.test(raw.session_id)) throw new Error('Invalid Pods session identity');
+  if (typeof raw.expires_at !== 'string' || !Number.isFinite(Date.parse(raw.expires_at))) throw new Error('Invalid Pods session expiry');
+  if (raw.cursor !== null && typeof raw.cursor !== 'string') throw new Error('Invalid Pods session cursor');
+  if (typeof raw.caught_up !== 'boolean' || !Array.isArray(raw.items)) throw new Error('Invalid Pods session payload');
+  const items = raw.items.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const candidate = item as ContentItem;
+    if (typeof candidate.id !== 'string' || !UUID_PATTERN.test(candidate.id)) return null;
+    return normalizePodsFeedItem(candidate);
+  }).filter(isContentItem);
+  if (items.length !== raw.items.length) throw new Error('Invalid Pods session item');
+  return { session_id: raw.session_id, expires_at: raw.expires_at, cursor: raw.cursor as string | null, caught_up: raw.caught_up, items };
+}
+
+export async function createPodsFeedSession(duration?: PodsDurationPreference | null): Promise<PodsSessionResponse> {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    const page = await mockFetchPodsFeed();
+    return {
+      ...page,
+      session_id: '00000000-0000-4000-8000-000000000001',
+      expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      caught_up: page.items.length === 0,
+    };
+  }
+  const params = getIdentityParams();
+  if (duration) params.set('duration', String(duration));
+  params.set('limit', '20');
+  const response = await fetch(`${API_BASE}/feed/pods/sessions?${params}`, { method: 'POST' });
+  if (!response.ok) throw new FeedRequestError('Pods session creation failed', response.status, retryAfterMs(response.headers.get('retry-after')));
+  return parsePodsSessionResponse(await response.json());
+}
+
+export async function fetchPodsFeedSession(sessionId: string, cursor?: string | null): Promise<PodsSessionResponse> {
+  if (!UUID_PATTERN.test(sessionId)) throw new Error('Invalid Pods session identity');
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    const page = await mockFetchPodsFeed(cursor);
+    return {
+      ...page,
+      session_id: sessionId,
+      expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      caught_up: page.items.length === 0,
+    };
+  }
+  const params = getIdentityParams();
+  params.set('limit', '20');
+  if (cursor) params.set('cursor', cursor);
+  const response = await fetch(`${API_BASE}/feed/pods/sessions/${encodeURIComponent(sessionId)}?${params}`);
+  if (!response.ok) throw new FeedRequestError('Pods session page failed', response.status, retryAfterMs(response.headers.get('retry-after')));
+  return parsePodsSessionResponse(await response.json());
+}
+
+export async function fetchPodsFeedSessionFreshness(sessionId: string): Promise<boolean> {
+  if (!UUID_PATTERN.test(sessionId)) throw new Error('Invalid Pods session identity');
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') return false;
+  const params = getIdentityParams();
+  const response = await fetch(`${API_BASE}/feed/pods/sessions/${encodeURIComponent(sessionId)}/freshness?${params}`);
+  if (!response.ok) throw new FeedRequestError('Pods session freshness failed', response.status, retryAfterMs(response.headers.get('retry-after')));
+  const value: unknown = await response.json();
+  const payload = value && typeof value === 'object' && 'data' in value ? (value as { data?: unknown }).data : value;
+  if (!payload || typeof payload !== 'object' || typeof (payload as { has_new_content?: unknown }).has_new_content !== 'boolean') throw new Error('Invalid Pods freshness response');
+  return (payload as { has_new_content: boolean }).has_new_content;
 }
 
 // ─── Phase 13: story → editorial slide adapter ─────────────────────────────

@@ -16,14 +16,26 @@ export async function GET() {
 
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('wahb_access_token')?.value;
+  const refreshToken = cookieStore.get('wahb_refresh_token')?.value;
   if (!accessToken) {
+    // Anonymous browsing is a first-class state. Only return 401 when a
+    // refresh credential exists and the client can actually recover a user
+    // session; otherwise auth initialization would manufacture two failed
+    // requests on every public page load.
+    if (!refreshToken) return NextResponse.json({ user: null });
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
   const res = await fetchProfile(IAM_URL, accessToken);
 
   if (!res.ok) {
-    return NextResponse.json({ user: null }, { status: res.status === 401 || res.status === 403 ? 401 : 502 });
+    if (res.status === 401 || res.status === 403) {
+      if (refreshToken) return NextResponse.json({ user: null }, { status: 401 });
+      cookieStore.delete('wahb_access_token');
+      cookieStore.delete('wahb_token_expires');
+      return NextResponse.json({ user: null });
+    }
+    return NextResponse.json({ user: null }, { status: 502 });
   }
 
   const data = await res.json();

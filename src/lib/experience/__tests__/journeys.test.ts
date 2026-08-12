@@ -82,10 +82,11 @@ describe('playback journey — hidden-tab whole-journey exclusion', () => {
 describe('feed / pagination / handoff / article journeys settle once', () => {
   it('feed load rendered fires once', () => {
     const j = beginFeedLoad('pods');
-    j.rendered();
+    j.rendered('11111111-1111-4111-8111-111111111111');
     j.empty(); // ignored
     j.failed(); // ignored
     expect(types()).toEqual(['feed_requested', 'feed_rendered']);
+    expect(emitted()[1]?.content_id).toBe('11111111-1111-4111-8111-111111111111');
   });
 
   it('pagination starved fires once', () => {

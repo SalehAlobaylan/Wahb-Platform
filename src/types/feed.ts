@@ -180,6 +180,12 @@ export interface PodsResponse {
   items: ContentItem[];
 }
 
+export interface PodsSessionResponse extends PodsResponse {
+  session_id: string;
+  expires_at: string;
+  caught_up: boolean;
+}
+
 export interface NewsResponse {
   cursor: string | null;
   slides: NewsSlide[];

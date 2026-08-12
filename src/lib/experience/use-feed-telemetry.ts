@@ -10,6 +10,9 @@ interface FeedLoadTelemetryInput {
   surface: RuxSurface;
   status: QueryStatus;
   unitCount: number;
+  // One exact server-returned item proves a concrete render boundary. It is
+  // evidence only and never becomes ranking/session state.
+  renderedContentID?: string;
   // Distinguishes a fresh load from a refetch, so a new load re-arms the journey.
   loadKey?: string | number;
 }
@@ -20,7 +23,7 @@ interface FeedLoadTelemetryInput {
  * feed_empty (successful but zero units), or feed_failed (error). The journey
  * begins on mount / whenever loadKey changes (a new fresh load).
  */
-export function useFeedLoadTelemetry({ surface, status, unitCount, loadKey }: FeedLoadTelemetryInput): void {
+export function useFeedLoadTelemetry({ surface, status, unitCount, renderedContentID, loadKey }: FeedLoadTelemetryInput): void {
   const journeyRef = useRef<FeedLoadJourney | null>(null);
   const settledRef = useRef(false);
   const lastKeyRef = useRef<string | number | undefined>(undefined);
@@ -40,13 +43,13 @@ export function useFeedLoadTelemetry({ surface, status, unitCount, loadKey }: Fe
     if (settledRef.current || !journeyRef.current) return;
     if (status === 'success') {
       settledRef.current = true;
-      if (unitCount > 0) journeyRef.current.rendered();
+      if (unitCount > 0) journeyRef.current.rendered(renderedContentID);
       else journeyRef.current.empty();
     } else if (status === 'error') {
       settledRef.current = true;
       journeyRef.current.failed('unknown');
     }
-  }, [status, unitCount]);
+  }, [status, unitCount, renderedContentID]);
 }
 
 /**

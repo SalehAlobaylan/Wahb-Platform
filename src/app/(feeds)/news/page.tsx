@@ -142,6 +142,7 @@ function NewsPageContent() {
         surface: 'news',
         status,
         unitCount: newsSlides.length,
+        renderedContentID: newsSlides[0]?.featured.id,
         loadKey: selectedWindow,
     });
     const paginationTelemetry = usePaginationTelemetry('news');

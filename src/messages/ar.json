@@ -345,6 +345,7 @@
   "pods.empty.title": "لا توجد وسائط جاهزة للعرض",
   "pods.empty.duration": "لا توجد فصول جاهزة لمدة {duration}د",
   "pods.empty.body": "جرّب مدة أخرى أو عد لاحقاً.",
+  "pods.newContent": "محتوى جديد — تحديث",
   "pods.duration.all": "كل المدد",
   "pods.duration.minutes": "فصول مدتها {duration} دقائق",
   "pods.display.label": "وضع العرض",
