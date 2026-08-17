@@ -338,6 +338,10 @@
   "news.category.health": "Health",
   "news.category.culture": "Culture",
   "news.category.society": "Society",
+  "news.empty.title": "No stories in this time range",
+  "news.empty.body": "Try the monthly view to see the latest available coverage, or refresh for new stories.",
+  "news.empty.showMonth": "Show this month",
+  "news.empty.refresh": "Refresh",
 
   "pods.badge.podcast": "Podcast",
   "pods.badge.audio": "Audio",

@@ -338,6 +338,10 @@
   "news.category.health": "صحة",
   "news.category.culture": "ثقافة",
   "news.category.society": "مجتمع",
+  "news.empty.title": "لا توجد قصص في هذه الفترة",
+  "news.empty.body": "جرّب عرض الشهر لرؤية أحدث التغطيات المتاحة، أو حدّث الصفحة للبحث عن قصص جديدة.",
+  "news.empty.showMonth": "عرض هذا الشهر",
+  "news.empty.refresh": "تحديث",
 
   "pods.badge.podcast": "بودكاست",
   "pods.badge.audio": "صوت",

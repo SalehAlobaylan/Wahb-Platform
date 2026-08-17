@@ -19,7 +19,7 @@ import {
 import { FeedSwitcher } from '@/components/layout';
 import { FeedErrorFallback } from '@/components/error-boundary';
 import { throttleScroll } from '@/lib/scroll-optimizer';
-import { User, Search } from 'lucide-react';
+import { Clock3, RefreshCw, User, Search } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
 import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
 import { beginArticle, type ArticleJourney } from '@/lib/experience/journeys';
@@ -315,6 +315,8 @@ function NewsPageContent() {
         );
     }
 
+    const isEmpty = !showLoading && newsSlides.length === 0;
+
     return (
         <div className="h-full w-full overflow-hidden relative bg-background news-page">
             {/* Header */}
@@ -355,6 +357,33 @@ function NewsPageContent() {
                         <NewsSlideSkeleton />
                         <NewsSlideSkeleton />
                     </>
+                ) : isEmpty ? (
+                    <section className="h-full w-full snap-start flex items-center justify-center px-6 text-center" aria-live="polite">
+                        <div className="max-w-sm rounded-sm border border-foreground/15 bg-card/90 p-7 shadow-sm">
+                            <Clock3 className="mx-auto mb-4 h-8 w-8 text-news-accent" aria-hidden="true" />
+                            <h1 className="font-display text-xl text-foreground">{t('news.empty.title')}</h1>
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('news.empty.body')}</p>
+                            <div className="mt-5 flex flex-wrap justify-center gap-2">
+                                {selectedWindow !== 'month' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleWindowChange('month')}
+                                        className="rounded-sm bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-85"
+                                    >
+                                        {t('news.empty.showMonth')}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => refetch()}
+                                    className="inline-flex items-center gap-2 rounded-sm border border-foreground/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/5"
+                                >
+                                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                    {t('news.empty.refresh')}
+                                </button>
+                            </div>
+                        </div>
+                    </section>
                 ) : (
                     newsSlides.map((slide, index) => (
                         <ViewTracker key={slide.slide_id || slide.featured.id} contentId={slide.featured.id} className="h-full w-full snap-start">
