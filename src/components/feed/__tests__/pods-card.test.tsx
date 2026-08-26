@@ -8,9 +8,10 @@ jest.mock('@/lib/hooks', () => ({
     useTranscript: jest.fn(),
     useRequestTranscription: jest.fn(),
     useTrackingMutation: jest.fn(),
+	usePlaybackPreferences: jest.fn(),
 }));
 
-import { useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
+import { usePlaybackPreferences, useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
 jest.mock('@/lib/stores/auth-store', () => ({
@@ -20,6 +21,7 @@ jest.mock('@/lib/stores/auth-store', () => ({
 const mockUseTranscript = useTranscript as jest.Mock;
 const mockUseRequestTranscription = useRequestTranscription as jest.Mock;
 const mockUseTrackingMutation = useTrackingMutation as jest.Mock;
+const mockUsePlaybackPreferences = usePlaybackPreferences as jest.Mock;
 const mockUseAuthStore = useAuthStore as unknown as jest.Mock;
 
 const mockItem: ContentItem = {
@@ -66,6 +68,7 @@ describe('PodsCard', () => {
         });
         trackingMutate.mockReset();
         mockUseTrackingMutation.mockReturnValue({ mutate: trackingMutate });
+		mockUsePlaybackPreferences.mockReturnValue({ data: undefined });
     });
 
     it('renders video in fit mode by default', () => {

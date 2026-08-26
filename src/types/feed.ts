@@ -17,6 +17,8 @@ export interface ContentItem {
   playback_type?: 'hls' | 'mp4' | 'audio' | string;
   fallback_playback_url?: string;
   has_video?: boolean;
+  visual_available?: boolean;
+  rendition_set_version?: number;
   media_renditions?: Array<{
     type: 'hls' | 'mp4' | 'audio' | string;
     url: string;
@@ -24,6 +26,12 @@ export interface ContentItem {
     width?: number;
     height?: number;
     bitrate_kbps?: number;
+    quality_tier?: 'data_saver' | 'standard' | 'high' | string;
+    codec?: string;
+    container?: string;
+    adaptive?: boolean;
+    manifest_id?: string;
+    package_manifest_id?: string;
     is_primary?: boolean;
   }>;
   parent_id?: string;

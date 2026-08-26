@@ -8,7 +8,7 @@ import { useFeedStore } from '@/lib/stores';
 import { audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useShallow } from 'zustand/react/shallow';
 import { requestRestore } from '@/lib/api/feeds';
-import { useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
+import { usePlaybackPreferences, useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
 import { isVisualPlayback } from '@/lib/utils/playback';
@@ -56,6 +56,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     const pendingResumeRef = useRef<number | null>(null);
     const completedRef = useRef(false);
     const trackingMutation = useTrackingMutation();
+	const { data: playbackPreferences } = usePlaybackPreferences();
     const {
         isPlaying,
         globalPaused,
@@ -100,8 +101,8 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         setPlaybackCapabilities(playbackCapabilitiesFor(node));
     }, []);
     const playbackSources = useMemo(
-        () => resolvePlaybackSources(item, playbackCapabilities),
-        [item, playbackCapabilities]
+        () => resolvePlaybackSources(item, playbackCapabilities, playbackPreferences),
+        [item, playbackCapabilities, playbackPreferences]
     );
     const playbackAttempt = sourceAttempt.itemId === item.id ? sourceAttempt.attempt : 0;
     const playbackFailed = sourceAttempt.itemId === item.id && sourceAttempt.failed;
@@ -133,6 +134,8 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         let attachment: { destroy(): void } | null = null;
         attachManagedHls(telemetryMedia, playbackSource.url, () => {
             if (!cancelled) advancePlaybackSource();
+        }, (event) => {
+            reportPlaybackFallback({ contentId: item.id, playbackType: `hls_${event.event}`, surface: 'pods' });
         })
             .then((nextAttachment) => {
                 if (cancelled) nextAttachment.destroy();

@@ -15,6 +15,12 @@ export interface PlaybackSource {
   reason: 'primary' | 'rendition' | 'fallback' | 'legacy';
 }
 
+export interface PlaybackPreferences {
+  audio_quality?: 'data_saver' | 'standard' | 'high';
+  streaming_quality?: 'auto' | 'data_saver' | 'standard' | 'high';
+  prefer_audio_when_available?: boolean;
+}
+
 interface RawSource {
   url?: string;
   type?: string;
@@ -39,18 +45,32 @@ function cleanUrl(url: string | undefined): string | undefined {
 export function resolvePlaybackSources(
   item: Pick<ContentItem, 'playback_url' | 'playback_type' | 'fallback_playback_url' | 'media_url' | 'media_renditions' | 'has_video'>,
   capabilities: PlaybackCapabilities,
+	preferences: PlaybackPreferences = {},
 ): PlaybackSource[] {
   const fallbackType: PlaybackSourceType = item.has_video === false ? 'audio' : 'mp4';
-  const raw: RawSource[] = [
+  const renditionSources: RawSource[] = (item.media_renditions ?? [])
+    .filter((rendition) => !rendition.is_primary)
+    .sort((a, b) => {
+      const tier = preferences.audio_quality ?? 'standard';
+      const score = (r: typeof a) => r.type === 'audio' && preferences.prefer_audio_when_available !== false
+        ? (r.quality_tier === tier ? 0 : 1) : 2;
+      return score(a) - score(b);
+    })
+    .map((rendition) => ({ url: rendition.url, type: rendition.type, reason: 'rendition' as const }));
+  const primary: RawSource[] = [
     { url: item.playback_url, type: item.playback_type, reason: 'primary' },
     ...(item.media_renditions ?? [])
       .filter((rendition) => rendition.is_primary)
       .map((rendition) => ({ url: rendition.url, type: rendition.type, reason: 'rendition' as const })),
+  ];
+  const raw: RawSource[] = [
+    ...(preferences.prefer_audio_when_available !== false
+      ? renditionSources.filter((source) => source.type === 'audio')
+      : []),
+    ...primary,
     { url: item.fallback_playback_url, type: fallbackType, reason: 'fallback' },
     { url: item.media_url, type: item.playback_url === item.media_url ? undefined : fallbackType, reason: 'legacy' },
-    ...(item.media_renditions ?? [])
-      .filter((rendition) => !rendition.is_primary)
-      .map((rendition) => ({ url: rendition.url, type: rendition.type, reason: 'rendition' as const })),
+    ...renditionSources.filter((source) => source.type !== 'audio' || preferences.prefer_audio_when_available === false),
   ];
 
   const candidates: PlaybackSource[] = [];

@@ -26,6 +26,13 @@ export interface PreferencesResponse {
   muted: PreferenceTopic[];
 }
 
+export interface PlaybackPreferencesResponse {
+  audio_quality: 'data_saver' | 'standard' | 'high';
+  streaming_quality: 'auto' | 'data_saver' | 'standard' | 'high';
+  allow_cellular_high_quality: boolean;
+  prefer_audio_when_available: boolean;
+}
+
 async function readJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -42,6 +49,18 @@ export async function fetchTopicPicker(): Promise<TopicPickerResponse> {
 export async function fetchPreferences(): Promise<PreferencesResponse> {
   const res = await fetch('/api/v1/preferences');
   return readJson<PreferencesResponse>(res);
+}
+
+export async function fetchPlaybackPreferences(): Promise<PlaybackPreferencesResponse> {
+  return readJson<PlaybackPreferencesResponse>(await fetch('/api/v1/preferences/playback'));
+}
+
+export async function savePlaybackPreferences(
+  input: Partial<PlaybackPreferencesResponse>,
+): Promise<PlaybackPreferencesResponse> {
+  return readJson<PlaybackPreferencesResponse>(await fetch('/api/v1/preferences/playback', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  }));
 }
 
 export async function saveDeclaredTopics(topicIds: string[]): Promise<PreferencesResponse> {

@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { GlobalNowPlayingBar } from '@/components/global-now-playing-bar';
 import { HistoryRow } from '@/components/history/history-row';
 import { useAuthStore } from '@/lib/stores';
-import { useChangePassword, useLogout, useWatchHistory } from '@/lib/hooks';
+import { useChangePassword, useLogout, useWatchHistory, usePlaybackPreferences, useSavePlaybackPreferences } from '@/lib/hooks';
 import { useTheme } from 'next-themes';
 import { type WatchHistoryItem } from '@/lib/api/feeds';
 import { useI18n, useTranslations, type Locale } from '@/lib/i18n';
@@ -265,7 +265,9 @@ function ProfilePanel({ onBack, t }: { onBack: () => void; t: (key: string) => s
 }
 
 function AudioPanel({ onBack, t }: { onBack: () => void; t: (key: string) => string }) {
-    const [quality, setQuality] = useState('high');
+    const { data: playbackPreferences } = usePlaybackPreferences();
+    const savePlaybackPreferences = useSavePlaybackPreferences();
+    const quality = playbackPreferences?.audio_quality ?? 'standard';
     const [spatialAudio, setSpatialAudio] = useState(true);
     const [autoPlay, setAutoPlay] = useState(true);
 
@@ -276,13 +278,11 @@ function AudioPanel({ onBack, t }: { onBack: () => void; t: (key: string) => str
                 <div>
                     <SectionTitle>{t('settings.audio.section.streaming')}</SectionTitle>
                     <SettingsCard>
-                        <RadioOption label={t('settings.audio.quality.low')} description={t('settings.audio.quality.low.desc')} selected={quality === 'low'} onSelect={() => setQuality('low')} />
+                        <RadioOption label={t('settings.audio.quality.low')} description={t('settings.audio.quality.low.desc')} selected={quality === 'data_saver'} onSelect={() => savePlaybackPreferences.mutate({ audio_quality: 'data_saver' })} />
                         <Divider />
-                        <RadioOption label={t('settings.audio.quality.normal')} description={t('settings.audio.quality.normal.desc')} selected={quality === 'normal'} onSelect={() => setQuality('normal')} />
+                        <RadioOption label={t('settings.audio.quality.normal')} description={t('settings.audio.quality.normal.desc')} selected={quality === 'standard'} onSelect={() => savePlaybackPreferences.mutate({ audio_quality: 'standard' })} />
                         <Divider />
-                        <RadioOption label={t('settings.audio.quality.high')} description={t('settings.audio.quality.high.desc')} selected={quality === 'high'} onSelect={() => setQuality('high')} />
-                        <Divider />
-                        <RadioOption label={t('settings.audio.quality.lossless')} description={t('settings.audio.quality.lossless.desc')} selected={quality === 'lossless'} onSelect={() => setQuality('lossless')} />
+                        <RadioOption label={t('settings.audio.quality.high')} description={t('settings.audio.quality.high.desc')} selected={quality === 'high'} onSelect={() => savePlaybackPreferences.mutate({ audio_quality: 'high' })} />
                     </SettingsCard>
                 </div>
 

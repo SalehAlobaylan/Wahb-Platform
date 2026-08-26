@@ -6,17 +6,15 @@ export function getPlaybackUrl(item: Pick<ContentItem, 'playback_url' | 'media_u
   return item.playback_url || item.media_url || item.fallback_playback_url || undefined;
 }
 
-export function getAudioPlaybackUrl(item: Pick<ContentItem, 'playback_url' | 'media_url' | 'fallback_playback_url' | 'playback_type'>): string | undefined {
-  if (item.playback_type === 'hls') {
-    return item.fallback_playback_url || item.media_url || item.playback_url || undefined;
-  }
-  return getPlaybackUrl(item);
+export function getAudioPlaybackUrl(item: Pick<ContentItem, 'playback_url' | 'media_url' | 'fallback_playback_url' | 'playback_type' | 'media_renditions'>): string | undefined {
+  const nativeAudio = item.media_renditions?.find((rendition) => rendition.type === 'audio' && rendition.url)?.url;
+  return nativeAudio || (item.playback_type === 'audio' ? item.playback_url : undefined) || item.fallback_playback_url || item.media_url || undefined;
 }
 
-export function isVisualPlayback(item: Pick<ContentItem, 'has_video' | 'playback_type' | 'playback_url' | 'media_url' | 'fallback_playback_url'>): boolean {
+export function isVisualPlayback(item: Pick<ContentItem, 'has_video' | 'visual_available' | 'playback_type' | 'playback_url' | 'media_url' | 'fallback_playback_url'>): boolean {
   if (!getPlaybackUrl(item)) return false;
   if (item.playback_type === 'audio') return false;
-  return item.has_video !== false;
+  return (item.visual_available ?? item.has_video) !== false;
 }
 
 export function withLegacyMediaUrl<T extends ContentItem>(item: T): T {

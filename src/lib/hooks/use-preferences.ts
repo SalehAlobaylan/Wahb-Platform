@@ -7,6 +7,8 @@ import {
   muteTopic,
   saveDeclaredTopics,
   unmuteTopic,
+	fetchPlaybackPreferences,
+	savePlaybackPreferences,
 } from '@/lib/api/preferences';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { identityCacheKey } from '@/lib/identity/identity-key';
@@ -19,6 +21,17 @@ function usePreferenceKeys() {
     mine: ['preferences', identityKey, 'mine'] as const,
     enabled: Boolean(userId),
   };
+}
+
+export function usePlaybackPreferences() {
+  const keys = usePreferenceKeys();
+  return useQuery({ queryKey: [...keys.mine, 'playback'], queryFn: fetchPlaybackPreferences, enabled: keys.enabled, staleTime: 60 * 1000, retry: false });
+}
+
+export function useSavePlaybackPreferences() {
+  const qc = useQueryClient();
+  const keys = usePreferenceKeys();
+  return useMutation({ mutationFn: savePlaybackPreferences, onSuccess: (data) => qc.setQueryData([...keys.mine, 'playback'], data) });
 }
 
 export function useTopicPicker() {
