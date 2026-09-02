@@ -47,11 +47,11 @@ export function usePodsFeed(duration?: PodsDurationPreference | null) {
   });
 }
 
-export function usePodsFeedFreshness(sessionId?: string) {
+export function usePodsFeedFreshness(sessionId?: string, duration?: PodsDurationPreference | null) {
 	const identityKey = useIdentityCacheKey();
 	return useQuery({
-		queryKey: ['feed', 'pods', 'freshness', identityKey, sessionId],
-		queryFn: () => fetchPodsFeedSessionFreshness(sessionId!),
+		queryKey: ['feed', 'pods', 'freshness', identityKey, sessionId, duration ?? null],
+		queryFn: () => fetchPodsFeedSessionFreshness(sessionId!, duration),
 		enabled: Boolean(sessionId),
 		refetchInterval: 60_000,
 		staleTime: 30_000,

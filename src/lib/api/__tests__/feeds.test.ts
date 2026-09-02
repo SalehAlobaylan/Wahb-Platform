@@ -1,5 +1,5 @@
 
-import { FeedRequestError, createPodsFeedSession, fetchPodsFeed, fetchNewsFeed } from '@/lib/api/feeds';
+import { FeedRequestError, createPodsFeedSession, fetchPodsFeed, fetchPodsFeedSessionFreshness, fetchNewsFeed } from '@/lib/api/feeds';
 import * as mockClient from '@/lib/api/mock-client';
 
 // Mock the mock-client module
@@ -66,6 +66,16 @@ describe('Feeds API', () => {
 			});
 			await expect(createPodsFeedSession(15)).resolves.toMatchObject({ session_id: '550e8400-e29b-41d4-a716-446655440000' });
 			expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/feed/pods/sessions?'), { method: 'POST' });
+		});
+
+		it('keeps frozen-session freshness scoped to the selected duration', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ has_new_content: false }),
+			});
+
+			await expect(fetchPodsFeedSessionFreshness('550e8400-e29b-41d4-a716-446655440000', 15)).resolves.toBe(false);
+			expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('duration=15'));
 		});
 
 		it('rejects malformed frozen-session timestamps', async () => {

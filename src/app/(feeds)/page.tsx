@@ -154,7 +154,7 @@ function PodsPageContent() {
     const likeMutation = useLikeMutation();
     const bookmarkMutation = useBookmarkMutation();
 	const activeSessionId = data?.pages[0]?.session_id;
-	const freshness = usePodsFeedFreshness(activeSessionId);
+	const freshness = usePodsFeedFreshness(activeSessionId, durationPreference);
 
     // Combine all pages; dedupe by id so cursor overlap does not duplicate keys
     const podsItems = useMemo(() => {

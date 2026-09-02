@@ -134,8 +134,6 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         let attachment: { destroy(): void } | null = null;
         attachManagedHls(telemetryMedia, playbackSource.url, () => {
             if (!cancelled) advancePlaybackSource();
-        }, (event) => {
-            reportPlaybackFallback({ contentId: item.id, playbackType: `hls_${event.event}`, surface: 'pods' });
         })
             .then((nextAttachment) => {
                 if (cancelled) nextAttachment.destroy();

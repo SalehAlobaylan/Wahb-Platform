@@ -215,10 +215,14 @@ export async function fetchPodsFeedSession(sessionId: string, cursor?: string | 
   return parsePodsSessionResponse(await response.json());
 }
 
-export async function fetchPodsFeedSessionFreshness(sessionId: string): Promise<boolean> {
+export async function fetchPodsFeedSessionFreshness(
+  sessionId: string,
+  duration?: PodsDurationPreference | null,
+): Promise<boolean> {
   if (!UUID_PATTERN.test(sessionId)) throw new Error('Invalid Pods session identity');
   if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') return false;
   const params = getIdentityParams();
+  if (duration) params.set('duration', String(duration));
   const response = await fetch(`${API_BASE}/feed/pods/sessions/${encodeURIComponent(sessionId)}/freshness?${params}`);
   if (!response.ok) throw new FeedRequestError('Pods session freshness failed', response.status, retryAfterMs(response.headers.get('retry-after')));
   const value: unknown = await response.json();
