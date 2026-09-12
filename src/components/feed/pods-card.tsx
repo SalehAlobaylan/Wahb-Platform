@@ -101,14 +101,21 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         setPlaybackCapabilities(playbackCapabilitiesFor(node));
     }, []);
     const playbackSources = useMemo(
-        () => resolvePlaybackSources(item, playbackCapabilities, playbackPreferences),
-        [item, playbackCapabilities, playbackPreferences]
+        () => resolvePlaybackSources(item, playbackCapabilities, {
+            ...playbackPreferences,
+            // Fit/Fill explicitly requests the picture. Audio preference is
+            // for listening/transcript mode, not an audio track in <video>.
+            prefer_audio_when_available: podsDisplayMode === 'transcript'
+                ? playbackPreferences?.prefer_audio_when_available
+                : false,
+        }),
+        [item, playbackCapabilities, playbackPreferences, podsDisplayMode]
     );
     const playbackAttempt = sourceAttempt.itemId === item.id ? sourceAttempt.attempt : 0;
     const playbackFailed = sourceAttempt.itemId === item.id && sourceAttempt.failed;
     const playbackSource = playbackSources[playbackAttempt];
     const playbackUrl = playbackSource?.adapter === 'managed-hls' ? undefined : playbackSource?.url;
-    const visualPlayback = isVisualPlayback(item);
+    const visualPlayback = isVisualPlayback(item) && playbackSource?.type !== 'audio';
     const canLoadMedia = Boolean(playbackSource && (isActive || shouldLoadMedia));
     const effectiveDisplayMode: PodsDisplayMode = visualPlayback ? podsDisplayMode : 'transcript';
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
@@ -219,14 +226,14 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             }
         }
         wasActiveRef.current = isActive;
-    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setPodsPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject]);
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setPodsPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url]);
 
     // Handle playback speed
     useEffect(() => {
         if (videoRef.current) {
             videoRef.current.playbackRate = playbackSpeed;
         }
-    }, [playbackSpeed]);
+    }, [playbackSpeed, visualPlayback, playbackSource?.url]);
 
     // Handle play/pause
     useEffect(() => {
@@ -242,7 +249,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                 setPlaying(false);
             });
         }
-    }, [isPlaying, globalPaused, isActive, setPlaying, notifyAttempt, notifyPlayReject]);
+    }, [isPlaying, globalPaused, isActive, setPlaying, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url]);
 
     // Apply seek after metadata is loaded when duration becomes known. Prefer
     // the pending resume target (it may come from the global <audio>, which is
@@ -263,7 +270,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         return () => {
             el.removeEventListener('loadedmetadata', onLoadedMetadata);
         };
-    }, [isActive, item.id, applyTime]);
+    }, [isActive, item.id, applyTime, visualPlayback, playbackSource?.url]);
 
     // Flush the latest position to the store on unmount (e.g. navigating away)
     // so the throttle window below doesn't drop the last few seconds. Guarded by
@@ -388,7 +395,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             setPlaying(false);
         });
         return () => audio.pause();
-    }, [isActive, visualPlayback, globalPaused, isPlaying, playbackSpeed, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying]);
+    }, [isActive, visualPlayback, globalPaused, isPlaying, playbackSpeed, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying, playbackSource?.url]);
 
     useEffect(() => {
         const audio = audioRef.current;

@@ -79,6 +79,27 @@ describe('PodsCard', () => {
         expect(container.querySelector('video')).toHaveClass('object-contain');
     });
 
+    it.each(['fit', 'fill'] as const)('plays video rather than audio in %s mode despite the audio preference', (mode) => {
+        useFeedStore.setState({ podsDisplayMode: mode });
+        mockUsePlaybackPreferences.mockReturnValue({ data: { prefer_audio_when_available: true } });
+        const { container } = renderWithProviders(<PodsCard item={{
+            ...mockItem, has_video: true, playback_type: 'mp4', playback_url: mockItem.media_url,
+            media_renditions: [{ type: 'audio', url: 'https://cdn.test/audio.m4a' }],
+        }} isActive />);
+        expect(container.querySelector('video')).toHaveAttribute('src', mockItem.media_url);
+        expect(container.querySelector('audio')).toBeNull();
+    });
+
+    it('renders an audio element and transcript/artwork when video fails over to audio', () => {
+        const { container } = renderWithProviders(<PodsCard item={{
+            ...mockItem, has_video: true, playback_type: 'mp4', playback_url: mockItem.media_url,
+            media_renditions: [{ type: 'audio', url: 'https://cdn.test/audio.m4a' }],
+        }} isActive />);
+        fireEvent.error(container.querySelector('video')!);
+        expect(container.querySelector('video')).toBeNull();
+        expect(container.querySelector('audio')).toHaveAttribute('src', 'https://cdn.test/audio.m4a');
+    });
+
     it('renders video in fill mode when selected', () => {
         useFeedStore.setState({ podsDisplayMode: 'fill' });
 
