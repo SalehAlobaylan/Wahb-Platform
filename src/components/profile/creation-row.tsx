@@ -14,7 +14,7 @@ export function CreationRow({ item }: { item: MyContentItem }) {
     const isReady = item.status === 'READY' || item.status === 'ARCHIVED';
     const isAudioLike = item.type === 'PODCAST' || item.type === 'VIDEO';
     const Icon = item.type === 'VIDEO' ? Video : item.type === 'PODCAST' ? AudioLines : FileText;
-    const href = isReady ? `/?item=${item.id}` : '#';
+    const href = isReady ? `/app?item=${item.id}` : '#';
 
     return (
         <Link

@@ -8,7 +8,7 @@ fakes only, then creates the production artifact. Jest rejects unconfigured
 and non-loopback fetches so mandatory tests cannot contact shared or public
 infrastructure.
 
-The consumer app — the product itself. A mobile-first Next.js PWA delivering Wahb's two-feed experience: **Pods** (TikTok-style full-screen audio-first media units) and **News** (magazine-style story-slides). It renders feeds, plays media, and records interactions.
+The consumer app — the product itself. A mobile-first Next.js PWA with a public Arabic-first landing page at `/`, plus Wahb's two-feed experience: **Pods** at `/app` (TikTok-style full-screen audio-first media units) and **News** at `/news` (magazine-style story-slides). It renders feeds, plays media, and records interactions.
 
 It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwards reads/interactions to CMS and attaches the user's access token from an httpOnly cookie, so the browser never holds the token. It does **not** scrape, transcode, embed, or write to the database directly.
 
@@ -23,7 +23,7 @@ It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwar
 
 ## Other Features
 
-- **Global audio player** — a hidden `<audio>` persists across navigation; leaving Pods mid-playback transfers playback at the same timestamp, with a floating `NowPlayingBar` on non-feed pages.
+- **Global audio player** — a hidden `<audio>` persists across navigation; leaving `/app` mid-playback transfers playback at the same timestamp, with a floating `NowPlayingBar` on non-feed pages.
 - **Interactions** — like, bookmark, share, view, complete → CMS `/interactions`. Like/bookmark are idempotent (toggle) with optimistic UI + rollback. Anonymous users get a per-tab `session_id` for `is_liked`/`is_bookmarked` flags.
 - **Saved / Search / Profile** — bookmarks (filter + sort), debounced search against CMS `/content/search`, and profile/create surfaces.
 
@@ -47,7 +47,7 @@ Requires Node.js 20+.
 
 ## Design System
 
-Mobile-first, max-width app shell on a black outer canvas with the red rounded-square Wahb app icon as the primary client brand asset. The News feed owns a separate `.news-page` newsprint theme with red accents. Arabic-first typography (`TheYearofHandicrafts`). See [`SKILL.md`](SKILL.md) and repo-root `DESIGN.md` for the full token contract.
+The public landing page is full-width and Arabic-first; product routes retain the mobile-first max-width app shell on a black outer canvas with the red rounded-square Wahb app icon as the primary client brand asset. The News feed owns a separate `.news-page` newsprint theme with red accents. Arabic-first typography (`TheYearofHandicrafts`). See [`SKILL.md`](SKILL.md) and repo-root `DESIGN.md` for the full token contract.
 
 ## Configuration
 
@@ -78,7 +78,7 @@ Mobile-first, max-width app shell on a black outer canvas with the red rounded-s
 
 ```
 src/
-├── app/              # App Router — (feeds) group (Pods, news, saved), create, login, register, profile, search, settings
+├── app/              # App Router — (marketing) landing + (product) shell/routes; Pods is /app
 │   └── api/          # BFF routes: v1/[...path] proxy, auth/*, content/submit, transcribe
 ├── components/
 │   ├── feed/         # pods-card, news-slide, article-reader, draggable-bottom-sheet, view-tracker, …

@@ -35,7 +35,7 @@ export function HistoryTab() {
     const handleOpen = (item: WatchHistoryItem) => {
         const id = encodeURIComponent(item.content_id);
         if (item.type === 'VIDEO' || item.type === 'PODCAST') {
-            router.push(`/?item=${id}`);
+            router.push(`/app?item=${id}`);
             return;
         }
         router.push(`/news?item=${id}`);

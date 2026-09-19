@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
     if (pathMatches(pathname, AUTH_ONLY_PREFIXES) && authed) {
         const homeUrl = request.nextUrl.clone();
-        homeUrl.pathname = '/';
+        homeUrl.pathname = '/app';
         homeUrl.search = '';
         const res = NextResponse.redirect(homeUrl);
         setLocaleIfMissing(res, request);

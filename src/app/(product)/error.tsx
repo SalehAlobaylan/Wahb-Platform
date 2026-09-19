@@ -59,7 +59,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                         {t('errors.global.tryAgain')}
                     </button>
                     <Link
-                        href="/"
+                        href="/app"
                         className="flex-1 h-11 rounded-xl border border-border bg-card text-foreground text-sm font-semibold flex items-center justify-center hover:bg-muted active:scale-[0.98] transition-all"
                     >
                         {t('errors.global.goHome')}

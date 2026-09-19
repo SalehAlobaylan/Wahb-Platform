@@ -671,7 +671,7 @@ function HistoryPanel({
     const handleOpenItem = (item: WatchHistoryItem) => {
         const id = encodeURIComponent(item.content_id);
         if (item.type === 'VIDEO' || item.type === 'PODCAST') {
-            router.push(`/?item=${id}`);
+            router.push(`/app?item=${id}`);
             return;
         }
         router.push(`/news?item=${id}`);
@@ -872,7 +872,7 @@ export default function SettingsPage() {
             {/* ── Header ── */}
             <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border pt-12 pb-4 px-5">
                 <div className="flex items-center justify-between">
-                    <Link href="/">
+                    <Link href="/app">
                         <button className="p-2 -ml-2 rounded-full hover:bg-muted/60 transition-colors text-foreground active:scale-95">
                             <ArrowLeft className="w-5 h-5" />
                         </button>

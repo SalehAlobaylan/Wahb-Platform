@@ -92,7 +92,7 @@ export default function SearchPage() {
 
     const handleOpenItem = (item: ContentItem) => {
         if (item.type === 'VIDEO' || item.type === 'PODCAST') {
-            router.push(`/?item=${encodeURIComponent(item.id)}`);
+            router.push(`/app?item=${encodeURIComponent(item.id)}`);
             return;
         }
         setSelectedArticle(item);

@@ -11,16 +11,16 @@ import { useTranslations } from '@/lib/i18n';
 
 function getSafeRedirect(rawRedirect: string | null): string {
     if (!rawRedirect || !rawRedirect.startsWith('/') || rawRedirect.startsWith('//')) {
-        return '/';
+        return '/app';
     }
 
     try {
         const parsed = new URL(rawRedirect, window.location.origin);
-        if (parsed.origin !== window.location.origin) return '/';
-        if (parsed.pathname === '/login' || parsed.pathname === '/register') return '/';
+        if (parsed.origin !== window.location.origin) return '/app';
+        if (parsed.pathname === '/login' || parsed.pathname === '/register') return '/app';
         return `${parsed.pathname}${parsed.search}${parsed.hash}`;
     } catch {
-        return '/';
+        return '/app';
     }
 }
 
@@ -219,7 +219,7 @@ function LoginContent() {
 
                 {/* Skip */}
                 <div className="pt-4 pb-8 text-center">
-                    <Link href="/" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                    <Link href="/app" className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                         {t('auth.login.skip')}
                     </Link>
                 </div>

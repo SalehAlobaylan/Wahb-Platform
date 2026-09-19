@@ -384,7 +384,7 @@ function PodsPageContent() {
         hasRestoredScrollRef.current = true;
     }, [podsActiveIndex, podsItems, lastActivePodsItemId, setPodsActiveIndex]);
 
-    // Deep-link support: /?item=<content_id>
+    // Deep-link support: /app?item=<content_id>
     useEffect(() => {
         const targetItemId = searchParams.get('item');
         if (!targetItemId || !feedRef.current || podsItems.length === 0) return;

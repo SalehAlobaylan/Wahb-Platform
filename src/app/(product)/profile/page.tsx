@@ -82,7 +82,7 @@ function ProfileContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between bg-background/95 backdrop-blur-md px-4 h-14 sticky top-0 z-20 border-b border-border/40">
                     <Link
-                        href="/"
+                        href="/app"
                         className="text-foreground flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-muted/50 rounded-full transition-colors"
                     >
                         <ArrowLeft className="w-6 h-6 rtl:rotate-180" />

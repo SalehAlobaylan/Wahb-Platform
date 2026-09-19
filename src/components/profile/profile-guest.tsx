@@ -15,7 +15,7 @@ export function ProfileGuest() {
             <div className="relative flex h-auto min-h-screen w-full flex-col bg-background max-w-md mx-auto shadow-2xl overflow-x-hidden pb-16">
                 {/* Header */}
                 <div className="flex items-center bg-background p-4 pb-2 justify-between sticky top-0 z-20 border-b-border/40">
-                    <Link href="/" className="text-foreground flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-muted/50 rounded-full transition-colors">
+                    <Link href="/app" className="text-foreground flex size-10 shrink-0 items-center justify-center cursor-pointer hover:bg-muted/50 rounded-full transition-colors">
                         <ArrowLeft className="w-6 h-6" />
                     </Link>
                     <h2 className="text-foreground text-lg font-bold font-serif leading-tight tracking-tight flex-1 text-center">{t('profile.title')}</h2>

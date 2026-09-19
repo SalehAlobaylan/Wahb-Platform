@@ -46,7 +46,7 @@ export function getShareUrl(item?: Pick<ContentItem, 'id' | 'original_url' | 'ty
     url.searchParams.set('item', item.id);
     return url.toString();
   }
-  url.pathname = '/';
+  url.pathname = '/app';
   url.searchParams.set('item', item.id);
   return url.toString();
 }

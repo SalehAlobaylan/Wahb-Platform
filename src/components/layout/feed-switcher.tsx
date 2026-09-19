@@ -55,7 +55,7 @@ export function FeedSwitcher({
     const hasWindowMenu = Boolean(newsWindowOptions && newsWindowOptions.length > 0 && onNewsWindowChange);
 
     const tabs: { key: FeedType; label: string; href: string }[] = [
-        { key: 'pods', label: t('feeds.pods'), href: '/' },
+        { key: 'pods', label: t('feeds.pods'), href: '/app' },
         { key: 'news', label: t('feeds.news'), href: '/news' },
         { key: 'saved', label: t('feeds.saved'), href: '/saved' },
     ];

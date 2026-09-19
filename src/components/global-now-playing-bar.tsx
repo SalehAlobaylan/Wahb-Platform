@@ -5,7 +5,7 @@ import { NowPlayingBar } from '@/components/now-playing-bar';
 import { useNowPlayingStore } from '@/lib/stores/now-playing-store';
 
 /** Routes where the global bar should NOT appear */
-const HIDDEN_ROUTES = ['/', '/news'];
+const HIDDEN_ROUTES = ['/app', '/news'];
 
 /**
  * Root-level Now Playing bar that only renders when:
