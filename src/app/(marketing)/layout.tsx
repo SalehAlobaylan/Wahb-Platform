@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './landing.css';
+import './marketing-documents.css';
 
 export const metadata: Metadata = {
     title: 'وَهْب — Wahb · Audio & News',

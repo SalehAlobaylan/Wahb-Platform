@@ -29,7 +29,28 @@ const setPhoneCard = (root: HTMLElement, view: PhoneView, index: number) => {
 };
 
 const setPhoneView = (root: HTMLElement, view: PhoneView) => {
-    root.querySelector<HTMLElement>('[data-phone-preview]')?.setAttribute('data-phone-state', view);
+    const phone = root.querySelector<HTMLElement>('[data-phone-preview]');
+    const previousView = isPhoneView(phone?.dataset.phoneState) ? phone?.dataset.phoneState : undefined;
+    const direction = previousView && previousView !== view
+        ? previousView === 'pods' && view === 'news' ? 'left' : 'right'
+        : undefined;
+    const outgoingPanel = previousView ? root.querySelector<HTMLElement>(`[data-phone-panel="${previousView}"]`) : null;
+    const incomingPanel = root.querySelector<HTMLElement>(`[data-phone-panel="${view}"]`);
+    const transitionToken = String(Number(phone?.dataset.phoneTransitionToken ?? '0') + 1);
+
+    root.querySelectorAll<HTMLElement>('.phone__view.is-entering, .phone__view.is-leaving, .phone__view.is-leaving-left, .phone__view.is-leaving-right').forEach((panel) => {
+        panel.classList.remove('is-entering', 'is-leaving', 'is-leaving-left', 'is-leaving-right');
+    });
+    if (direction) {
+        incomingPanel?.classList.add('is-entering');
+        outgoingPanel?.classList.add('is-leaving');
+        if (phone) {
+            phone.dataset.phoneTransition = direction;
+            phone.dataset.phoneTransitionToken = transitionToken;
+        }
+    }
+
+    phone?.setAttribute('data-phone-state', view);
     root.querySelectorAll<HTMLButtonElement>('[data-phone-view]').forEach((button) => {
         const isActive = button.dataset.phoneView === view;
         button.classList.toggle('is-active', isActive);
@@ -47,6 +68,18 @@ const setPhoneView = (root: HTMLElement, view: PhoneView) => {
         annotationSet.setAttribute('aria-hidden', String(!isActive));
     });
     setPhoneCard(root, view, 0);
+
+    if (direction && incomingPanel && outgoingPanel) {
+        window.requestAnimationFrame(() => {
+            incomingPanel.classList.remove('is-entering');
+            outgoingPanel.classList.add(`is-leaving-${direction}`);
+        });
+        window.setTimeout(() => {
+            if (phone?.dataset.phoneTransitionToken !== transitionToken) return;
+            incomingPanel.classList.remove('is-entering');
+            outgoingPanel.classList.remove('is-leaving', 'is-leaving-left', 'is-leaving-right');
+        }, 780);
+    }
 };
 
 const LANDING_MARKUP = String.raw`
@@ -61,8 +94,8 @@ const LANDING_MARKUP = String.raw`
     <div class="nav__links">
       <a href="#features">المنصة</a>
       <a href="#how">كيف تعمل</a>
-      <a href="#showcase">المحتوى</a>
-      <a href="#creators">للمبدعين</a>
+      <a href="#continuity">التشغيل</a>
+      <a href="#chapters">الحلقات الطويلة</a>
       <a href="#faq">الأسئلة</a>
     </div>
     <div class="nav__cta">
@@ -81,13 +114,13 @@ const LANDING_MARKUP = String.raw`
     <div class="hero__copy">
       <div class="hero__pill">
         <span class="dot"></span>
-        <span>BETA · 1.0 · صوت وأخبار</span>
+        <span>بيتا · ١٫٠ · صوت وأخبار</span>
       </div>
 
       <h1 class="display hero__title">
-        <span class="ar">اِسمَع</span>
-        <span class="ar"><span class="stroke">المنطقة</span></span>
-        <span class="ar">كما لم <span class="accent">تَسمَعها</span>.</span>
+        <span class="ar">من زحامِ</span>
+        <span class="ar"><span class="stroke">اليومِ</span></span>
+        <span class="ar">نُضيءُ <span class="accent">ما يُهمّك.</span></span>
       </h1>
 
       <p class="hero__sub">
@@ -161,7 +194,7 @@ const LANDING_MARKUP = String.raw`
 
       <div class="phone-stage__switcher" role="tablist" aria-label="اختَر نوع المعاينة">
         <button id="phone-tab-pods" class="phone-stage__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="phone-preview-pods" data-phone-view="pods">
-          <span>لك</span><small>PODS</small>
+          <span>سمعيات</span><small>PODS</small>
         </button>
         <button id="phone-tab-news" class="phone-stage__tab" type="button" role="tab" aria-selected="false" aria-controls="phone-preview-news" data-phone-view="news" tabindex="-1">
           <span>الأخبار</span><small>NEWS</small>
@@ -182,7 +215,7 @@ const LANDING_MARKUP = String.raw`
                 </div>
                 <div class="phone__play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                 <div class="phone__bottom">
-                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">إذاعة مختلف</span><span class="phone__badge phone__badge--gold">PODCAST</span></div>
+                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">إذاعة مختلف</span><span class="phone__badge phone__badge--gold">بودكاست</span></div>
                   <div class="phone__caption">الكتابةُ طريقةٌ أخرى لفهم الذات</div>
                   <div class="phone__author">أروقة · إذاعة مختلف · ١٢ نوفمبر</div>
                   <div class="phone__progress"><i style="width:34%"></i></div>
@@ -199,7 +232,7 @@ const LANDING_MARKUP = String.raw`
                 </div>
                 <div class="phone__play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                 <div class="phone__bottom">
-                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">صوت</span><span class="phone__badge phone__badge--gold">PODCAST</span></div>
+                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">صوت</span><span class="phone__badge phone__badge--gold">بودكاست</span></div>
                   <div class="phone__caption">المسافة بين الفكرة وأوّل خطوة</div>
                   <div class="phone__author">سوالف بزنس · اليوم</div>
                   <div class="phone__progress"><i style="width:62%"></i></div>
@@ -216,7 +249,7 @@ const LANDING_MARKUP = String.raw`
                 </div>
                 <div class="phone__play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                 <div class="phone__bottom">
-                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">أثير</span><span class="phone__badge phone__badge--gold">AUDIO</span></div>
+                  <div class="phone__badges"><span class="phone__badge phone__badge--outline">أثير</span><span class="phone__badge phone__badge--gold">صوت</span></div>
                   <div class="phone__caption">هل نملك وقتنا، أم يملكه يومنا؟</div>
                   <div class="phone__author">فنجان · منذ ساعتين</div>
                   <div class="phone__progress"><i style="width:21%"></i></div>
@@ -231,7 +264,7 @@ const LANDING_MARKUP = String.raw`
               <div class="phone__tabs">
                 <div class="phone__tab">المحفوظات</div>
                 <div class="phone__tab">الأخبار</div>
-                <div class="phone__tab is-active">لك</div>
+                <div class="phone__tab is-active">سمعيات</div>
               </div>
               <span class="phone__icon-btn" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -265,7 +298,7 @@ const LANDING_MARKUP = String.raw`
               <div class="phone__tabs">
                 <div class="phone__tab">المحفوظات</div>
                 <div class="phone__tab is-active">الأخبار</div>
-                <div class="phone__tab">لك</div>
+                <div class="phone__tab">سمعيات</div>
               </div>
               <span class="phone__icon-btn" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -274,23 +307,23 @@ const LANDING_MARKUP = String.raw`
             <div class="phone__news-track">
               <article class="phone__news-card is-active" data-phone-card="0" aria-hidden="false">
                 <div class="phone__news-topbar"><span class="phone__news-mark">وَهْب</span><span class="phone__news-date">١٢ نوفمبر ٢٠٢٦</span><span class="phone__news-menu">•••</span></div>
-                <div class="phone__news-heading"><div class="phone__news-eyebrow">THE WAHB DAILY · الأخبار</div><div class="phone__news-rule"></div><h3>السعودية توقّع<br>اتّفاقاً تاريخياً</h3><p>قراءةٌ مختارة، من مصادر موثوقة، في ثلاث دقائق.</p></div>
+                <div class="phone__news-heading"><div class="phone__news-eyebrow">الأخبار</div><div class="phone__news-rule"></div><h3>السعودية توقّع<br>اتّفاقاً تاريخياً</h3><p>قراءةٌ مختارة، من مصادر موثوقة، في ثلاث دقائق.</p></div>
                 <div class="phone__news-art"><span class="phone__news-art-sun"></span><span class="phone__news-art-arch"></span><span class="phone__news-art-line phone__news-art-line--one"></span><span class="phone__news-art-line phone__news-art-line--two"></span></div>
-                <div class="phone__news-meta">REUTERS · 3M READ</div>
+                <div class="phone__news-meta">REUTERS · ٣ د قراءة</div>
                 <div class="phone__news-list"><article><span class="phone__news-index">٠٢</span><div><strong>الرياض تعلن حزمةً جديدةً للابتكار</strong><small>اقتصاد · ٤ دقائق</small></div></article><article><span class="phone__news-index">٠٣</span><div><strong>مشاريع الطاقة المتجددة تتوسّع</strong><small>بيئة · ٦ دقائق</small></div></article></div>
               </article>
               <article class="phone__news-card phone__news-card--sea" data-phone-card="1" aria-hidden="true">
                 <div class="phone__news-topbar"><span class="phone__news-mark">وَهْب</span><span class="phone__news-date">اليوم</span><span class="phone__news-menu">•••</span></div>
-                <div class="phone__news-heading"><div class="phone__news-eyebrow">البيئة · THE WAHB DAILY</div><div class="phone__news-rule"></div><h3>مشاريعُ الطاقة<br>تفتح أفقاً جديداً</h3><p>ما الذي يتغيّر في المدن حين تصبح الطاقة أنظف؟</p></div>
+                <div class="phone__news-heading"><div class="phone__news-eyebrow">البيئة</div><div class="phone__news-rule"></div><h3>مشاريعُ الطاقة<br>تفتح أفقاً جديداً</h3><p>ما الذي يتغيّر في المدن حين تصبح الطاقة أنظف؟</p></div>
                 <div class="phone__news-art phone__news-art--sea"><span class="phone__news-art-sun"></span><span class="phone__news-art-arch"></span><span class="phone__news-art-line phone__news-art-line--one"></span><span class="phone__news-art-line phone__news-art-line--two"></span></div>
-                <div class="phone__news-meta">ARAB NEWS · 4M READ</div>
+                <div class="phone__news-meta">ARAB NEWS · ٤ د قراءة</div>
                 <div class="phone__news-list"><article><span class="phone__news-index">٠٢</span><div><strong>محطات شمسية تدعم نموّ الصناعات</strong><small>طاقة · ٥ دقائق</small></div></article><article><span class="phone__news-index">٠٣</span><div><strong>مبادرات جديدة لخفض الانبعاثات</strong><small>مناخ · ٣ دقائق</small></div></article></div>
               </article>
               <article class="phone__news-card phone__news-card--city" data-phone-card="2" aria-hidden="true">
                 <div class="phone__news-topbar"><span class="phone__news-mark">وَهْب</span><span class="phone__news-date">١١ نوفمبر ٢٠٢٦</span><span class="phone__news-menu">•••</span></div>
-                <div class="phone__news-heading"><div class="phone__news-eyebrow">مجتمع · THE WAHB DAILY</div><div class="phone__news-rule"></div><h3>النقل الذكيّ<br>يعيد رسم المدينة</h3><p>رحلات أقصر، ومدنٌ أقرب إلى ناسها.</p></div>
+                <div class="phone__news-heading"><div class="phone__news-eyebrow">مجتمع</div><div class="phone__news-rule"></div><h3>النقل الذكيّ<br>يعيد رسم المدينة</h3><p>رحلات أقصر، ومدنٌ أقرب إلى ناسها.</p></div>
                 <div class="phone__news-art phone__news-art--city"><span class="phone__news-art-sun"></span><span class="phone__news-art-arch"></span><span class="phone__news-art-line phone__news-art-line--one"></span><span class="phone__news-art-line phone__news-art-line--two"></span></div>
-                <div class="phone__news-meta">SPA · 3M READ</div>
+                <div class="phone__news-meta">SPA · ٣ د قراءة</div>
                 <div class="phone__news-list"><article><span class="phone__news-index">٠٢</span><div><strong>مساراتٌ جديدة تصل الأحياء ببعضها</strong><small>مدن · ٤ دقائق</small></div></article><article><span class="phone__news-index">٠٣</span><div><strong>تصميم حضريّ يقدّم المشاة أولاً</strong><small>حياة · ٦ دقائق</small></div></article></div>
               </article>
             </div>
@@ -306,91 +339,131 @@ const LANDING_MARKUP = String.raw`
 <section class="marquee" aria-hidden="true">
   <div class="marquee__track">
     <div class="marquee__item"><span class="ar">بودكاست</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Editorial</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">تحرير</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">أخبار</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Listen</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">استماع</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">قصص قصيرة</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Transcript</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">نصّ حيّ</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">مقالات</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">For You</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">سمعيات</span><span class="dot"></span></div>
     <!-- duplicate for seamless loop -->
     <div class="marquee__item"><span class="ar">بودكاست</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Editorial</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">تحرير</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">أخبار</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Listen</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">استماع</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">قصص قصيرة</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">Transcript</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">نصّ حيّ</span><span class="dot"></span></div>
     <div class="marquee__item"><span class="ar">مقالات</span><span class="dot"></span></div>
-    <div class="marquee__item"><span class="stroke">For You</span><span class="dot"></span></div>
+    <div class="marquee__item"><span class="stroke">سمعيات</span><span class="dot"></span></div>
   </div>
 </section>
 
-<!-- ═════════════════ FEATURES ═════════════════ -->
-<section class="section section--dark features" id="features" data-screen-label="02 Features">
+<!-- ═════════════════ PLATFORM METHOD ═════════════════ -->
+<section class="section section--dark features platform-method" id="features" data-screen-label="02 Platform">
   <div class="container">
     <div class="features__header">
       <div>
-        <div class="eyebrow">المنصّة · The Platform</div>
+        <div class="eyebrow">المنصّة</div>
         <h2 class="features__title" style="margin-top:16px">
-          ثلاثُ تجارب،<br>
-          <span class="serif" style="color:var(--gold)">قصّةٌ واحدة.</span>
+          من المصدرِ<br>
+          <span class="serif" style="color:var(--gold)">إلى المعنى.</span>
         </h2>
       </div>
       <p class="features__lead">
-        وَهب ليس تطبيقاً واحداً — بل ثلاث طبقات تكميليّة:
-        خلاصةٌ صوتيّةٌ عموديّة، صحيفةٌ إلكترونيّةٌ بمزاج عصريّ، ووضعُ قراءةٍ يتزامن
-        مع كلّ كلمةٍ تُقال.
+        فصولٌ تستحقّ الإصغاء، وقصصٌ تستحقّ الفهم —
+        في خلاصةٍ واحدةٍ تُكتشف بنظام التقليب، وتفتح لك عمقها عند الحاجة.
       </p>
     </div>
 
-    <div class="features__grid">
-      <article class="feature">
-        <div class="feature__num">۰۱ — FOR YOU</div>
-        <div class="feature__viz viz-foryou"></div>
-        <div class="feature__title">
-          <span class="ar">لك</span>
-          <span class="en">Vertical Audio Feed</span>
+    <div class="platform-method__grid">
+      <article class="platform-card platform-card--pods">
+        <div class="platform-card__topline">
+          <div class="platform-card__num">۰۱ — PODS</div>
+          <span class="platform-card__tag">خلاصةٌ صوتيّة</span>
         </div>
-        <p class="feature__desc">
-          تصفّحٌ عموديّ بنمط TikTok للبودكاست والمقاطع الصوتية.
-          اسحب للأعلى، استمع، تخطّ، احفظ. كلّ ذلك بسلاسة.
-        </p>
+
+        <div class="platform-card__visual platform-flow platform-flow--pods" aria-hidden="true">
+          <div class="platform-flow__source">
+            <span class="platform-flow__label">المصدر</span>
+            <strong>حلقةٌ أطول</strong>
+            <span class="platform-flow__meta">إذاعة مختلف · ٤١:٠٧</span>
+            <div class="platform-wave platform-wave--source">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+          <div class="platform-flow__connector"><span>يقرّب</span><b>←</b></div>
+          <div class="platform-flow__output platform-flow__output--pods">
+            <span class="platform-flow__label">سمعيات</span>
+            <strong>فصلٌ يستحقّ الإصغاء</strong>
+            <span class="platform-flow__meta">٠٨:٣٢ · تشغيلٌ فوريّ</span>
+            <div class="platform-output__progress"><span></span></div>
+          </div>
+        </div>
+
+        <div class="platform-card__copy">
+          <h3 class="platform-card__title">
+            <span class="ar">من الحلقةِ إلى ما يستحقّ الإصغاء.</span>
+            <span class="platform-card__subtitle">اكتشافٌ يبدأ بالصوت</span>
+          </h3>
+          <p class="platform-card__desc">
+            محتوى صوتيّ أولاً، في مقاطع وفصولٍ تُشغّل فوراً وتُكتشف بنظام التقليب.
+          </p>
+        </div>
       </article>
 
-      <article class="feature">
-        <div class="feature__num">۰۲ — NEWS</div>
-        <div class="feature__viz viz-news">
-          <div class="viz-news__hdr">THE WAHB DAILY</div>
-          <div class="viz-news__rule"></div>
-          <div class="viz-news__head">السعودية توقّع اتّفاقاً تاريخياً مع</div>
-          <div class="viz-news__meta">REUTERS · 3M READ</div>
+      <article class="platform-card platform-card--news">
+        <div class="platform-card__topline">
+          <div class="platform-card__num">۰۲ — NEWS</div>
+          <span class="platform-card__tag">خلاصةٌ إخباريّة</span>
         </div>
-        <div class="feature__title">
-          <span class="ar">الأخبار</span>
-          <span class="en">Editorial Magazine</span>
-        </div>
-        <p class="feature__desc">
-          صحيفةٌ يوميّةٌ بطباعةٍ كلاسيكيّة. عناوينُ مختارة، مقالاتٌ ذات صلة،
-          ومزاج Newsprint لا يُنسى.
-        </p>
-      </article>
 
-      <article class="feature">
-        <div class="feature__num">۰۳ — TRANSCRIPT</div>
-        <div class="feature__viz viz-transcript">
-          <div class="seg"><span class="ts">٠٠:١٠</span>في الزحام اليوميّ</div>
-          <div class="seg is-active"><span class="ts">٠٠:١٤</span>نَنسى الإصغاء</div>
-          <div class="seg"><span class="ts">٠٠:١٨</span>إلى أنفسنا</div>
+        <div class="platform-card__visual platform-flow platform-flow--news" aria-hidden="true">
+          <div class="platform-flow__source platform-flow__source--news">
+            <span class="platform-flow__label">المصادر</span>
+            <div class="platform-news-source"><i></i><span>زاويةٌ أولى للخبر</span></div>
+            <div class="platform-news-source"><i></i><span>تفاصيلُ جديدة</span></div>
+            <div class="platform-news-source"><i></i><span>خلفيةٌ وسياق</span></div>
+          </div>
+          <div class="platform-flow__connector"><span>يجمع</span><b>←</b></div>
+          <div class="platform-flow__output platform-flow__output--news">
+            <span class="platform-flow__label">شريحةٌ قصصيّة</span>
+            <strong>قصةٌ رئيسية</strong>
+            <span class="platform-flow__meta">وعناوينُ ذاتُ صلة</span>
+            <div class="platform-news-related"><span>ذات صلة</span><span>مصدرٌ آخر</span></div>
+          </div>
         </div>
-        <div class="feature__title">
-          <span class="ar">النّصّ الحيّ</span>
-          <span class="en">Live Karaoke Transcript</span>
+
+        <div class="platform-card__copy">
+          <h3 class="platform-card__title">
+            <span class="ar">من العناوين إلى القصة.</span>
+            <span class="platform-card__subtitle">القصةُ في سياقها</span>
+          </h3>
+          <p class="platform-card__desc">
+            نجمع التغطيات المتصلة والعناوين ذات الصلة في شريحةٍ واحدة، لتقرأ الحدث ضمن سياقه.
+          </p>
         </div>
-        <p class="feature__desc">
-          اقرأ كما تُسمَع: كلُّ مقطعٍ يتضخّمُ في وقته، وتبهت الكلماتُ المحيطة.
-          قابلٌ للمشاركة، قابلٌ للحفظ.
-        </p>
       </article>
+    </div>
+
+    <div class="platform-actions" aria-label="ما يمكنك فعله في وَهب">
+      <div class="platform-actions__row">
+        <article class="platform-action">
+          <span class="platform-action__icon-wrap"><svg class="platform-action__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"></path></svg></span>
+          <strong>استمع</strong>
+        </article>
+        <article class="platform-action">
+          <span class="platform-action__icon-wrap"><svg class="platform-action__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3.75h8.2L18 7.55v12.7H6z"></path><path d="M14 3.75v4h4"></path><path d="M8.5 12h7"></path><path d="M8.5 15.5H14"></path></svg></span>
+          <strong>اقرأ</strong>
+        </article>
+        <article class="platform-action">
+          <span class="platform-action__icon-wrap"><svg class="platform-action__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6.5 4.5h11a1 1 0 0 1 1 1v15l-6.5-3.7-6.5 3.7v-15a1 1 0 0 1 1-1z"></path></svg></span>
+          <strong>احفظ</strong>
+        </article>
+        <article class="platform-action">
+          <span class="platform-action__icon-wrap"><svg class="platform-action__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 13.5v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg></span>
+          <strong>شارك</strong>
+        </article>
+      </div>
     </div>
   </div>
 </section>
@@ -400,15 +473,15 @@ const LANDING_MARKUP = String.raw`
   <div class="container">
     <div class="features__header">
       <div>
-        <div class="eyebrow">كيف تعمل · How It Works</div>
+        <div class="eyebrow">من أين تبدأ؟</div>
         <h2 class="features__title" style="margin-top:16px;color:var(--color-navy)">
-          ثلاثُ خطواتٍ<br>
-          <span class="serif" style="color:var(--gold)">لتفتح أُذنيك.</span>
+          ابدأ مباشرةً،<br>
+          <span class="serif" style="color:var(--gold)">تصفّح حتى تجد ما يهمّك.</span>
         </h2>
       </div>
       <p class="features__lead">
-        لا تسجيلَ معقّداً، لا إعلانات، لا خوارزميّاتٍ ضبابيّة.
-        فقط محتوىً مُختارٌ يدويّاً، يتحسّن كلّما استمعت أكثر.
+        لا تحتاج إلى اختيار حلقةٍ أو خبرٍ قبل أن تبدأ. حدّد مدة الاستماع التي تناسبك
+        في السمعيات، أو افتح الأخبار مباشرةً؛ ثم قَلِّب حتى تجد ما يهمّك.
       </p>
     </div>
 
@@ -416,165 +489,106 @@ const LANDING_MARKUP = String.raw`
       <div class="how__step">
         <div class="how__num">١</div>
         <h3 class="how__title">
-          <span class="ar">قريباً — سجّل اهتمامك.</span>
-          <span class="en">Coming Soon — Join the Waitlist</span>
+          <span class="ar">اختَر مدّة الاستماع.</span>
         </h3>
         <p class="how__desc">
-          سجّل عبر الإيميل ليصلك الخبر فور الإطلاق، أو عُد قريباً
-          لتبدأ خلاصتك بمجرّد الفتح.
+          في السمعيات، حدّد ما يناسب يومك؛
+          وفي الأخبار، ابدأ مباشرةً.
         </p>
       </div>
 
       <div class="how__step">
         <div class="how__num">٢</div>
         <h3 class="how__title">
-          <span class="ar">اختر اهتماماتك.</span>
-          <span class="en">Pick Your Interests</span>
+          <span class="ar">قَلِّب، ثم توقّف.</span>
         </h3>
         <p class="how__desc">
-          ثقافة، سياسة، تقنية، اقتصاد، أدب، روحانيّات.
-          اختَر ما يلامسك، وستجد خلاصتَك تتشكّلُ من حولك خلال أيّامٍ معدودة.
+          في السمعيات، كل بطاقةٍ مقطعٌ صوتيّ؛ وفي الأخبار، كل شريحةٍ تجمع الخبرَ وما يتصل به من تغطيات.
+          قَلِّب إلى التالي، وتوقّف عند ما يهمّك.
         </p>
       </div>
 
       <div class="how__step">
         <div class="how__num">٣</div>
         <h3 class="how__title">
-          <span class="ar">اِسمع، اقرأ، احفظ.</span>
-          <span class="en">Listen, Read, Save</span>
+          <span class="ar">استمع، اقرأ، وناقش.</span>
         </h3>
         <p class="how__desc">
-          اسحب للأعلى لمتابعة الخلاصة، اضغط مرّتين للحفظ، حوّل إلى وضع النّصّ
-          لقراءة ما تستمعُ إليه. الأمرُ بهذه البساطة.
+          افتح النصّ أو المقال، أضف رأيك في التعليقات، واحفظه للعودة إليه أو شاركه.
         </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═════════════════ CONTENT SHOWCASE ═════════════════ -->
-<section class="section section--ink showcase" id="showcase" data-screen-label="04 Showcase">
+<!-- ═════════════════ CONTINUOUS PLAYBACK ═════════════════ -->
+<section class="section section--ink continuity" id="continuity" data-screen-label="04 Continuous playback">
   <div class="container">
     <div class="features__header">
       <div>
-        <div class="eyebrow">في الخلاصة اليوم · On The Feed</div>
+        <div class="eyebrow">التشغيل المستمر</div>
         <h2 class="features__title" style="margin-top:16px">
-          ما يَستحقُّ<br>
-          <span class="serif" style="color:var(--gold)">إصغاءَك.</span>
+          أكمِل الاستماع<br>
+          أثناء تصفّح<br>
+          <span class="serif" style="color:var(--gold)">موجزك الإخباري.</span>
         </h2>
       </div>
       <p class="features__lead">
-        مختاراتُ المحرّرين هذا الأسبوع — من أرشيف ثمانيّة، الفنجان،
-        فنجان قهوة، ومنتجات وَهب الأصليّة.
+        بعد أن تبدأ في السمعيات، يبقى المقطع معك في الأخبار. اضغط المربّع المصغّر
+        لإيقافه أو تشغيله، واضغط مطوّلاً لتفتح أدواته.
       </p>
     </div>
 
-    <div class="showcase__row">
-      <div class="content-card">
-        <div class="content-card__art art-1">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            بودكاست
-          </div>
-          <div class="content-card__dur">٤١:٠٧</div>
-        </div>
-        <h4 class="content-card__title">الرّكضُ في الحياة أنهَكَنا</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">ث</span>
-            <span>ثمانيّة</span>
-          </div>
-          <span class="mono">١٢ نوف</span>
-        </div>
-      </div>
+    <div class="continuity__stage">
+      <div class="continuity__halo" aria-hidden="true"></div>
+      <div class="continuity__device" role="img" aria-label="معاينة هاتفية لموجز الأخبار مع مشغّل صوتي مربع قابل للتوسيع على اليسار">
+        <div class="continuity__device-notch" aria-hidden="true"></div>
+        <div class="continuity__device-screen">
+          <nav class="continuity__news-nav" aria-hidden="true">
+            <span class="continuity__news-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            </span>
+            <div class="continuity__news-tabs"><span>المحفوظات</span><span class="is-active">الأخبار</span><span>سمعيات</span></div>
+            <span class="continuity__news-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+          </nav>
 
-      <div class="content-card">
-        <div class="content-card__art art-2">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>
-            مقال
-          </div>
-          <div class="content-card__dur">٣ د قراءة</div>
-        </div>
-        <h4 class="content-card__title is-serif">حين تتحوّلُ المدنُ إلى ذاكرة</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">F</span>
-            <span>الفنجان</span>
-          </div>
-          <span class="mono">١١ نوف</span>
-        </div>
-      </div>
+          <article class="continuity__news-slide">
+            <div class="continuity__news-topline"><span>وَهْب</span><span>الأخبار</span><span>•••</span></div>
+            <div class="continuity__news-kicker">تغطية إخباريّة</div>
+            <h3>المدن تعيد ترتيب علاقتها بالطاقة</h3>
+            <p>كيف يلتقي النقل والمباني والشبكات في مشهدٍ واحد؟</p>
+            <div class="continuity__news-art" aria-hidden="true"><i></i><b></b><em></em></div>
+            <div class="continuity__news-coverage"><span>٤ تغطيات</span><i></i><span>٣ مصادر</span></div>
+            <div class="continuity__news-related">
+              <article><span>٠١</span><strong>النقل العام يدخل في معادلة الاستهلاك</strong></article>
+              <article><span>٠٢</span><strong>المباني الذكيّة تخفّض الطلب على الشبكة</strong></article>
+            </div>
+          </article>
 
-      <div class="content-card">
-        <div class="content-card__art art-3">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            بودكاست
-          </div>
-          <div class="content-card__dur">١:١٢:٣٣</div>
-        </div>
-        <h4 class="content-card__title">عن صناعة القرار في الزمن السائل</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">و</span>
-            <span>وَهب أصلي</span>
-          </div>
-          <span class="mono">١٠ نوف</span>
-        </div>
-      </div>
+          <div class="continuity__news-sheet" aria-hidden="true"><i></i></div>
 
-      <div class="content-card">
-        <div class="content-card__art art-4">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            عاجل
+          <div class="continuity__player-popover" aria-hidden="true">
+            <div class="continuity__player-popover-head">
+              <span class="continuity__popover-art">م</span>
+              <div><strong>الكتابةُ طريقةٌ أخرى لفهم الذات</strong><small>مختلف</small></div>
+              <span class="continuity__popover-close">×</span>
+            </div>
+            <div class="continuity__popover-progress"><i></i></div>
+            <div class="continuity__popover-time"><span>٠٣:١٦</span><span>٠٨:٣٢</span></div>
+            <div class="continuity__popover-controls">
+              <span class="continuity__skip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg><b>١٥</b></span>
+              <span class="continuity__popover-pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></span>
+              <span class="continuity__skip continuity__skip--forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg><b>١٥</b></span>
+            </div>
           </div>
-          <div class="content-card__dur">قبل ٢س</div>
-        </div>
-        <h4 class="content-card__title is-serif">اتّفاقُ المنطقة الجديد — ما الذي تغيّر؟</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">R</span>
-            <span>Reuters</span>
-          </div>
-          <span class="mono">اليوم</span>
-        </div>
-      </div>
 
-      <div class="content-card">
-        <div class="content-card__art art-5">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            بودكاست
+          <div class="continuity__square-player" aria-hidden="true">
+            <div class="continuity__square-art"><span>م</span></div>
+            <svg viewBox="0 0 56 56" fill="none"><rect x="2" y="2" width="52" height="52" rx="16" stroke="rgba(255,255,255,.36)" stroke-width="2.5"></rect><rect x="2" y="2" width="52" height="52" rx="16" pathLength="100" stroke="#a93b36" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="61"></rect></svg>
+            <span class="continuity__square-pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg></span>
           </div>
-          <div class="content-card__dur">٢٨:١٥</div>
-        </div>
-        <h4 class="content-card__title">الذّكاءُ الاصطناعيّ والأخلاق</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">D</span>
-            <span>دكّان</span>
-          </div>
-          <span class="mono">٠٩ نوف</span>
-        </div>
-      </div>
-
-      <div class="content-card">
-        <div class="content-card__art art-6">
-          <div class="content-card__kind">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>
-            رأي
-          </div>
-          <div class="content-card__dur">٦ د قراءة</div>
-        </div>
-        <h4 class="content-card__title is-serif">لماذا نحتاجُ بطءاً في الإصغاء؟</h4>
-        <div class="content-card__meta">
-          <div class="left">
-            <span class="content-card__avatar">م</span>
-            <span>منشورات</span>
-          </div>
-          <span class="mono">٠٨ نوف</span>
         </div>
       </div>
     </div>
@@ -586,128 +600,96 @@ const LANDING_MARKUP = String.raw`
   <div class="container">
     <span class="quote__mark">”</span>
     <p class="quote__text">
-      في زمنٍ يَركضُ خلف العنوان، نُؤمنُ بأنَّ
-      <span class="stroke">القصّة</span>
-      تَستحقُّ
-      <span class="accent">إصغاءً كاملاً.</span>
+      لكلّ
+      <span class="stroke">مقطعٍ امتدادُه،</span>
+      ولكلّ
+      <span class="accent">خبرٍ سياقُه.</span>
     </p>
-    <div class="quote__attr">— ميثاق المنصّة · The Wahb Manifesto</div>
+    <div class="quote__attr">— ميثاق المنصّة</div>
   </div>
 </section>
 
 <!-- ═════════════════ STATS ═════════════════ -->
 <section class="section section--cream" data-screen-label="06 Stats">
   <div class="container">
-    <div class="divider-rule"><span>BY THE NUMBERS · بالأرقام</span></div>
+      <div class="divider-rule"><span>بالأرقام</span></div>
   </div>
   <div class="container" style="margin-top: 56px;">
     <div class="stats__grid">
       <div class="stat">
         <div class="stat__num">٠</div>
-        <div class="stat__lbl">مستمع شهري<br>Monthly Listeners</div>
+        <div class="stat__lbl">مستمع شهري</div>
       </div>
       <div class="stat">
         <div class="stat__num">٠</div>
-        <div class="stat__lbl">دقيقة إصغاء<br>Minutes Played</div>
+        <div class="stat__lbl">دقيقة إصغاء</div>
       </div>
       <div class="stat">
         <div class="stat__num">٠</div>
-        <div class="stat__lbl">نموّ أسبوعي<br>Weekly Growth</div>
+        <div class="stat__lbl">نموّ أسبوعي</div>
       </div>
       <div class="stat">
         <div class="stat__num">٠</div>
-        <div class="stat__lbl">شريك تحريري<br>Editorial Partners</div>
+        <div class="stat__lbl">شريك تحريري</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═════════════════ FOR CREATORS ═════════════════ -->
-<section class="section creators" id="creators" data-screen-label="07 Creators">
-  <div class="container creators__inner">
+<!-- ═════════════════ LONG-FORM CHAPTERS ═════════════════ -->
+<section class="section chapters" id="chapters" data-screen-label="07 Chapters">
+  <div class="container chapters__inner">
     <div>
-      <div class="eyebrow">للمبدعين · For Creators</div>
-      <h2 class="creators__title">
-        صوتُك<br>
-        <span class="serif" style="color:var(--gold)">يَستحقُّ سامعاً.</span>
+      <div class="eyebrow">الحلقات الطويلة</div>
+      <h2 class="chapters__title">
+        لا يلزم أن تبدأ<br>
+        <span class="serif" style="color:var(--gold)">من أوّل الحلقة.</span>
       </h2>
-      <p class="creators__lead">
-        ارفع حلقاتك مرّة، ووَهب يفعل الباقي: نسخٌ نصّيّ تلقائي،
-        اقتباساتٌ قابلة للمشاركة، إحصائيّاتٌ دقيقة، وتوزيعٌ على خلاصةٍ
-        مُختارة بعناية.
+      <p class="chapters__lead">
+        حين تطول الحلقة، لا تحتاج إلى أن تأخذها كلّها دفعةً واحدة. في سمعيات، تظهر
+        فصولٌ منها بعناوينها ومددها، ومعها اسم البرنامج الذي جاءت منه.
       </p>
-      <ul class="creators__bullets">
-        <li class="creators__bullet">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          نسخ نصّي تلقائي
-        </li>
-        <li class="creators__bullet">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          اقتباسات قابلة للمشاركة كصورة وفيديو
-        </li>
-        <li class="creators__bullet">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          لوحة إحصاءاتٍ مباشرة لكلّ حلقة
-        </li>
-        <li class="creators__bullet">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          أدوات تحرير مدمجة وتعاوُن جماعي
-        </li>
-      </ul>
-      <a href="#download" class="btn btn--gold btn--lg">قدّم على البرنامج</a>
+      <div class="chapters__note">
+        <span>فصلٌ يُكتشف وحده</span><i aria-hidden="true"></i><span>وأصلُه يبقى واضحاً</span>
+      </div>
+      <a href="#download" class="btn btn--gold btn--lg">قريباً</a>
     </div>
 
-    <div class="creators__viz">
-      <div class="creators__viz__hdr">
-        <span>WAHB STUDIO · ديسمبر</span>
-        <span style="color:var(--gold)">● LIVE</span>
+    <div class="chapter-atlas" role="img" aria-label="معاينة لحلقة صوتية طويلة تتحوّل إلى ثلاثة فصول مستقلة في سمعيات، مع بقاء صلتها بالحلقة الأصلية">
+      <div class="chapter-atlas__head" aria-hidden="true">
+        <span>حلقةٌ واحدة</span>
+        <span>١:١٤:٣٠</span>
       </div>
-      <div class="creators__waves">
-        <div class="creators__wave-bar" style="animation-delay:0s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.1s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.2s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.3s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.4s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.5s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.6s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.7s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.8s"></div>
-        <div class="creators__wave-bar" style="animation-delay:.9s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.1s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.2s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.3s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.4s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.5s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.6s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.7s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.8s"></div>
-        <div class="creators__wave-bar" style="animation-delay:1.9s"></div>
-      </div>
-
-      <div class="creators__viz-card">
-        <div class="creators__viz-thumb art-1"></div>
-        <div class="creators__viz-text">
-          <div class="creators__viz-title">حلقة ٤٧ — صوتُ المدينة</div>
-          <div class="creators__viz-sub">نُشرت قبل ٣ أيام · ٤٢:١٥</div>
+      <div class="chapter-atlas__parent" aria-hidden="true">
+        <div class="chapter-atlas__parent-art"><span>م</span><i></i><b></b></div>
+        <div class="chapter-atlas__parent-copy">
+          <span>مِداد · بودكاست</span>
+          <strong>أصواتٌ لا تمرّ عابرة</strong>
+          <small>حلقةٌ كاملة · ١:١٤:٣٠</small>
         </div>
-        <div class="creators__viz-stat">٠</div>
+        <div class="chapter-atlas__parent-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
-      <div class="creators__viz-card">
-        <div class="creators__viz-thumb art-3"></div>
-        <div class="creators__viz-text">
-          <div class="creators__viz-title">حلقة ٤٦ — أسئلةٌ بلا أجوبة</div>
-          <div class="creators__viz-sub">نُشرت قبل أسبوع · ٣٨:٤٢</div>
-        </div>
-        <div class="creators__viz-stat">٠</div>
-      </div>
-      <div class="creators__viz-card">
-        <div class="creators__viz-thumb art-2"></div>
-        <div class="creators__viz-text">
-          <div class="creators__viz-title">حلقة ٤٥ — حوارٌ مع الزمن</div>
-          <div class="creators__viz-sub">نُشرت قبل أسبوعين · ١:٠٢:١٨</div>
-        </div>
-        <div class="creators__viz-stat">٠</div>
+      <div class="chapter-atlas__timeline" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="chapter-atlas__caption" aria-hidden="true"><span>فصولٌ تظهر في سمعيات</span><i></i></div>
+      <div class="chapter-atlas__chapters" aria-hidden="true">
+        <article class="chapter-atlas__chapter chapter-atlas__chapter--active">
+          <div class="chapter-atlas__chapter-meta"><span>الفصل ٠١</span><time>١١:٢٤</time></div>
+          <div class="chapter-atlas__chapter-art"><span></span><i></i><b></b></div>
+          <strong>كيف تصنعنا الأمكنة؟</strong>
+          <small><i></i> مِداد · من الحلقة نفسها</small>
+        </article>
+        <article class="chapter-atlas__chapter">
+          <div class="chapter-atlas__chapter-meta"><span>الفصل ٠٢</span><time>٠٩:٤٨</time></div>
+          <div class="chapter-atlas__chapter-art"><span></span><i></i><b></b></div>
+          <strong>حين تتغيّر المدينة</strong>
+          <small><i></i> مِداد · من الحلقة نفسها</small>
+        </article>
+        <article class="chapter-atlas__chapter">
+          <div class="chapter-atlas__chapter-meta"><span>الفصل ٠٣</span><time>١٢:١٧</time></div>
+          <div class="chapter-atlas__chapter-art"><span></span><i></i><b></b></div>
+          <strong>ما يبقى من الطريق</strong>
+          <small><i></i> مِداد · من الحلقة نفسها</small>
+        </article>
       </div>
     </div>
   </div>
@@ -718,7 +700,7 @@ const LANDING_MARKUP = String.raw`
   <div class="container">
     <div class="features__header">
       <div>
-        <div class="eyebrow">الأسئلة الشّائعة · FAQ</div>
+        <div class="eyebrow">الأسئلة الشّائعة</div>
         <h2 class="features__title" style="margin-top:16px;color:var(--color-navy)">
           أسئلةٌ قد<br>
           <span class="serif" style="color:var(--gold)">تَخطُرُ ببالك.</span>
@@ -726,7 +708,7 @@ const LANDING_MARKUP = String.raw`
       </div>
       <p class="features__lead">
         إذا لم تجد إجابتك هنا، تواصَل معنا عبر
-        <a href="mailto:hello@wahb.app" style="color:var(--gold);text-decoration:underline">hello@wahb.app</a>
+        <a href="mailto:salehwleed1@gmail.com" style="color:var(--gold);text-decoration:underline">salehwleed1@gmail.com</a>
         — نردُّ خلال ٢٤ ساعة.
       </p>
     </div>
@@ -748,26 +730,25 @@ const LANDING_MARKUP = String.raw`
       <div class="faq__item">
         <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-02">
           <span class="faq__q-num">٠٢</span>
-          <span class="faq__q-text">ما الفرق بين "لك" و"الأخبار"؟</span>
+          <span class="faq__q-text">ما الفرق بين "سمعيات" و"الأخبار"؟</span>
           <span class="faq__icon">+</span>
         </button>
         <div class="faq__a" id="faq-answer-02" aria-hidden="true"><div class="faq__a-inner">
-          "لك" خلاصةٌ صوتيّة عموديّة بنمط TikTok، مخصّصةٌ لاهتماماتك.
-          "الأخبار" صحيفةٌ يوميّة بمزاجٍ تحريريّ كلاسيكيّ — مقالاتٌ
-          مختارة بعناية، لا خوارزميّات.
+          "سمعيات" خلاصةٌ صوتيّةٌ أولاً، في مقاطع وفصولٍ تُكتشف بنظام التقليب وتُشغّل فوراً.
+          "الأخبار" خلاصةٌ إخباريّةٌ حيّة تجمع القصةَ الرئيسية وعناوينَ ذات صلةٍ من مصادرَ متعددة،
+          لتصلَ إلى الحدث ضمن سياقه.
         </div></div>
       </div>
 
       <div class="faq__item">
         <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-03">
           <span class="faq__q-num">٠٣</span>
-          <span class="faq__q-text">كيف يعمل وضع النّصّ الحيّ؟</span>
+          <span class="faq__q-text">كيف أتعمّق في المحتوى؟</span>
           <span class="faq__icon">+</span>
         </button>
         <div class="faq__a" id="faq-answer-03" aria-hidden="true"><div class="faq__a-inner">
-          كلّ بودكاست في وَهب يحمل نسخةً نصّيّةً مزامِنة. عند تشغيله،
-          يُمكنك التبديل إلى وضع النّصّ ليتضخّمَ المقطعُ الحاليّ
-          ويبهَتَ ما حوله — قابلٌ للقراءة، للحفظ، وللمشاركة.
+          في السمعيات، يرافقك النصّ المتزامن حين يتوفّر، ويمكنك فتح التفاصيل والتعليقات.
+          وفي الأخبار، يفتح قارئ المقال القصة كاملة. احفظ وشارك ما يستحقّ العودة.
         </div></div>
       </div>
 
@@ -803,14 +784,14 @@ const LANDING_MARKUP = String.raw`
 <!-- ═════════════════ FINAL CTA ═════════════════ -->
 <section class="section final-cta" id="download" data-screen-label="09 Download">
   <div class="container final-cta__inner">
-    <div class="eyebrow">جاهز للإصغاء؟ · Ready to listen?</div>
+    <div class="eyebrow">قريباً · البداية</div>
     <h2 class="final-cta__title">
-      <span>افتَحْ أُذنيك.</span><br>
-      <span class="stroke">وَهب</span> <span class="accent">يفعلُ الباقي.</span>
+      <span>ما يهمّك،</span><br>
+      <span class="accent">لا يضيع في الزحام.</span>
     </h2>
     <p class="final-cta__sub">
       وَهب قادمٌ قريباً إلى App Store وGoogle Play. سجّل اهتمامك
-      لتكون من أوّل من يكتشف الخلاصة.
+      لتكون قريباً من البداية.
     </p>
     <div class="final-cta__actions">
       <a href="#" class="hero__store">
@@ -850,30 +831,30 @@ const LANDING_MARKUP = String.raw`
       <div class="footer__col">
         <h4>المنتج</h4>
         <ul>
-          <li><a href="#features">المزايا</a></li>
-          <li><a href="#how">كيف تعمل</a></li>
-          <li><a href="#download">قريباً</a></li>
-          <li><a href="#">وَهب+</a></li>
+          <li><a href="/#features">المزايا</a></li>
+          <li><a href="/#how">كيف تعمل</a></li>
+          <li><a href="/#download">قريباً</a></li>
+          <li><a href="/plus">وَهب+</a></li>
         </ul>
       </div>
 
       <div class="footer__col">
         <h4>الشركة</h4>
         <ul>
-          <li><a href="#">عنّا</a></li>
-          <li><a href="#creators">للمبدعين</a></li>
-          <li><a href="#">الصحافة</a></li>
-          <li><a href="#">الوظائف</a></li>
+          <li><a href="/about">عنّا</a></li>
+          <li><a href="/#chapters">الحلقات الطويلة</a></li>
+          <li><a href="/press">الصحافة</a></li>
+          <li><a href="/careers">الوظائف</a></li>
         </ul>
       </div>
 
       <div class="footer__col">
         <h4>قانوني</h4>
         <ul>
-          <li><a href="#">سياسة الخصوصيّة</a></li>
-          <li><a href="#">شروط الاستخدام</a></li>
-          <li><a href="#">حقوق المؤلّف</a></li>
-          <li><a href="mailto:hello@wahb.app">تواصل</a></li>
+          <li><a href="/ar/privacy">سياسة الخصوصيّة</a></li>
+          <li><a href="/ar/terms">شروط الاستخدام</a></li>
+          <li><a href="/ar/copyright">حقوق المؤلّف</a></li>
+          <li><a href="mailto:salehwleed1@gmail.com">تواصل</a></li>
         </ul>
       </div>
     </div>
@@ -931,8 +912,9 @@ export default function LandingPage() {
             return;
         }
 
-        const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
-        const id = anchor?.getAttribute('href');
+        const anchor = target.closest<HTMLAnchorElement>('a[href^="#"], a[href^="/#"]');
+        const href = anchor?.getAttribute('href');
+        const id = href?.startsWith('/#') ? href.slice(1) : href;
         if (!anchor || !id || id === '#') return;
         const section = event.currentTarget.querySelector<HTMLElement>(id);
         if (!section) return;
