@@ -35,8 +35,10 @@ function useIdentityCacheKey(): string {
  */
 export function usePodsFeed(duration?: PodsDurationPreference | null) {
   const identityKey = useIdentityCacheKey();
-  return useInfiniteQuery({
-    queryKey: ['feed', 'pods', identityKey, { duration: duration ?? null }],
+  const queryClient = useQueryClient();
+  const queryKey = ['feed', 'pods', identityKey, { duration: duration ?? null }];
+  const query = useInfiniteQuery({
+    queryKey,
 	queryFn: ({ pageParam }) => pageParam === null
 	  ? createPodsFeedSession(duration)
 	  : fetchPodsFeedSession(pageParam.sessionId, pageParam.cursor),
@@ -45,6 +47,8 @@ export function usePodsFeed(duration?: PodsDurationPreference | null) {
     maxPages: 5,
     staleTime: 1000 * 60, // 1 minute
   });
+  const restart = () => queryClient.resetQueries({ queryKey, exact: true });
+  return { ...query, restart };
 }
 
 export function usePodsFeedFreshness(sessionId?: string, duration?: PodsDurationPreference | null) {
@@ -64,14 +68,18 @@ export function usePodsFeedFreshness(sessionId?: string, duration?: PodsDuration
  */
 export function useNewsFeed(window: NewsWindow = 'today') {
   const identityKey = useIdentityCacheKey();
-  return useInfiniteQuery({
-    queryKey: ['feed', 'news', identityKey, window],
+  const queryClient = useQueryClient();
+  const queryKey = ['feed', 'news', identityKey, window];
+  const query = useInfiniteQuery({
+    queryKey,
     queryFn: ({ pageParam }) => fetchNewsFeed(pageParam, window),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
     maxPages: 5,
     staleTime: 1000 * 60, // 1 minute
   });
+  const restart = () => queryClient.resetQueries({ queryKey, exact: true });
+  return { ...query, restart };
 }
 
 /**

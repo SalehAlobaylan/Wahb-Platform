@@ -145,7 +145,7 @@ function PodsPageContent() {
         isLoading,
         isError,
         error,
-        refetch,
+        restart,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
@@ -312,15 +312,21 @@ function PodsPageContent() {
             .then((result) => {
                 if (result.isError) {
                     const error = result.error as { status?: number; retryAfterMs?: number } | null;
-                    admission.failure(error?.status, error?.retryAfterMs);
+                    if (error?.status === 409) {
+                        void restart();
+                        admission.success();
+                    } else admission.failure(error?.status, error?.retryAfterMs);
                 } else {
                     admission.success();
                 }
             })
             .catch((error: { status?: number; retryAfterMs?: number }) => {
-                admission.failure(error?.status, error?.retryAfterMs);
+                if (error?.status === 409) {
+                    void restart();
+                    admission.success();
+                } else admission.failure(error?.status, error?.retryAfterMs);
             });
-    }, [fetchNextPage, hasNextPage, isFastSwiping, isFetchingNextPage]);
+    }, [fetchNextPage, hasNextPage, isFastSwiping, isFetchingNextPage, restart]);
 
     // ── Throttled scroll handler ─────────────────────────────────────────
     const rawHandleScroll = useCallback(() => {
@@ -524,7 +530,7 @@ function PodsPageContent() {
         return (
             <div className="h-full w-full bg-background">
                     <FeedErrorFallback
-                        onRetry={() => refetch()}
+                        onRetry={() => restart()}
                         message={error?.message || t('feed.error.pods')}
                     />
             </div>
@@ -574,7 +580,7 @@ function PodsPageContent() {
             </div>
 			{freshness.data && (
 				<div className="pointer-events-none absolute inset-x-0 top-[122px] z-20 flex justify-center px-3">
-					<button type="button" className="pointer-events-auto rounded-full bg-news-accent px-4 py-2 text-xs font-semibold text-white shadow-lg" onClick={() => void refetch()}>
+				<button type="button" className="pointer-events-auto rounded-full bg-news-accent px-4 py-2 text-xs font-semibold text-white shadow-lg" onClick={() => void restart()}>
 						{t('pods.newContent')}
 					</button>
 				</div>
@@ -585,7 +591,7 @@ function PodsPageContent() {
                 top of the first card invalidates the query and refetches. */}
             <PullToRefresh
                 onRefresh={async () => {
-                    await refetch();
+                    await restart();
                 }}
                 isRefreshing={isLoading}
                 externalScrollRef={feedRef}

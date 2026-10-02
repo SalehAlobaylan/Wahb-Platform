@@ -109,7 +109,7 @@ function NewsPageContent() {
         isLoading,
         isError,
         error,
-        refetch,
+        restart,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
@@ -173,16 +173,22 @@ function NewsPageContent() {
         if (admission.admit({ fastSwiping: false, fetching: isFetchingNextPage }) !== 'admitted') return;
         paginationTelemetry.arm();
         void fetchNextPage()
-            .then((result) => {
+            .then(async (result) => {
                 if (result.isError) {
                     const error = result.error as { status?: number; retryAfterMs?: number } | null;
-                    admission.failure(error?.status, error?.retryAfterMs);
+                    if (error?.status === 409) {
+                        await restart();
+                        admission.success();
+                    } else admission.failure(error?.status, error?.retryAfterMs);
                 } else admission.success();
             })
-            .catch((error: { status?: number; retryAfterMs?: number }) => {
-                admission.failure(error?.status, error?.retryAfterMs);
+            .catch(async (error: { status?: number; retryAfterMs?: number }) => {
+                if (error?.status === 409) {
+                    await restart();
+                    admission.success();
+                } else admission.failure(error?.status, error?.retryAfterMs);
             });
-    }, [fetchNextPage, hasNextPage, isFetchingNextPage, paginationTelemetry]);
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, paginationTelemetry, restart]);
 
     useLayoutEffect(() => {
         if (newsSlides.length === 0) return;
@@ -308,7 +314,7 @@ function NewsPageContent() {
         return (
             <div className="h-full w-full bg-background">
                 <FeedErrorFallback
-                    onRetry={() => refetch()}
+                    onRetry={() => restart()}
                     message={error?.message || t('feed.error.news')}
                 />
             </div>
@@ -375,7 +381,7 @@ function NewsPageContent() {
                                 )}
                                 <button
                                     type="button"
-                                    onClick={() => refetch()}
+                                    onClick={() => restart()}
                                     className="inline-flex items-center gap-2 rounded-sm border border-foreground/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/5"
                                 >
                                     <RefreshCw className="h-4 w-4" aria-hidden="true" />
