@@ -11,7 +11,9 @@ export function getAnonymousSessionId(): string | null {
   if (typeof window === 'undefined') return null;
 
   try {
-    const existing = window.sessionStorage.getItem(ANONYMOUS_SESSION_STORAGE_KEY);
+	const runtime = process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID;
+	const key = runtime ? `${ANONYMOUS_SESSION_STORAGE_KEY}:${runtime}` : ANONYMOUS_SESSION_STORAGE_KEY;
+    const existing = window.sessionStorage.getItem(key);
     if (existing) return existing;
 
     const id =
@@ -19,7 +21,7 @@ export function getAnonymousSessionId(): string | null {
         ? crypto.randomUUID()
         : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    window.sessionStorage.setItem(ANONYMOUS_SESSION_STORAGE_KEY, id);
+    window.sessionStorage.setItem(key, id);
     return id;
   } catch {
     return null;

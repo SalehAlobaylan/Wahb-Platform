@@ -21,4 +21,19 @@ describe('anonymous session identity', () => {
     expect(identityCacheKey('user-123')).not.toContain('user-123');
     expect(identityCacheKey()).toBe(`anonymous:${getAnonymousSessionId()}`);
   });
+  it('uses a fresh anonymous identity after a managed restart', () => {
+    const original = process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID;
+    try {
+      process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID = 'runtime-one';
+      const first = getAnonymousSessionId();
+      process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID = 'runtime-two';
+      const second = getAnonymousSessionId();
+      expect(second).not.toBe(first);
+      expect(getAnonymousSessionId()).toBe(second);
+    } finally {
+      if (original === undefined) delete process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID;
+      else process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID = original;
+    }
+  });
+
 });

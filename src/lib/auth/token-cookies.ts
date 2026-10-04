@@ -14,12 +14,14 @@ export function parseTokenPair(value: unknown): TokenPair | null {
 export function persistTokenPair(cookieStore: CookieStore, tokens: TokenPair): void {
   const options = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/' };
   const maxAge = tokens.expires_in ?? 3600;
+  if (process.env.WAHB_RUNTIME_ID) cookieStore.set('wahb_runtime_id', process.env.WAHB_RUNTIME_ID, { ...options, maxAge: 30 * 24 * 3600 });
   cookieStore.set('wahb_access_token', tokens.access_token, { ...options, maxAge });
   cookieStore.set('wahb_refresh_token', tokens.refresh_token, { ...options, maxAge: 30 * 24 * 3600 });
   cookieStore.set('wahb_token_expires', String(Date.now() + maxAge * 1000), { ...options, maxAge });
 }
 
 export function clearTokenCookies(cookieStore: CookieStore): void {
+  cookieStore.delete('wahb_runtime_id');
   cookieStore.delete('wahb_access_token');
   cookieStore.delete('wahb_refresh_token');
   cookieStore.delete('wahb_token_expires');

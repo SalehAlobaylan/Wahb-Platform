@@ -192,7 +192,7 @@ export const useFeedStore = create<FeedState>()(
       resetProgress: () => set({ progress: 0 }),
     }),
     {
-      name: 'wahb-feed-storage',
+      name: process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID ? `wahb-feed-storage:${process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID}` : 'wahb-feed-storage',
       version: 2,
       migrate: (persistedState) => migrateFeedPersistedState(persistedState) as unknown as FeedState,
       partialize: (state) => ({

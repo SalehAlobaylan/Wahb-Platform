@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   if (!isExactSameOrigin(request)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   const IAM_URL = getIamBaseUrl();
   const cookieStore = await cookies();
+  if (process.env.WAHB_RUNTIME_ID && cookieStore.get('wahb_runtime_id')?.value !== process.env.WAHB_RUNTIME_ID) return NextResponse.json({ message: 'Sign in again' }, { status: 401 });
   const refreshToken = cookieStore.get('wahb_refresh_token')?.value;
 
   if (!IAM_URL || !refreshToken) {
