@@ -1,23 +1,28 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useMemo, useState, type MutableRefObject } from 'react';
+import { memo, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState, useSyncExternalStore, type MutableRefObject } from 'react';
 import Image from 'next/image';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle } from 'lucide-react';
+import { Play, Headphones, Archive, Loader2, Maximize2, Minimize2, FileText, PauseCircle, Info, ArrowUpRight } from 'lucide-react';
 import { useFeedStore } from '@/lib/stores';
-import { audioPlaybackTime } from '@/lib/stores/now-playing-store';
+import { audioPlaybackTime, useNowPlayingStore } from '@/lib/stores/now-playing-store';
 import { useShallow } from 'zustand/react/shallow';
 import { requestRestore } from '@/lib/api/feeds';
 import { usePlaybackPreferences, useRequestTranscription, useTrackingMutation, useTranscript } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { cn } from '@/lib/utils';
-import { isVisualPlayback } from '@/lib/utils/playback';
+import { AudioScene } from './audio-scene';
+import audioStyles from './audio-foreground.module.css';
+import { AudioPlayerControls } from './audio-player-controls';
+import { sceneRecipe } from '@/lib/audio-scene/scene-generator';
+import { sceneCanAnimate } from '@/lib/audio-scene/scene-motion-policy';
+import { activeTranscriptCueIndex, normalizeTranscript, type TranscriptCue } from '@/lib/audio-scene/transcript-model';
 import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
 import { reportPlaybackFallback } from '@/lib/experience/journeys';
 import { attachManagedHls } from '@/lib/playback/hls-adapter';
 import { playbackCapabilitiesFor, resolvePlaybackSources, type PlaybackCapabilities } from '@/lib/playback/source-resolver';
 import { useTranslations } from '@/lib/i18n';
-import type { ContentItem, TranscriptSegment } from '@/types';
+import type { ContentItem } from '@/types';
 import type { PodsDisplayMode } from '@/lib/stores/feed-store';
 
 interface PodsCardProps {
@@ -26,6 +31,9 @@ interface PodsCardProps {
     shouldLoadMedia?: boolean;
     /** Ref to report current playback time (seconds) to the parent for handoff */
     videoTimeRef?: MutableRefObject<number>;
+    sceneCovered?: boolean;
+    onOpenTranscript?: () => void;
+    onOpenAbout?: () => void;
 }
 
 /**
@@ -33,7 +41,7 @@ interface PodsCardProps {
  * Only handles media playback and content display.
  * Action buttons and bottom sheet are rendered at the page level.
  */
-export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef }: PodsCardProps) {
+export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef, sceneCovered = false, onOpenTranscript, onOpenAbout }: PodsCardProps) {
     const t = useTranslations();
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -54,6 +62,10 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     // the seek landed before the element could honor it. Cleared on the first
     // timeupdate, when the playing video becomes the source of truth.
     const pendingResumeRef = useRef<number | null>(null);
+    const audioActivation = useRef<string | null>(null);
+    const [readerItemId, setReaderItemId] = useState<string | null>(null);
+    const readerOpen = isActive && readerItemId === item.id;
+    const openLocalReader = useCallback(() => setReaderItemId(item.id), [item.id]);
     const completedRef = useRef(false);
     const trackingMutation = useTrackingMutation();
 	const { data: playbackPreferences } = usePlaybackPreferences();
@@ -67,6 +79,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         playbackSpeed,
         podsDisplayMode,
         setPodsDisplayMode,
+        podsAudioDisplayMode,
+        setPodsAudioDisplayMode,
+        isFastSwiping,
     } = useFeedStore(
         useShallow((s) => ({
             isPlaying: s.isPlaying,
@@ -78,11 +93,23 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             playbackSpeed: s.playbackSpeed,
             podsDisplayMode: s.podsDisplayMode,
             setPodsDisplayMode: s.setPodsDisplayMode,
+            podsAudioDisplayMode: s.podsAudioDisplayMode,
+            setPodsAudioDisplayMode: s.setPodsAudioDisplayMode,
+            isFastSwiping: s.isFastSwiping,
         }))
     );
-    const [currentTime, setCurrentTime] = useState(
-        () => useFeedStore.getState().podsPlaybackById[item.id]?.timeSec ?? 0
-    );
+    const [timeSnapshot, setTimeSnapshot] = useState(() => ({
+        itemId: item.id, time: useFeedStore.getState().podsPlaybackById[item.id]?.timeSec ?? 0,
+    }));
+    const currentTime = timeSnapshot.itemId === item.id ? timeSnapshot.time
+        : useFeedStore.getState().podsPlaybackById[item.id]?.timeSec ?? 0;
+    const setCurrentTime = (time: number) => setTimeSnapshot({ itemId: item.id, time });
+    useEffect(() => {
+        completedRef.current = false;
+        pendingResumeRef.current = null;
+        latestPlaybackRef.current = null;
+        audioActivation.current = null;
+    }, [item.id]);
     // RUX playback telemetry — native media events → bounded journey terminals.
     const { notifyAttempt, notifyPlayReject } = usePlaybackTelemetry({
         mediaElement: telemetryMedia,
@@ -114,15 +141,41 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     const playbackAttempt = sourceAttempt.itemId === item.id ? sourceAttempt.attempt : 0;
     const playbackFailed = sourceAttempt.itemId === item.id && sourceAttempt.failed;
     const playbackSource = playbackSources[playbackAttempt];
+    const podsOwnerId = useNowPlayingStore((s) => s.playbackOwner === 'pods' ? s.currentItem?.id : null);
+    useEffect(() => {
+        if (isActive && podsOwnerId === item.id && playbackSource) {
+            useNowPlayingStore.getState().setPodsPlaybackSource(item.id, playbackSource.url);
+        }
+    }, [isActive, item.id, playbackSource, podsOwnerId]);
     const playbackUrl = playbackSource?.adapter === 'managed-hls' ? undefined : playbackSource?.url;
-    const visualPlayback = isVisualPlayback(item) && playbackSource?.type !== 'audio';
+    const visualPlayback = playbackSource?.hasVideo ?? item.has_video !== false;
     const canLoadMedia = Boolean(playbackSource && (isActive || shouldLoadMedia));
-    const effectiveDisplayMode: PodsDisplayMode = visualPlayback ? podsDisplayMode : 'transcript';
+    const effectiveDisplayMode = visualPlayback ? podsDisplayMode : podsAudioDisplayMode;
     const showTranscriptSurface = effectiveDisplayMode === 'transcript';
     const renderTranscriptSurface = showTranscriptSurface && isActive;
     const videoFitClass = effectiveDisplayMode === 'fill' ? 'object-cover' : 'object-contain';
+    const documentVisible = useSyncExternalStore(subscribeVisibility, visibleSnapshot, () => false);
+    const mediaPlaying = useSyncExternalStore(
+        useCallback((notify) => {
+            const events = ['playing', 'pause', 'waiting', 'ended', 'error', 'seeking', 'seeked'];
+            events.forEach((event) => telemetryMedia?.addEventListener(event, notify));
+            return () => events.forEach((event) => telemetryMedia?.removeEventListener(event, notify));
+        }, [telemetryMedia]),
+        () => Boolean(telemetryMedia && !telemetryMedia.paused && !telemetryMedia.ended && telemetryMedia.readyState >= 3 && !telemetryMedia.seeking),
+        () => false,
+    );
+    const recipe = useMemo(() => sceneRecipe({ id: item.id, parentId: item.parent_id, profile: item.audio_scene_profile }), [item.id, item.parent_id, item.audio_scene_profile]);
+    const animateScene = sceneCanAnimate({ selected: isActive, current: isActive, focused: isActive,
+        foreground: documentVisible, playing: mediaPlaying && isPlaying && !globalPaused && !playbackFailed,
+        buffering: !mediaPlaying, reducedMotion: Boolean(shouldReduceMotion), lowPowerMode: false,
+        memoryPressure: false, interacting: isFastSwiping, covered: sceneCovered || readerOpen });
 
     const advancePlaybackSource = useCallback(() => {
+        const media = videoRef.current ?? audioRef.current;
+        if (media && Number.isFinite(media.currentTime)) {
+            pendingResumeRef.current = media.currentTime;
+            media.pause();
+        }
         if (playbackAttempt + 1 < playbackSources.length) {
             const next = playbackSources[playbackAttempt + 1];
             reportPlaybackFallback({ contentId: item.id, playbackType: next.type, surface: 'pods' });
@@ -180,7 +233,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             audioPlaybackTime.itemId = null;
             return time;
         }
-        if (videoRef.current && videoRef.current.currentTime > 0.5) {
+        if ((videoRef.current ?? audioRef.current)?.currentTime && (videoRef.current ?? audioRef.current)!.currentTime > 0.5) {
             return null;
         }
         const saved = useFeedStore.getState().podsPlaybackById[item.id];
@@ -375,15 +428,23 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         // Completion is per natural playback run. A newly active card that
         // resumes before the end retains its prior guard; an explicit replay
         // after end is a new run only once it has sought away from the end.
-        if (!isActive) return;
         const audio = audioRef.current;
         if (!audio || visualPlayback) return;
-        const resume = resolveResumeTime();
-        if (resume !== null) {
-            pendingResumeRef.current = resume;
-            audio.currentTime = resume;
+        if (!isActive) {
+            audioActivation.current = null;
+            audio.pause();
+            return;
         }
-        audio.playbackRate = playbackSpeed;
+        const activationKey = `${item.id}:${playbackSource?.url}`;
+        if (audioActivation.current !== activationKey) {
+            audioActivation.current = activationKey;
+            const resume = pendingResumeRef.current ?? resolveResumeTime();
+            if (resume !== null) {
+                pendingResumeRef.current = resume;
+                audio.currentTime = resume;
+            }
+        }
+        audio.playbackRate = useFeedStore.getState().playbackSpeed;
         if (globalPaused || !isPlaying) {
             audio.pause();
             return;
@@ -395,15 +456,31 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             setPlaying(false);
         });
         return () => audio.pause();
-    }, [isActive, visualPlayback, globalPaused, isPlaying, playbackSpeed, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying, playbackSource?.url]);
+    }, [isActive, visualPlayback, globalPaused, isPlaying, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying, playbackSource?.url, item.id]);
 
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio || visualPlayback) return;
         audio.playbackRate = playbackSpeed;
-    }, [visualPlayback, playbackSpeed]);
+    }, [visualPlayback, playbackSpeed, playbackSource?.url]);
 
     const isArchived = item.is_archived || (!playbackSource && item.status === 'ARCHIVED');
+    const audioDuration = telemetryMedia && Number.isFinite(telemetryMedia.duration) && telemetryMedia.duration > 0
+        ? telemetryMedia.duration : item.duration_sec ?? 0;
+    const seekAudio = (seconds: number) => {
+        const audio = audioRef.current;
+        if (!isActive || !audio || !Number.isFinite(seconds) || !(audioDuration > 0)) return;
+        const next = Math.max(0, Math.min(audioDuration, seconds));
+        try { audio.currentTime = next; } catch { return; }
+        pendingResumeRef.current = next;
+        completedRef.current = false;
+        const percent = next / audioDuration * 100;
+        setCurrentTime(next);
+        setProgress(percent);
+        setPodsPlayback(item.id, next, percent);
+        latestPlaybackRef.current = { time: next, percent };
+        if (videoTimeRef) videoTimeRef.current = next;
+    };
 
     return (
         <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-black">
@@ -448,22 +525,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                     )}
                 </>
             ) : (
-                /* Audio-only: transcript-first with subtle artwork fallback behind it. */
+                /* Audio-only: the scene and foreground decorate the existing media owner. */
                 <>
-                    <div className="absolute inset-0">
-                        {item.thumbnail_url ? (
-                            <Image
-                                src={item.thumbnail_url}
-                                alt=""
-                                fill
-                                sizes="100vw"
-                                className="object-cover opacity-60"
-                                priority={isActive}
-                            />
-                        ) : (
-                            <div className="absolute inset-0 bg-zinc-900" />
-                        )}
-                    </div>
+                    <AudioScene recipe={recipe} animate={animateScene} />
                     {canLoadMedia && (
                         <audio
                             ref={setAudioElement}
@@ -493,8 +557,21 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                 </div>
             )}
 
-            {renderTranscriptSurface && (
+            {!visualPlayback && isActive ? (
+                <AudioForeground key={item.id} item={item} currentTime={currentTime}
+                    onTogglePlay={togglePlayback}
+                    duration={audioDuration} playing={isPlaying && !globalPaused} buffering={isPlaying && !globalPaused && !mediaPlaying && !playbackFailed}
+                    disabled={!playbackSource || playbackFailed || isArchived} rate={playbackSpeed}
+                    onSeek={seekAudio} onRate={() => {
+                        const rates = [0.5, 1, 1.5, 2];
+                        useFeedStore.getState().setPlaybackSpeed(rates[(rates.indexOf(playbackSpeed) + 1) % rates.length]);
+                    }}
+                    showTranscript={podsAudioDisplayMode === 'transcript'} readerOpen={readerOpen}
+                    onCloseReader={() => setReaderItemId(null)}
+                    onRead={onOpenTranscript ?? openLocalReader} />
+            ) : renderTranscriptSurface && (
                 <TranscriptSurface
+                    key={item.id}
                     item={item}
                     currentTime={currentTime}
                     isPlaying={isPlaying && !globalPaused}
@@ -505,23 +582,26 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             {/* Gradient overlay (Clickable to pause/play) */}
             <div
                 className={cn(
-                    'absolute inset-0 z-[1] bg-gradient-to-b from-black/40 via-transparent to-black/90 cursor-pointer',
-                    renderTranscriptSurface && 'pointer-events-none'
+                    'absolute inset-0 z-[1] cursor-pointer',
+                    visualPlayback && 'bg-gradient-to-b from-black/40 via-transparent to-black/90',
+                    visualPlayback && renderTranscriptSurface && 'pointer-events-none'
                 )}
                 onClick={togglePlayback}
             />
 
             {isActive && (
-                <DisplayModeSelector
+                <div inert={readerOpen} aria-hidden={readerOpen || undefined}><DisplayModeSelector
                     mode={effectiveDisplayMode}
-                    onChange={setPodsDisplayMode}
-                />
+                    audio={!visualPlayback}
+                    onAbout={!visualPlayback ? onOpenAbout : undefined}
+                    onChange={(mode) => visualPlayback ? setPodsDisplayMode(mode as PodsDisplayMode) : setPodsAudioDisplayMode(mode as 'listen' | 'transcript')}
+                /></div>
             )}
 
             {/* Content info — positioned above the fixed bottom sheet */}
-            <div className={cn(
+            {visualPlayback && <div className={cn(
                 'absolute bottom-[100px] inset-x-0 z-10 p-4 space-y-3',
-                renderTranscriptSurface && 'pointer-events-none opacity-0'
+                (renderTranscriptSurface || !visualPlayback) && 'pointer-events-none opacity-0'
             )}>
                 {/* Type badge */}
                 <div className="flex items-center gap-2">
@@ -559,10 +639,10 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                         {Math.floor(item.duration_sec / 60)}:{(item.duration_sec % 60).toString().padStart(2, '0')}
                     </span>
                 )}
-            </div>
+            </div>}
 
             {/* Play/Pause overlay */}
-            {isActive && !isPlaying && !renderTranscriptSurface && (
+            {isActive && visualPlayback && !isPlaying && !renderTranscriptSurface && (
                 <div
                     className="absolute inset-0 flex items-center justify-center cursor-pointer z-10 pointer-events-none"
                 >
@@ -579,7 +659,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                 </div>
             )}
 
-            {isActive && globalPaused && !renderTranscriptSurface && (
+            {isActive && visualPlayback && globalPaused && !renderTranscriptSurface && (
                 <div className="absolute top-20 start-4 z-10 pointer-events-none">
                     <span className="px-2.5 py-1 rounded-full bg-black/55 border border-white/15 text-white/90 text-[11px] font-semibold tracking-wide">
                         {t('pods.paused')}
@@ -600,12 +680,142 @@ const DISPLAY_MODES: Array<{
     { mode: 'transcript', label: 'pods.display.transcript', icon: FileText },
 ];
 
+function subscribeVisibility(notify: () => void) {
+    document.addEventListener('visibilitychange', notify);
+    return () => document.removeEventListener('visibilitychange', notify);
+}
+function visibleSnapshot() { return document.visibilityState === 'visible'; }
+
+const AudioCueWindow = memo(function AudioCueWindow({ cues, index }: {
+    cues: readonly TranscriptCue[]; index: number;
+}) {
+    const t = useTranslations();
+    const stackRef = useRef<HTMLDivElement>(null);
+    const [bounds, setBounds] = useState({ width: 0, height: 0 });
+    const [fit, setFit] = useState<{ key: string; mode: 'single' | 'reader' } | null>(null);
+    const active = cues[index];
+    const key = `${active?.id}:${active?.text}:${bounds.width}:${bounds.height}`;
+    const fitMode = fit?.key === key ? fit.mode : undefined;
+    const neighbors = active && active.text.length < 130 && bounds.height >= 260 && fitMode !== 'single';
+    useLayoutEffect(() => {
+        const stack = stackRef.current;
+        const area = stack?.parentElement;
+        if (!stack || !area || typeof ResizeObserver === 'undefined') return;
+        const measure = () => {
+            const width = area.clientWidth;
+            const height = area.clientHeight;
+            setBounds((previous) => previous.width === width && previous.height === height ? previous : { width, height });
+            if (height > 0 && stack.scrollHeight > height && fitMode !== 'reader') {
+                setFit({ key: `${active?.id}:${active?.text}:${width}:${height}`, mode: neighbors ? 'single' : 'reader' });
+            }
+        };
+        const observer = new ResizeObserver(measure);
+        observer.observe(area);
+        observer.observe(stack);
+        return () => observer.disconnect();
+    }, [active, fitMode, neighbors]);
+    const reader = active && (active.text.length > 220 || fitMode === 'reader');
+    return <div ref={stackRef} className="w-full shrink-0">
+        {!active ? <p className="text-center text-white">{t('pods.audio.listening')}</p> : reader ? <p className="text-center text-white">{t('pods.audio.readPassage')}</p> : <div className="space-y-5 pointer-events-none" data-testid="pods-audio-cues">
+        {(neighbors ? cues.slice(index, index + 2) : [active]).map((cue) => <p key={cue.id} dir="auto"
+            data-testid={cue === active ? 'pods-audio-active-cue' : undefined}
+            className={cue === active ? audioStyles.cue : audioStyles.neighbor}>{cue.text}</p>)}
+        </div>}
+    </div>;
+});
+
+function AudioForeground({ item, currentTime, showTranscript, readerOpen, onCloseReader, onRead, onTogglePlay,
+    duration, playing, buffering, disabled, rate, onSeek, onRate }: {
+    item: ContentItem; currentTime: number; showTranscript: boolean; readerOpen: boolean;
+    onCloseReader: () => void; onRead: () => void;
+    onTogglePlay: () => void;
+    duration: number; playing: boolean; buffering: boolean; disabled: boolean; rate: number;
+    onSeek: (seconds: number) => void; onRate: () => void;
+}) {
+    const t = useTranslations();
+    const { isAuthenticated } = useAuthStore();
+    const generation = useRequestTranscription();
+    const { data, isLoading, error, refetch } = useTranscript(showTranscript || readerOpen ? item.transcript_id : null);
+    const transcript = data?.content_item_id === item.id ? data : undefined;
+    const presentation = useMemo(() => normalizeTranscript(transcript?.full_text,
+        transcript ? { segments: transcript.segments, words: transcript.word_timestamps } : undefined,
+        item.duration_sec ?? Infinity), [item.duration_sec, transcript]);
+    const index = activeTranscriptCueIndex(presentation.cues, currentTime);
+    const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
+    const artwork = item.source_image_url || (item.type === 'PODCAST' && (item.rendition_set_version ?? 1) <= 1 ? undefined : item.thumbnail_url);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const readerOpenerRef = useRef<HTMLElement | null>(null);
+    const openReader = () => {
+        readerOpenerRef.current = document.activeElement as HTMLElement | null;
+        onRead();
+    };
+    useEffect(() => {
+        if (!readerOpen) return;
+        const previous = readerOpenerRef.current;
+        dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+        return () => { if (previous?.isConnected) previous.focus(); };
+    }, [readerOpen]);
+    return <>
+        <div inert={readerOpen} aria-hidden={readerOpen || undefined} className={audioStyles.foreground} data-testid="pods-audio-foreground">
+            <div className={audioStyles.identity}>
+                {artwork && failedArtwork !== artwork ? (
+                    <Image src={artwork} alt="" width={44} height={44} onError={() => setFailedArtwork(artwork)} className={audioStyles.artwork} />
+                ) : <span className={cn(audioStyles.artwork, audioStyles.initials)}><Headphones aria-hidden="true" size={20} /></span>}
+                <div className={audioStyles.identityText}>
+                    <p dir="auto" className={audioStyles.source}>{item.source_name || t('pods.badge.audio')}</p>
+                    <h2 dir="auto" className={audioStyles.title}>{item.title}</h2>
+                </div>
+            </div>
+            {showTranscript ? <div className={audioStyles.reading}>
+                <div className={audioStyles.cueArea} onClick={onTogglePlay}>
+                {isLoading ? <p className="text-white text-center">{t('transcript.loading')}</p> : error ? (
+                    <button type="button" className="min-h-11 text-white underline" onClick={(event) => { event.stopPropagation(); void refetch(); }}>{t('transcript.failed')} · {t('pods.audio.retry')}</button>
+                ) : presentation.mode === 'timed' ? <AudioCueWindow cues={presentation.cues} index={index} /> : (
+                    <p className="text-white text-center">{t(presentation.mode === 'reader' ? 'pods.audio.untimed' : 'pods.audio.listening')}</p>
+                )}
+                </div>
+                <button type="button" className={audioStyles.readerLink} onClick={openReader}>{t('pods.audio.openTranscript')}<ArrowUpRight size={14} aria-hidden="true" /></button>
+            </div> : null}
+        </div>
+        <div inert={readerOpen} aria-hidden={readerOpen || undefined} className={audioStyles.playerDock}>
+            <AudioPlayerControls position={currentTime} duration={duration} playing={playing} buffering={buffering}
+                disabled={disabled} rate={rate} onToggle={onTogglePlay} onSeek={onSeek} onRate={onRate} />
+        </div>
+        {readerOpen && <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('transcript.title')}
+            onKeyDown={(event) => {
+                if (event.key === 'Escape') { event.stopPropagation(); onCloseReader(); }
+                if (event.key !== 'Tab') return;
+                const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]');
+                const first = controls?.[0];
+                const last = controls?.[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }}
+            className={cn(audioStyles.readerDialog, 'absolute inset-0 z-30 flex flex-col bg-black/95 px-5 text-white')} onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="min-h-11 min-w-11 mb-3 self-end underline" onClick={onCloseReader}>{t('nowPlaying.close')}</button>
+            {presentation.text ? <TranscriptReader text={presentation.text} language={transcript?.language} fillAvailable /> : isLoading ? (
+                <p>{t('transcript.loading')}</p>
+            ) : error ? <button type="button" className="min-h-11" onClick={() => void refetch()}>{t('pods.audio.retry')}</button> : (
+                <NoTranscriptState contentItemId={item.id} isAuthenticated={isAuthenticated}
+                    isPending={generation.isPending && generation.variables === item.id}
+                    isSuccess={generation.isSuccess && generation.variables === item.id}
+                    isError={generation.isError && generation.variables === item.id}
+                    onGenerate={() => generation.mutate(item.id)} />
+            )}
+        </div>}
+    </>;
+}
+
 function DisplayModeSelector({
     mode,
     onChange,
+    audio = false,
+    onAbout,
 }: {
-    mode: PodsDisplayMode;
-    onChange: (mode: PodsDisplayMode) => void;
+    mode: PodsDisplayMode | 'listen';
+    onChange: (mode: PodsDisplayMode | 'listen') => void;
+    audio?: boolean;
+    onAbout?: () => void;
 }) {
     const t = useTranslations();
     return (
@@ -615,7 +825,10 @@ function DisplayModeSelector({
             onClick={(event) => event.stopPropagation()}
         >
             <div className="flex flex-col gap-1">
-                {DISPLAY_MODES.map(({ mode: option, label, icon: Icon }) => (
+                {(audio ? [
+                    { mode: 'listen' as const, label: 'pods.display.listen', icon: Headphones },
+                    { mode: 'transcript' as const, label: 'pods.display.transcript', icon: FileText },
+                ] : DISPLAY_MODES).map(({ mode: option, label, icon: Icon }) => (
                     <button
                         key={option}
                         type="button"
@@ -624,13 +837,17 @@ function DisplayModeSelector({
                         title={t(label)}
                         onClick={() => onChange(option)}
                         className={cn(
-                            'flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-all hover:bg-white/15 hover:text-white',
+                            'flex h-11 w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15 hover:text-white',
                             mode === option && 'bg-news-accent text-white shadow-[0_0_14px_rgba(230,57,70,0.35)]'
                         )}
                     >
                         <Icon className="h-4 w-4" />
                     </button>
                 ))}
+                {onAbout && <button type="button" aria-label={t('about.title')} title={t('about.title')} onClick={onAbout}
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15 hover:text-white">
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                </button>}
             </div>
         </div>
     );
@@ -652,6 +869,7 @@ function TranscriptSurface({
     const triggerMutation = useRequestTranscription();
     const hasTranscript = !!item.transcript_id;
     const { data: transcript, isLoading, error } = useTranscript(hasTranscript ? item.transcript_id : null);
+    const timestamps = useMemo(() => ({ segments: transcript?.segments, words: transcript?.word_timestamps }), [transcript]);
     const fallbackText = item.body_text || item.excerpt || '';
 
     return (
@@ -681,7 +899,7 @@ function TranscriptSurface({
 
             <div className="relative z-10 flex min-h-0 flex-1 items-center pt-3">
                 {!hasTranscript && fallbackText ? (
-                    <TranscriptReader text={fallbackText} />
+                    <div dir="auto"><p className="mb-2 text-sm">{t('pods.audio.description')}</p><p>{fallbackText}</p></div>
                 ) : null}
 
                 {!hasTranscript && !fallbackText ? (
@@ -710,10 +928,10 @@ function TranscriptSurface({
                     </div>
                 ) : null}
 
-                {transcript ? (
+                {transcript?.content_item_id === item.id ? (
                     <TranscriptText
                         fullText={transcript.full_text}
-                        segments={transcript.word_timestamps}
+                        timestamps={timestamps}
                         language={transcript.language}
                         currentTime={currentTime}
                     />
@@ -791,26 +1009,27 @@ function NoTranscriptState({
 
 function TranscriptText({
     fullText,
-    segments,
+    timestamps,
     language,
     currentTime,
 }: {
     fullText: string;
-    segments?: TranscriptSegment[];
+    timestamps?: unknown;
     language?: string;
     currentTime: number;
 }) {
     const t = useTranslations();
     const listRef = useRef<HTMLDivElement>(null);
     const activeRef = useRef<HTMLDivElement>(null);
-    const activeIndex = getActiveSegmentIndex(segments, currentTime);
+    const presentation = useMemo(() => normalizeTranscript(fullText, timestamps), [fullText, timestamps]);
+    const activeIndex = activeTranscriptCueIndex(presentation.cues, currentTime);
 
     useEffect(() => {
         activeRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     }, [activeIndex]);
 
-    if (!segments || segments.length === 0) {
-        return <TranscriptReader text={fullText} language={language} />;
+    if (presentation.mode !== 'timed') {
+        return <TranscriptReader text={presentation.text} language={language} />;
     }
 
     return (
@@ -824,12 +1043,12 @@ function TranscriptText({
                 className="max-h-[56vh] space-y-2 overflow-y-auto overscroll-contain py-[22vh] pe-1 scrollbar-none"
                 data-testid="live-transcript-list"
             >
-                {segments.map((segment, index) => {
+                {presentation.cues.map((segment, index) => {
                     const isActive = index === activeIndex;
                     const isNear = Math.abs(index - activeIndex) <= 1;
                     return (
                         <div
-                            key={`${segment.start}-${index}`}
+                            key={segment.id}
                             ref={isActive ? activeRef : undefined}
                             dir="auto"
                             data-testid={isActive ? 'active-transcript-segment' : undefined}
@@ -848,7 +1067,7 @@ function TranscriptText({
                                     ? 'border-news-accent/40 bg-news-accent/15 text-news-accent'
                                     : 'border-white/10 bg-white/5 text-white/35'
                             )}>
-                                {formatTimestamp(segment.start)}
+                                {formatTimestamp(segment.startSeconds ?? 0)}
                             </div>
                             <p className={cn(
                                 'max-w-[92%] text-balance font-semibold leading-snug drop-shadow-lg',
@@ -864,11 +1083,11 @@ function TranscriptText({
     );
 }
 
-function TranscriptReader({ text, language }: { text: string; language?: string }) {
+function TranscriptReader({ text, language, fillAvailable = false }: { text: string; language?: string; fillAvailable?: boolean }) {
     const t = useTranslations();
     return (
         <div
-            className="w-full rounded-lg border border-white/10 bg-black/35 p-5 backdrop-blur-md"
+            className={cn('w-full rounded-lg border border-white/10 bg-black/35 p-5 backdrop-blur-md', fillAvailable && 'flex-1 min-h-0 flex flex-col')}
             onClick={(event) => event.stopPropagation()}
             data-testid="transcript-reader"
         >
@@ -876,25 +1095,13 @@ function TranscriptReader({ text, language }: { text: string; language?: string 
                 <span>{t('transcript.title')}</span>
                 {language && <span className="normal-case">{language}</span>}
             </div>
-            <div className="max-h-[54vh] overflow-y-auto overscroll-contain pe-1">
-                <p dir="auto" className="whitespace-pre-wrap text-xl font-medium leading-9 text-white/88">
+            <div role="region" aria-label={t('transcript.title')} tabIndex={0} className={cn('overflow-y-auto overscroll-contain pe-1', fillAvailable ? 'min-h-0 flex-1' : 'max-h-[54vh]')}>
+                <p dir="auto" className="whitespace-pre-wrap break-words text-xl font-medium leading-9 text-white/88">
                     {text}
                 </p>
             </div>
         </div>
     );
-}
-
-function getActiveSegmentIndex(segments: TranscriptSegment[] | undefined, currentTime: number): number {
-    if (!segments || segments.length === 0) return -1;
-    const index = segments.findIndex((segment, i) => {
-        const next = segments[i + 1];
-        const end = Number.isFinite(segment.end) ? segment.end : next?.start;
-        return currentTime >= segment.start && (typeof end !== 'number' || currentTime < end);
-    });
-    if (index >= 0) return index;
-    if (currentTime < segments[0].start) return 0;
-    return segments.length - 1;
 }
 
 function formatTimestamp(seconds: number): string {

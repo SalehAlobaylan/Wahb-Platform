@@ -27,6 +27,7 @@ interface DraggableBottomSheetProps {
      * dragged. Named `concealed` to avoid clashing with the DOM `hidden` attr.
      */
     concealed?: boolean;
+    onCoverageChange?: (covered: boolean) => void;
 }
 
 /**
@@ -41,6 +42,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
     defaultHeight = 80,
     className,
     concealed = false,
+    onCoverageChange,
 }, ref) {
     const [height, setHeight] = useState(defaultHeight);
     const [isDragging, setIsDragging] = useState(false);
@@ -52,6 +54,7 @@ export const DraggableBottomSheet = forwardRef<DraggableBottomSheetHandle, Dragg
     const lastTouchTapAt = useRef(0);
 
     const isExpanded = height > minHeight + 20;
+    useEffect(() => { onCoverageChange?.(isExpanded || isDragging); }, [isExpanded, isDragging, onCoverageChange]);
 
     // Hide-on-scroll: only park the sheet off-screen when it's collapsed and the
     // user isn't mid-drag, so we never fight a deliberate interaction.

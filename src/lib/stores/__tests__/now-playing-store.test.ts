@@ -44,4 +44,14 @@ describe('now playing ownership', () => {
     useNowPlayingStore.getState().stop();
     expect(useNowPlayingStore.getState()).toMatchObject({ playbackOwner: 'none', currentItem: null });
   });
+  it('retains the approved fallback across pause metadata sync and global handoff', () => {
+    const store = useNowPlayingStore.getState();
+    store.setCurrentFromPods(item);
+    store.setPodsPlaybackSource(item.id, 'https://cdn.test/fallback.m4a');
+    store.setCurrentFromPods(item, false);
+    expect(useNowPlayingStore.getState().audioSrc).toBe('https://cdn.test/fallback.m4a');
+    store.handoffToGlobalAudio(42, false);
+    store.setPodsPlaybackSource(item.id, 'https://cdn.test/stale.mp4');
+    expect(useNowPlayingStore.getState()).toMatchObject({ audioSrc: 'https://cdn.test/fallback.m4a', seekTo: 42, isPlaying: false });
+  });
 });

@@ -463,5 +463,21 @@
   "tts.heading": "Text-to-Speech",
   "tts.description": "Generate professional narration of any article using AI voices.",
 
-  "common.comingSoon": "Coming Soon"
+  "common.comingSoon": "Coming Soon",
+
+  "pods.display.listen": "Listen",
+  "pods.audio.listening": "Listen and enjoy.",
+  "pods.audio.openTranscript": "Open full transcript",
+  "pods.audio.untimed": "Full transcript available without synchronized timing.",
+  "pods.audio.readPassage": "Open the transcript to read this passage in full.",
+  "pods.audio.description": "Description",
+  "pods.audio.retry": "Retry",
+  "pods.audio.scrubber": "Playback position",
+  "pods.audio.speed": "Playback speed {rate}×. Tap to change speed",
+  "pods.audio.excerpt": "From the episode",
+  "pods.audio.captions": "AUTO-GENERATED TRANSCRIPT",
+  "pods.audio.source": "Show / source",
+  "pods.audio.duration": "Duration",
+  "pods.audio.published": "Published",
+  "pods.audio.episodeRange": "Position in the episode"
 }

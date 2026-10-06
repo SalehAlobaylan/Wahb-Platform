@@ -463,5 +463,21 @@
   "tts.heading": "تحويل النص إلى كلام",
   "tts.description": "أنشئ تعليقًا صوتيًا احترافيًا لأي مقال باستخدام أصوات الذكاء الاصطناعي.",
 
-  "common.comingSoon": "قريبًا"
+  "common.comingSoon": "قريبًا",
+
+  "pods.display.listen": "استماع",
+  "pods.audio.listening": "استمع واستمتع.",
+  "pods.audio.openTranscript": "فتح النص الكامل",
+  "pods.audio.untimed": "النص الكامل متاح دون توقيت متزامن.",
+  "pods.audio.readPassage": "افتح النص لقراءة هذا المقطع بالكامل.",
+  "pods.audio.description": "الوصف",
+  "pods.audio.retry": "إعادة المحاولة",
+  "pods.audio.scrubber": "موضع التشغيل",
+  "pods.audio.speed": "سرعة التشغيل {rate}×. اضغط لتغيير السرعة",
+  "pods.audio.excerpt": "مقطع من الحلقة",
+  "pods.audio.captions": "النص المولّد آليًا",
+  "pods.audio.source": "البرنامج / المصدر",
+  "pods.audio.duration": "المدة",
+  "pods.audio.published": "تاريخ النشر",
+  "pods.audio.episodeRange": "موضع المقطع في الحلقة"
 }

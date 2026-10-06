@@ -16,6 +16,9 @@ export interface ContentItem {
   playback_url?: string;
   playback_type?: 'hls' | 'mp4' | 'audio' | string;
   fallback_playback_url?: string;
+  fallback_playback_type?: 'hls' | 'mp4' | 'audio';
+  fallback_has_video?: boolean;
+  audio_scene_profile?: unknown;
   has_video?: boolean;
   visual_available?: boolean;
   rendition_set_version?: number;
@@ -33,6 +36,7 @@ export interface ContentItem {
     manifest_id?: string;
     package_manifest_id?: string;
     is_primary?: boolean;
+    has_video?: boolean;
   }>;
   parent_id?: string;
   chapter_index?: number;
@@ -225,6 +229,7 @@ export interface Transcript {
   full_text: string;
   summary?: string;
   word_timestamps?: TranscriptSegment[];
+  segments?: TranscriptSegment[];
   language?: string;
   created_at: string;
 }

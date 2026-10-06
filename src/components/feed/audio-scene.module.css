@@ -1,0 +1,9 @@
+.scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.shape { position: absolute; border-radius: 999px; transform: rotate(var(--rotation)); animation: drift var(--period) ease-in-out infinite alternate; animation-play-state: paused; }
+.moving { animation-play-state: running; }
+.scrim { position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.56),rgba(0,0,0,.66) 48%,rgba(0,0,0,.76)); }
+@keyframes drift {
+  from { transform: translate(0,0) rotate(var(--rotation)); }
+  to { transform: translate(var(--dx),var(--dy)) rotate(calc(var(--rotation) + var(--dr))); }
+}
+@media (prefers-reduced-motion: reduce) { .moving { animation: none; } }

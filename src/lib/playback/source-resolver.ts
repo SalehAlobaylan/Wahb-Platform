@@ -13,6 +13,7 @@ export interface PlaybackSource {
   type: PlaybackSourceType;
   adapter: PlaybackAdapter;
   reason: 'primary' | 'rendition' | 'fallback' | 'legacy';
+  hasVideo: boolean;
 }
 
 export interface PlaybackPreferences {
@@ -25,6 +26,11 @@ interface RawSource {
   url?: string;
   type?: string;
   reason: PlaybackSource['reason'];
+  hasVideo?: boolean;
+}
+
+function isAudioSource(source: { type?: string; hasVideo?: boolean }) {
+  return source.type === 'audio' || source.hasVideo === false;
 }
 
 function sourceType(type: string | undefined, fallback: PlaybackSourceType): PlaybackSourceType {
@@ -43,7 +49,7 @@ function cleanUrl(url: string | undefined): string | undefined {
  * source: HLS is included only when a native or managed adapter can own it.
  */
 export function resolvePlaybackSources(
-  item: Pick<ContentItem, 'playback_url' | 'playback_type' | 'fallback_playback_url' | 'media_url' | 'media_renditions' | 'has_video'>,
+  item: Pick<ContentItem, 'playback_url' | 'playback_type' | 'fallback_playback_url' | 'fallback_playback_type' | 'fallback_has_video' | 'media_url' | 'media_renditions' | 'has_video'>,
   capabilities: PlaybackCapabilities,
 	preferences: PlaybackPreferences = {},
 ): PlaybackSource[] {
@@ -52,25 +58,25 @@ export function resolvePlaybackSources(
     .filter((rendition) => !rendition.is_primary)
     .sort((a, b) => {
       const tier = preferences.audio_quality ?? 'standard';
-      const score = (r: typeof a) => r.type === 'audio' && preferences.prefer_audio_when_available !== false
+      const score = (r: typeof a) => isAudioSource({ type: r.type, hasVideo: r.has_video }) && preferences.prefer_audio_when_available !== false
         ? (r.quality_tier === tier ? 0 : 1) : 2;
       return score(a) - score(b);
     })
-    .map((rendition) => ({ url: rendition.url, type: rendition.type, reason: 'rendition' as const }));
+    .map((rendition) => ({ url: rendition.url, type: rendition.type, hasVideo: rendition.has_video, reason: 'rendition' as const }));
   const primary: RawSource[] = [
-    { url: item.playback_url, type: item.playback_type, reason: 'primary' },
+    { url: item.playback_url, type: item.playback_type, hasVideo: item.media_renditions?.find((r) => r.url === item.playback_url)?.has_video ?? item.has_video, reason: 'primary' },
     ...(item.media_renditions ?? [])
       .filter((rendition) => rendition.is_primary)
-      .map((rendition) => ({ url: rendition.url, type: rendition.type, reason: 'rendition' as const })),
+      .map((rendition) => ({ url: rendition.url, type: rendition.type, hasVideo: rendition.has_video, reason: 'rendition' as const })),
   ];
   const raw: RawSource[] = [
     ...(preferences.prefer_audio_when_available !== false
-      ? renditionSources.filter((source) => source.type === 'audio')
+      ? renditionSources.filter(isAudioSource)
       : []),
     ...primary,
-    { url: item.fallback_playback_url, type: fallbackType, reason: 'fallback' },
+    { url: item.fallback_playback_url, type: item.fallback_playback_type ?? fallbackType, hasVideo: item.fallback_has_video ?? item.has_video, reason: 'fallback' },
     { url: item.media_url, type: item.playback_url === item.media_url ? undefined : fallbackType, reason: 'legacy' },
-    ...renditionSources.filter((source) => source.type !== 'audio' || preferences.prefer_audio_when_available === false),
+    ...renditionSources.filter((source) => !isAudioSource(source) || preferences.prefer_audio_when_available === false),
   ];
 
   const candidates: PlaybackSource[] = [];
@@ -79,6 +85,7 @@ export function resolvePlaybackSources(
     const url = cleanUrl(entry.url);
     if (!url) continue;
     const type = sourceType(entry.type, fallbackType);
+    const hasVideo = type !== 'audio' && (entry.hasVideo ?? item.has_video ?? true);
     if (type === 'hls') {
       const adapter: PlaybackAdapter | null = capabilities.nativeHls
         ? 'native-hls'
@@ -89,14 +96,14 @@ export function resolvePlaybackSources(
       const key = `${adapter}:${url}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      candidates.push({ url, type, adapter, reason: entry.reason });
+      candidates.push({ url, type, adapter, reason: entry.reason, hasVideo });
       continue;
     }
 
     const key = `element:${url}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    candidates.push({ url, type, adapter: 'element', reason: entry.reason });
+    candidates.push({ url, type, adapter: 'element', reason: entry.reason, hasVideo });
   }
   return candidates;
 }

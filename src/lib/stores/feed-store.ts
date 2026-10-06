@@ -8,6 +8,7 @@ import {
 } from '@/lib/feed-window/progress-cache';
 
 export type PodsDisplayMode = 'fit' | 'fill' | 'transcript';
+export type PodsAudioDisplayMode = 'listen' | 'transcript';
 export type InteractionKind = 'like' | 'bookmark';
 
 interface FeedState {
@@ -18,6 +19,7 @@ interface FeedState {
   globalPaused: boolean;
   playbackSpeed: number;
   podsDisplayMode: PodsDisplayMode;
+  podsAudioDisplayMode: PodsAudioDisplayMode;
   // When a News story has no real post image, the hero shows only a small source
   // logo. This persisted preference lets the reader expand it to a larger view.
   newsSourceImageExpanded: boolean;
@@ -39,6 +41,7 @@ interface FeedState {
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setPodsDisplayMode: (mode: PodsDisplayMode) => void;
+  setPodsAudioDisplayMode: (mode: PodsAudioDisplayMode) => void;
   setNewsSourceImageExpanded: (expanded: boolean) => void;
   setProgress: (progress: number) => void;
   setPodsPlayback: (id: string, timeSec: number, progress: number) => void;
@@ -71,6 +74,7 @@ export const useFeedStore = create<FeedState>()(
       globalPaused: false,
       playbackSpeed: 1.0,
       podsDisplayMode: 'fit',
+      podsAudioDisplayMode: 'transcript',
       newsSourceImageExpanded: false,
       progress: 0,
       podsPlaybackById: {},
@@ -100,6 +104,7 @@ export const useFeedStore = create<FeedState>()(
       setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
 
       setPodsDisplayMode: (mode) => set({ podsDisplayMode: mode }),
+      setPodsAudioDisplayMode: (mode) => set({ podsAudioDisplayMode: mode }),
 
       setNewsSourceImageExpanded: (expanded) => set({ newsSourceImageExpanded: expanded }),
 
@@ -198,12 +203,14 @@ export const useFeedStore = create<FeedState>()(
       partialize: (state) => ({
         playbackSpeed: state.playbackSpeed,
         podsDisplayMode: state.podsDisplayMode,
+        podsAudioDisplayMode: state.podsAudioDisplayMode,
         newsSourceImageExpanded: state.newsSourceImageExpanded,
         podsPlaybackById: state.podsPlaybackById,
         lastActivePodsItemId: state.lastActivePodsItemId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          if (state.podsAudioDisplayMode !== 'listen' && state.podsAudioDisplayMode !== 'transcript') state.podsAudioDisplayMode = 'transcript';
           // Interaction flags used to be persisted globally. Ignore any legacy
           // values so they cannot cross an account or anonymous-session boundary.
           state.bookmarkedIds = new Set<string>();

@@ -269,10 +269,36 @@ function PodsPageContent() {
     const videoTimeRef = useRef(0);
     const [showSeekMenu, setShowSeekMenu] = useState(false);
     const sheetRef = useRef<DraggableBottomSheetHandle>(null);
+    const [sceneCovered, setSceneCovered] = useState(false);
+    const [sceneDragging, setSceneDragging] = useState(false);
+    useEffect(() => {
+        if (!sceneDragging) return;
+        const release = () => setSceneDragging(false);
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+        window.addEventListener('blur', release);
+        return () => {
+            window.removeEventListener('pointerup', release);
+            window.removeEventListener('pointercancel', release);
+            window.removeEventListener('blur', release);
+        };
+    }, [sceneDragging]);
+    const [sceneScrolling, setSceneScrolling] = useState(false);
+    const sceneScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const observeSceneScroll = useCallback(() => {
+        setSceneScrolling(true);
+        if (sceneScrollTimer.current) clearTimeout(sceneScrollTimer.current);
+        sceneScrollTimer.current = setTimeout(() => { setSceneScrolling(false); sceneScrollTimer.current = null; }, 160);
+    }, []);
+    useEffect(() => () => { if (sceneScrollTimer.current) clearTimeout(sceneScrollTimer.current); }, []);
+    const [sheetTab, setSheetTab] = useState<'comments' | 'transcript' | 'about'>('comments');
+    const openFullTranscript = useCallback(() => { setSheetTab('transcript'); sheetRef.current?.expand(); }, []);
+    const openAbout = useCallback(() => { setSheetTab('about'); sheetRef.current?.expand(); }, []);
     const rewindButtonRef = useRef<HTMLDivElement>(null);
     const rewindPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const rewindLongPressTriggeredRef = useRef(false);
     const hasRestoredScrollRef = useRef(false);
+    const appliedDeepLinkRef = useRef<string | null>(null);
     const shouldResumeOnHandoffRef = useRef(true);
 
     // ── Scroll optimization refs (stable across renders) ─────────────────
@@ -393,7 +419,11 @@ function PodsPageContent() {
     // Deep-link support: /app?item=<content_id>
     useEffect(() => {
         const targetItemId = searchParams.get('item');
-        if (!targetItemId || !feedRef.current || podsItems.length === 0) return;
+        if (!targetItemId) {
+            appliedDeepLinkRef.current = null;
+            return;
+        }
+        if (appliedDeepLinkRef.current === targetItemId || !feedRef.current || podsItems.length === 0) return;
 
         const idx = podsItems.findIndex((item) => item.id === targetItemId);
         if (idx < 0) {
@@ -401,6 +431,8 @@ function PodsPageContent() {
             return;
         }
 
+        // Select a requested episode once; subsequent feed swipes own selection.
+        appliedDeepLinkRef.current = targetItemId;
         if (podsActiveIndex !== idx) {
             setPodsActiveIndex(idx);
             resetProgress();
@@ -597,7 +629,8 @@ function PodsPageContent() {
                 externalScrollRef={feedRef}
                 className="h-full"
             >
-                <FeedContainer ref={feedRef} onScroll={handleScroll}>
+                <FeedContainer ref={feedRef} onScroll={() => { observeSceneScroll(); handleScroll(); }}
+                    onPointerDown={() => setSceneDragging(true)} onPointerUp={() => setSceneDragging(false)} onPointerCancel={() => setSceneDragging(false)}>
                     {showLoading ? (
                         <>
                             <PodsSkeleton />
@@ -608,6 +641,9 @@ function PodsPageContent() {
                             <ViewTracker key={item.id} contentId={item.id} className="h-full w-full snap-start snap-always">
                                 <PodsCard
                                     item={item}
+                                    sceneCovered={sceneCovered || sceneDragging || sceneScrolling}
+                                    onOpenTranscript={openFullTranscript}
+                                    onOpenAbout={openAbout}
                                     isActive={index === podsActiveIndex}
                                     shouldLoadMedia={Math.abs(index - podsActiveIndex) <= adaptiveBufferRef.current.prefetchDepth}
                                     videoTimeRef={index === podsActiveIndex ? videoTimeRef : undefined}
@@ -648,11 +684,16 @@ function PodsPageContent() {
                 <div className="news-page">
                     <DraggableBottomSheet
                         ref={sheetRef}
+                        onCoverageChange={setSceneCovered}
                         minHeight={80}
                         maxHeight={480}
                         defaultHeight={80}
                         expandedContent={
                             <BottomSheetTabs
+                                activeTab={sheetTab}
+                                onTabChange={setSheetTab}
+                                onClose={() => sheetRef.current?.collapse()}
+                                mediaMetadata={activeItem}
                                 commentCount={activeItem.comment_count}
                                 hasTranscript={!!activeItem.transcript_id}
                                 transcriptId={activeItem.transcript_id}

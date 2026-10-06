@@ -31,6 +31,7 @@ interface NowPlayingState {
     setBottomSheetMounted: (mounted: boolean) => void;
     /** Called by Pods to register its active media owner without triggering global audio. */
     setCurrentFromPods: (item: ContentItem, playing?: boolean) => void;
+    setPodsPlaybackSource: (contentId: string, url: string) => void;
     /** Called by Pods on unmount to hand off playback to global audio. */
     handoffToGlobalAudio: (currentTime: number, shouldResume?: boolean) => void;
     /** Called by NowPlayingProvider after it has seeked to the handoff position */
@@ -104,12 +105,16 @@ export const useNowPlayingStore = create<NowPlayingState>()((set, get) => ({
     setBottomSheetMounted: (mounted) => set({ bottomSheetMounted: mounted }),
 
     setCurrentFromPods: (item, playing = true) =>
-        set(() => ({
+        set((state) => ({
             currentItem: item,
-            audioSrc: getAudioPlaybackUrl(item) || null,
+            audioSrc: state.playbackOwner === 'pods' && state.currentItem?.id === item.id
+                ? state.audioSrc : getAudioPlaybackUrl(item) || null,
             isPlaying: playing,
             playbackOwner: 'pods',
         })),
+    setPodsPlaybackSource: (contentId, url) => set((state) =>
+        state.playbackOwner === 'pods' && state.currentItem?.id === contentId && state.audioSrc !== url
+            ? { audioSrc: url } : state),
 
     handoffToGlobalAudio: (currentTime, shouldResume = true) =>
         set({
