@@ -1,3 +1,4 @@
+import { readExperienceBody, telemetryRuntimeMatches } from '@/lib/experience/admission';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const ACCESS_TOKEN_COOKIE = 'wahb_access_token';
@@ -56,7 +57,13 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (runtime && pathname.startsWith('/api/')) {
         const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
         if (mutation && request.headers.get('origin') !== request.nextUrl.origin) return NextResponse.json({ message: 'Same-origin requests required' }, { status: 403 });
-        if ((mutation || request.headers.has('x-wahb-runtime-id')) && request.headers.get('x-wahb-runtime-id') !== runtime) return NextResponse.json({ message: 'The app restarted. Refresh this tab.', code: 'runtime_changed' }, { status: 409 });
+        if (pathname === '/api/experience/events' && mutation) {
+            try {
+                const batch = JSON.parse(await readExperienceBody(request.clone()));
+                if (!telemetryRuntimeMatches(runtime, batch.runtime_id)) return NextResponse.json({ disabled: true, code: 'runtime_changed' }, { status: 409 });
+            } catch { return NextResponse.json({ message: 'Invalid bounded telemetry body' }, { status: 400 }); }
+        }
+        if (pathname !== '/api/experience/events' && (mutation || request.headers.has('x-wahb-runtime-id')) && request.headers.get('x-wahb-runtime-id') !== runtime) return NextResponse.json({ message: 'The app restarted. Refresh this tab.', code: 'runtime_changed' }, { status: 409 });
         if (!['/api/auth/login', '/api/auth/register'].includes(pathname) && !runtimeMatches && (request.cookies.has(ACCESS_TOKEN_COOKIE) || request.cookies.has(REFRESH_TOKEN_COOKIE))) {
             const headers = new Headers(request.headers);
             const cookie = (request.headers.get('cookie') || '').split(';').filter(part => !['wahb_access_token', 'wahb_refresh_token', 'wahb_token_expires', 'wahb_runtime_id'].includes(part.trim().split('=')[0])).join(';');

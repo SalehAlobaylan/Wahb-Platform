@@ -1,76 +1,42 @@
 'use client';
-
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { beginFeedLoad, beginPagination, type FeedLoadJourney, type PaginationJourney } from './journeys';
 import type { RuxSurface } from './types';
-
-type QueryStatus = 'pending' | 'success' | 'error';
-
-interface FeedLoadTelemetryInput {
-  surface: RuxSurface;
-  status: QueryStatus;
-  unitCount: number;
-  // One exact server-returned item proves a concrete render boundary. It is
-  // evidence only and never becomes ranking/session state.
-  renderedContentID?: string;
-  // Distinguishes a fresh load from a refetch, so a new load re-arms the journey.
-  loadKey?: string | number;
-}
-
-/**
- * Observes a TanStack Query feed result and emits the feed-load journey's
- * terminal event exactly once per load: feed_rendered (units present),
- * feed_empty (successful but zero units), or feed_failed (error). The journey
- * begins on mount / whenever loadKey changes (a new fresh load).
- */
-export function useFeedLoadTelemetry({ surface, status, unitCount, renderedContentID, loadKey }: FeedLoadTelemetryInput): void {
-  const journeyRef = useRef<FeedLoadJourney | null>(null);
-  const settledRef = useRef(false);
-  const lastKeyRef = useRef<string | number | undefined>(undefined);
-
-  // Arm a fresh journey on mount or when the load key changes (e.g. duration
-  // filter switch triggers a new request).
+interface Input { surface: RuxSurface; status: 'pending' | 'success' | 'error'; unitCount: number; renderedContentID?: string; loadKey?: string | number }
+export function useFeedLoadTelemetry({ surface, status, unitCount, renderedContentID, loadKey }: Input) {
+  const [revision, setRevision] = useState(0);
+  const awaitingRequest = useRef(false);
+  const ref = useRef<FeedLoadJourney | null>(null);
+  useLayoutEffect(() => { awaitingRequest.current = false; ref.current = beginFeedLoad(surface); return () => { ref.current?.cancel(); ref.current = null; }; }, [surface, loadKey]);
   useEffect(() => {
-    if (lastKeyRef.current !== loadKey) {
-      lastKeyRef.current = loadKey;
-      journeyRef.current = beginFeedLoad(surface);
-      settledRef.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadKey]);
-
-  useEffect(() => {
-    if (settledRef.current || !journeyRef.current) return;
-    if (status === 'success') {
-      settledRef.current = true;
-      if (unitCount > 0) journeyRef.current.rendered(renderedContentID);
-      else journeyRef.current.empty();
-    } else if (status === 'error') {
-      settledRef.current = true;
-      journeyRef.current.failed('unknown');
-    }
-  }, [status, unitCount, renderedContentID]);
+    if (awaitingRequest.current) return;
+    if (status === 'error') { ref.current?.failed('network'); return; }
+    if (status !== 'success') return;
+    if (!unitCount) { ref.current?.empty(); return; }
+    // Only a committed concrete card/slide can prove a usable render. A query
+    // success behind a render error boundary does not settle this journey.
+    const frame = requestAnimationFrame(() => {
+      if (renderedContentID && Array.from(document.querySelectorAll<HTMLElement>('[data-rux-unit]')).some(node => node.dataset.ruxUnit === renderedContentID)) ref.current?.rendered(renderedContentID);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [status, unitCount, renderedContentID, loadKey, revision]);
+  const requested = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
+    ref.current?.cancel();
+    const current = beginFeedLoad(surface); ref.current = current; awaitingRequest.current = true;
+    try { return await operation(); }
+    catch (error) { current.failed('network'); throw error; }
+    finally { if (ref.current === current) { awaitingRequest.current = false; setRevision(value => value + 1); } }
+  }, [surface]);
+  return { requested };
 }
-
-/**
- * Emits a pagination journey when the user approaches the loaded-feed boundary.
- * Call `armPagination()` when a next-page fetch begins; call the returned
- * handle's received()/starved() as the outcome resolves.
- */
+export function newlyUsableUnits(before: readonly string[], after: readonly string[]): boolean { const old = new Set(before); return after.some(id => !old.has(id)); }
 export function usePaginationTelemetry(surface: RuxSurface) {
-  const journeyRef = useRef<PaginationJourney | null>(null);
-
-  const arm = () => {
-    if (journeyRef.current) return; // one in flight at a time
-    journeyRef.current = beginPagination(surface);
-  };
-  const received = () => {
-    journeyRef.current?.received();
-    journeyRef.current = null;
-  };
-  const starved = () => {
-    journeyRef.current?.starved();
-    journeyRef.current = null;
-  };
-  return { arm, received, starved };
+  const ref = useRef<PaginationJourney | null>(null);
+  const arm = useCallback(() => { if (!ref.current) ref.current = beginPagination(surface); }, [surface]);
+  const received = useCallback(() => { ref.current?.received(); ref.current = null; }, []);
+  const starved = useCallback(() => ref.current?.starved(), []);
+  const failed = useCallback(() => { ref.current?.failed(); ref.current = null; }, []);
+  const end = useCallback(() => { ref.current?.end(); ref.current = null; }, []);
+  useEffect(() => () => { ref.current?.cancel(); ref.current = null; }, [surface]);
+  return useMemo(() => ({ arm, received, starved, failed, end }), [arm, received, starved, failed, end]);
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
 import { beginHandoff } from '@/lib/experience/journeys';
 import { useNowPlayingStore, audioPlaybackTime } from '@/lib/stores/now-playing-store';
 import { useFeedStore } from '@/lib/stores/feed-store';
@@ -30,6 +31,35 @@ export function NowPlayingProvider() {
     const lastPersistRef = useRef(0);
     const { audioSrc, isPlaying, playbackOwner, seekTo, pendingSeek, stop, clearSeek, clearPendingSeek } =
         useNowPlayingStore();
+
+    const [telemetryAudio, setTelemetryAudio] = useState<HTMLAudioElement | null>(null);
+    const telemetryContentID = useNowPlayingStore(s => s.currentItem?.id);
+    const setAudio = useCallback((node: HTMLAudioElement | null) => { audioRef.current = node; setTelemetryAudio(node); }, []);
+    const { notifyAttempt, notifyPlayReject } = usePlaybackTelemetry({ mediaElement: telemetryAudio,
+        contentId: telemetryContentID, playbackType: useNowPlayingStore(s => s.currentItem?.playback_type),
+        active: playbackOwner === 'global', surface: 'pods' });
+    const handoffRef = useRef<ReturnType<typeof beginHandoff> | null>(null);
+    const previousOwnerRef = useRef(playbackOwner);
+    // Handoff owns its lifetime independently of isPlaying effect cleanup.
+    useEffect(() => {
+        const previous = previousOwnerRef.current;
+        previousOwnerRef.current = playbackOwner;
+        if (previous === 'pods' && playbackOwner === 'global' && isPlaying) {
+            const state = useNowPlayingStore.getState();
+            handoffRef.current = beginHandoff('pods', state.currentItem?.id, state.seekTo ?? audioPlaybackTime.time ?? 0);
+        } else if (playbackOwner === 'pods' || !isPlaying) { handoffRef.current?.cancel(); handoffRef.current = null; }
+    }, [playbackOwner, isPlaying]);
+    useEffect(() => () => { handoffRef.current?.cancel(); handoffRef.current = null; }, [telemetryContentID]);
+    useEffect(() => {
+        const audio = telemetryAudio;
+        if (!audio) return;
+        let baseline = audio.currentTime;
+        const seeked = () => { baseline = audio.currentTime; };
+        const progress = () => { if (!audio.paused && !audio.seeking && audio.currentTime - baseline >= 0.05) handoffRef.current?.completed(audio.currentTime); };
+        const failed = () => handoffRef.current?.failed();
+        audio.addEventListener('timeupdate', progress); audio.addEventListener('seeked', seeked); audio.addEventListener('error', failed);
+        return () => { audio.removeEventListener('timeupdate', progress); audio.removeEventListener('seeked', seeked); audio.removeEventListener('error', failed); };
+    }, [telemetryAudio]);
 
     // Sync audio source (always keep it loaded so handoff is instant).
     // Compare the attribute, not `audio.src` — the property returns the
@@ -96,53 +126,33 @@ export function NowPlayingProvider() {
                 clearSeek();
             }
 
-            audio.play().catch(() => {
+            notifyAttempt(navigator.userActivation?.isActive === true);
+            audio.play().catch((error) => {
+                if (cancelled || error?.name === 'AbortError') return;
+                notifyPlayReject(error);
+                handoffRef.current?.failed();
                 // Autoplay blocked — user must interact first.
                 useNowPlayingStore.getState().pause();
             });
         };
 
-        // readyState < HAVE_METADATA (1): duration unknown, a seek won't stick.
-        if (seekTo !== null && audio.readyState < 1) {
+        // Metadata can precede a usable seek range (notably WAV in Chromium).
+        // Keep the handoff target until data is playable, then seek and play.
+        if (seekTo !== null && audio.readyState < 3) {
             const onReady = () => {
-                audio.removeEventListener('loadedmetadata', onReady);
+                audio.removeEventListener('canplay', onReady);
                 seekThenPlay();
             };
-            audio.addEventListener('loadedmetadata', onReady);
+            audio.addEventListener('canplay', onReady);
             return () => {
                 cancelled = true;
-                audio.removeEventListener('loadedmetadata', onReady);
+                audio.removeEventListener('canplay', onReady);
             };
         }
 
         seekThenPlay();
-    }, [isPlaying, audioSrc, playbackOwner, seekTo, clearSeek]);
-
-    // RUX handoff telemetry: when Pods <video> ownership ends while a track
-    // is playing, the global <audio> must resume near the same position. We open
-    // a handoff journey on the Pods→global owner transition and settle it on
-    // the next audio progress (completed) or a deadline (failed).
-    const previousOwnerRef = useRef(playbackOwner);
-    const handoffRef = useRef<ReturnType<typeof beginHandoff> | null>(null);
-    useEffect(() => {
-        const previousOwner = previousOwnerRef.current;
-        previousOwnerRef.current = playbackOwner;
-        const audio = audioRef.current;
-        if (!(previousOwner === 'pods' && playbackOwner === 'global')) return;
-        const { currentItem } = useNowPlayingStore.getState();
-        if (!audio || !currentItem || !isPlaying) return;
-
-        const journey = beginHandoff('pods', currentItem.id);
-        handoffRef.current = journey;
-        const onResumed = () => journey.completed();
-        audio.addEventListener('playing', onResumed, { once: true });
-        // If the audio has not resumed within the deadline, record a failure.
-        const deadline = setTimeout(() => journey.failed(), 4000);
-        return () => {
-            audio.removeEventListener('playing', onResumed);
-            clearTimeout(deadline);
-        };
-    }, [playbackOwner, isPlaying]);
+        return () => { cancelled = true; };
+    }, [isPlaying, audioSrc, playbackOwner, seekTo, clearSeek, notifyAttempt, notifyPlayReject]);
 
     // Apply a one-shot UI seek request (scrubber / skip buttons). Runs
     // regardless of play/pause state. We update the audioPlaybackTime bridge
@@ -218,7 +228,7 @@ export function NowPlayingProvider() {
 
     return (
         <audio
-            ref={audioRef}
+            ref={setAudio}
             onEnded={handleEnded}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}

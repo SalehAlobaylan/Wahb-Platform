@@ -11,7 +11,7 @@ if (runtime && typeof window !== 'undefined') {
     new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
     headers.set('X-Wahb-Runtime-ID', runtime);
     const response = await original(input, { ...init, headers });
-    if (response.status === 409) {
+    if (response.status === 409 && target.pathname !== '/api/experience/events') {
       const value = await response.clone().json().catch(() => null);
       if (value?.code === 'runtime_changed') window.location.assign('/login');
     }

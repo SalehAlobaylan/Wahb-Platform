@@ -24,7 +24,7 @@ import {
 import { PaginationAdmission } from '@/lib/feed-window/pagination-admission';
 import type { ContentItem } from '@/types';
 import type { PodsDurationPreference } from '@/lib/api/feeds';
-import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
+import { useFeedLoadTelemetry, usePaginationTelemetry, newlyUsableUnits } from '@/lib/experience/use-feed-telemetry';
 
 const durationOptions: PodsDurationPreference[] = [5, 10, 15, 20, 30, 40];
 
@@ -145,7 +145,7 @@ function PodsPageContent() {
         isLoading,
         isError,
         error,
-        restart,
+        restart: restartQuery,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
@@ -174,7 +174,7 @@ function PodsPageContent() {
 
     // RUX: emit the Pods feed-load journey terminal (rendered/empty/failed)
     // once per fresh load; a duration switch re-arms via loadKey.
-    useFeedLoadTelemetry({
+    const { requested: measureFeedRequest } = useFeedLoadTelemetry({
         surface: 'pods',
         status,
         unitCount: podsItems.length,
@@ -185,20 +185,24 @@ function PodsPageContent() {
     // RUX: pagination journey. Arm when a next-page fetch begins; on completion,
     // received if new units arrived, starved if none arrived while more were
     // expected (a genuine pagination gap, not the end of the feed).
+    const restart = useCallback(() => measureFeedRequest(restartQuery), [measureFeedRequest, restartQuery]);
     const paginationTelemetry = usePaginationTelemetry('pods');
-    const prevFetchingNextRef = useRef(false);
-    const preFetchCountRef = useRef(0);
+    const previousFetchingRef = useRef(false);
+    const beforePageIDs = useRef<string[]>([]);
     useEffect(() => {
-        if (isFetchingNextPage && !prevFetchingNextRef.current) {
-            preFetchCountRef.current = podsItems.length;
+        if (isFetchingNextPage && !previousFetchingRef.current) {
+            beforePageIDs.current = podsItems.map(item => item.id);
             paginationTelemetry.arm();
-        } else if (!isFetchingNextPage && prevFetchingNextRef.current) {
-            if (podsItems.length > preFetchCountRef.current) paginationTelemetry.received();
-            else if (hasNextPage) paginationTelemetry.starved();
-            else paginationTelemetry.received();
+            const viewport = feedRef.current;
+            if (viewport && viewport.scrollTop + viewport.clientHeight >= podsItems.length * viewport.clientHeight - 4) paginationTelemetry.starved();
         }
-        prevFetchingNextRef.current = isFetchingNextPage;
-    }, [isFetchingNextPage, podsItems.length, hasNextPage, paginationTelemetry]);
+        if (!isFetchingNextPage && previousFetchingRef.current) {
+            if (newlyUsableUnits(beforePageIDs.current, podsItems.map(item => item.id))) paginationTelemetry.received();
+            else if (!hasNextPage) paginationTelemetry.end();
+            else paginationTelemetry.failed();
+        }
+        previousFetchingRef.current = isFetchingNextPage;
+    }, [isFetchingNextPage, podsItems, hasNextPage, paginationTelemetry]);
 
     const setDurationPreference = useCallback((duration: PodsDurationPreference | null) => {
         const params = new URLSearchParams(Array.from(searchParams.entries()));
@@ -334,6 +338,7 @@ function PodsPageContent() {
         if (!hasNextPage) return;
         const admission = paginationAdmissionRef.current;
         if (admission.admit({ fastSwiping: isFastSwiping, fetching: isFetchingNextPage }) !== 'admitted') return;
+        paginationTelemetry.arm();
         void fetchNextPage()
             .then((result) => {
                 if (result.isError) {
@@ -352,7 +357,7 @@ function PodsPageContent() {
                     admission.success();
                 } else admission.failure(error?.status, error?.retryAfterMs);
             });
-    }, [fetchNextPage, hasNextPage, isFastSwiping, isFetchingNextPage, restart]);
+    }, [fetchNextPage, hasNextPage, isFastSwiping, isFetchingNextPage, restart, paginationTelemetry]);
 
     // ── Throttled scroll handler ─────────────────────────────────────────
     const rawHandleScroll = useCallback(() => {
@@ -372,10 +377,12 @@ function PodsPageContent() {
             swipeDetectorRef.current?.recordSwipe();
         }
 
+        if (isFetchingNextPage && scrollPosition + height >= podsItems.length * height - 4) paginationTelemetry.starved();
+
         // All automatic pagination paths share one per-query admission state.
         const nearBottom = scrollPosition + height >= scrollHeight - height * 2;
         if (nearBottom) requestNextPage();
-    }, [podsActiveIndex, podsItems, requestNextPage, setPodsActiveIndex, resetProgress]);
+    }, [podsActiveIndex, podsItems, requestNextPage, setPodsActiveIndex, resetProgress, isFetchingNextPage, paginationTelemetry]);
 
     // Wrap with throttle (fires at most once per 200ms)
     const handleScroll = useMemo(

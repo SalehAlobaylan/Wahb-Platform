@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+import { takeReaderIntent, releaseReaderIntent, type ArticleJourney } from '@/lib/experience/journeys';
 import { X, Clock, CalendarDays, Share2, Bookmark, Heart, MessageCircle, Layers, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useFeedStore } from '@/lib/stores';
@@ -228,7 +230,29 @@ function ArticleReaderInner({
     // Feed payloads truncate body_text (news feed caps it at 600 chars), so
     // fetch the full item and overlay it on the feed item. The feed copy
     // renders immediately; the complete body swaps in when the fetch lands.
-    const { data: fullItem } = useContentItem(feedItem.id);
+    const { data: fullItem, isError: fullItemError } = useContentItem(feedItem.id);
+    const experienceRef = useRef<ArticleJourney | null>(null);
+    const experienceOwner = useRef({ generation: 0 });
+    useEffect(() => {
+        const ownership = experienceOwner.current;
+        const owner = ++ownership.generation;
+        const journey = takeReaderIntent(feedItem.id);
+        experienceRef.current = journey;
+        return () => queueMicrotask(() => {
+            // A same-commit Strict Mode remount retains the original load intent.
+            if (ownership.generation === owner) releaseReaderIntent(feedItem.id, journey);
+        });
+    }, [feedItem.id]);
+    useEffect(() => {
+        if (fullItemError) { experienceRef.current?.failed('network'); return; }
+        const format = feedItem.type;
+        const shortComplete = format === 'TWEET' || format === 'COMMENT';
+        const complete = fullItem || (shortComplete ? feedItem : null);
+        if (!complete) return;
+        if (!complete.body_text?.trim()) { experienceRef.current?.failed('empty'); return; }
+        const frame = requestAnimationFrame(() => experienceRef.current?.ready());
+        return () => cancelAnimationFrame(frame);
+    }, [fullItem, fullItemError, feedItem]);
     const article: ContentItem = fullItem
         ? {
               ...feedItem,

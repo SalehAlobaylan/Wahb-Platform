@@ -8,7 +8,7 @@ fakes only, then creates the production artifact. Jest rejects unconfigured
 and non-loopback fetches so mandatory tests cannot contact shared or public
 infrastructure.
 
-The consumer app — the product itself. A mobile-first Next.js PWA with a public Arabic-first landing page at `/`, plus Wahb's two-feed experience: **Pods** at `/app` (TikTok-style full-screen audio-first media units) and **News** at `/news` (magazine-style story-slides). It renders feeds, plays media, and records interactions.
+The Web preview mirroring Wahb-Mobile features. **Wahb-Mobile is the primary end-user interface.** Every product feature or reliability change made here must also be implemented in Mobile using appropriate native behavior; see the [canonical parity rule](../docs/PRD.md#core-1-consumer-app-wahb-mobile-leads-wahb-platform-follows). A mobile-first Next.js PWA with a public Arabic-first landing page at `/`, plus Wahb's two-feed experience: **Pods** at `/app` (TikTok-style full-screen audio-first media units) and **News** at `/news` (magazine-style story-slides). It renders feeds, plays media, and records interactions.
 
 It is a **thin client over CMS**: a catch-all proxy (`/api/v1/[...path]`) forwards reads/interactions to CMS and attaches the user's access token from an httpOnly cookie, so the browser never holds the token. It does **not** scrape, transcode, embed, or write to the database directly.
 

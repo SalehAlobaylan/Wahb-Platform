@@ -21,8 +21,8 @@ import { FeedErrorFallback } from '@/components/error-boundary';
 import { throttleScroll } from '@/lib/scroll-optimizer';
 import { Clock3, RefreshCw, User, Search } from 'lucide-react';
 import type { ContentItem, NewsSlide as NewsSlideType, NewsWindow } from '@/types';
-import { useFeedLoadTelemetry, usePaginationTelemetry } from '@/lib/experience/use-feed-telemetry';
-import { beginArticle, type ArticleJourney } from '@/lib/experience/journeys';
+import { useFeedLoadTelemetry, usePaginationTelemetry, newlyUsableUnits } from '@/lib/experience/use-feed-telemetry';
+import { beginReaderIntent, type ArticleJourney } from '@/lib/experience/journeys';
 import { useTranslations } from '@/lib/i18n';
 import { useShallow } from 'zustand/react/shallow';
 import { PaginationAdmission } from '@/lib/feed-window/pagination-admission';
@@ -86,7 +86,10 @@ function NewsPageContent() {
     // dismissed so it doesn't reopen.
     const deepLinkId = searchParams.get('item');
     const [dismissedDeepLinkId, setDismissedDeepLinkId] = useState<string | null>(null);
-    const { data: deepLinkItem } = useContentItem(deepLinkId);
+    const { data: deepLinkItem, isError: deepLinkError } = useContentItem(deepLinkId);
+    const deepLinkJourneyRef = useRef<ArticleJourney | null>(null);
+    useLayoutEffect(() => { if (!deepLinkId) return; deepLinkJourneyRef.current = beginReaderIntent(deepLinkId); return () => { deepLinkJourneyRef.current?.cancel(); deepLinkJourneyRef.current = null; }; }, [deepLinkId]);
+    useEffect(() => { if (deepLinkError) deepLinkJourneyRef.current?.failed('network'); }, [deepLinkError]);
     const deepLinkArticle =
         deepLinkItem && deepLinkItem.id !== dismissedDeepLinkId ? deepLinkItem : null;
     const openArticle = selectedArticle ?? deepLinkArticle;
@@ -109,7 +112,7 @@ function NewsPageContent() {
         isLoading,
         isError,
         error,
-        restart,
+        restart: restartQuery,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
@@ -138,23 +141,31 @@ function NewsPageContent() {
 
     // RUX: emit the News feed-load journey terminal once per fresh load; a
     // window switch (today/week/...) re-arms via loadKey.
-    useFeedLoadTelemetry({
+    const { requested: measureFeedRequest } = useFeedLoadTelemetry({
         surface: 'news',
         status,
         unitCount: newsSlides.length,
         renderedContentID: newsSlides[0]?.featured.id,
         loadKey: selectedWindow,
     });
+    const restart = useCallback(() => measureFeedRequest(restartQuery), [measureFeedRequest, restartQuery]);
     const paginationTelemetry = usePaginationTelemetry('news');
-    const previousSlideCount = useRef(newsSlides.length);
+    const previousFetchingRef = useRef(false);
+    const beforePageIDs = useRef<string[]>([]);
     useEffect(() => {
-        if (!isFetchingNextPage && previousSlideCount.current < newsSlides.length) {
-            paginationTelemetry.received();
-        } else if (!isFetchingNextPage && hasNextPage && previousSlideCount.current === newsSlides.length) {
-            paginationTelemetry.starved();
+        if (isFetchingNextPage && !previousFetchingRef.current) {
+            beforePageIDs.current = newsSlides.map(slide => slide.slide_id || slide.featured.id);
+            paginationTelemetry.arm();
+            const viewport = feedRef.current;
+            if (viewport && viewport.scrollTop + viewport.clientHeight >= newsSlides.length * viewport.clientHeight - 4) paginationTelemetry.starved();
         }
-        previousSlideCount.current = newsSlides.length;
-    }, [isFetchingNextPage, hasNextPage, newsSlides.length, paginationTelemetry]);
+        if (!isFetchingNextPage && previousFetchingRef.current) {
+            if (newlyUsableUnits(beforePageIDs.current, newsSlides.map(slide => slide.slide_id || slide.featured.id))) paginationTelemetry.received();
+            else if (!hasNextPage) paginationTelemetry.end();
+            else paginationTelemetry.failed();
+        }
+        previousFetchingRef.current = isFetchingNextPage;
+    }, [isFetchingNextPage, newsSlides, hasNextPage, paginationTelemetry]);
 
     // Active slide data
     const activeSlide = newsSlides[newsActiveIndex];
@@ -221,12 +232,14 @@ function NewsPageContent() {
             resetProgress();
         }
 
+        if (isFetchingNextPage && scrollPosition + height >= newsSlides.length * height - 4) paginationTelemetry.starved();
+
         // Prefetch the next page while the user still has 5 slides to read —
         // past the cached slides the server assembles pages live (seconds on a
         // remote DB), so the fetch must start well before the user hits the
         // end or they stare at an empty loading slide.
         if (scrollPosition + height >= scrollHeight - height * 5) requestNextPage();
-    }, [newsActiveIndex, newsSlides, requestNextPage, setNewsActiveIndex, resetProgress]);
+    }, [newsActiveIndex, newsSlides, requestNextPage, setNewsActiveIndex, resetProgress, isFetchingNextPage, paginationTelemetry]);
 
     // Throttle to at most once per 200 ms (matches the Pods feed) so we don't
     // read layout / force a reflow on every scroll frame during snap scrolling.
@@ -292,21 +305,11 @@ function NewsPageContent() {
         }
     }, [newsSlides.length, newsActiveIndex]);
 
-    // RUX: article-reader journey — opened on selection, ready when the reader
-    // has renderable content (immediate for feed-carried items, measured for
-    // deep-linked fetches).
-    const articleJourneyRef = useRef<ArticleJourney | null>(null);
     const handleOpenArticle = (item: ContentItem, coverage?: ContentItem[]) => {
-        articleJourneyRef.current = beginArticle(null, item.id);
+        beginReaderIntent(item.id);
         setSelectedArticle(item);
         setArticleCoverage(coverage ?? []);
     };
-    useEffect(() => {
-        if (openArticle && articleJourneyRef.current) {
-            articleJourneyRef.current.ready();
-            articleJourneyRef.current = null;
-        }
-    }, [openArticle]);
 
     const showLoading = isLoading;
 

@@ -13,13 +13,9 @@ import { surfaceForPath } from '@/lib/experience/surface';
  */
 export function ExperienceProvider() {
   const pathname = usePathname();
-  const booted = useRef(false);
   const visitedSurfaces = useRef(new Set<string>());
 
   useEffect(() => {
-    if (booted.current) return;
-    booted.current = true;
-
     initCollector();
     // Sanitized global error capture — NO message/stack text leaves the browser.
     const onError = () => {
@@ -37,7 +33,6 @@ export function ExperienceProvider() {
       window.removeEventListener('unhandledrejection', onRejection);
     };
     // Intentionally run once on mount; pathname is read live in handlers.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

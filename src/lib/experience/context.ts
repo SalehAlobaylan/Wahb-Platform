@@ -14,11 +14,9 @@ import {
 // runtime tuning var). Falls back to 'dev' locally so events are never rejected
 // for a missing release in development.
 export function getRelease(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_RELEASE ||
-    process.env.NEXT_PUBLIC_COMMIT_SHA ||
-    'dev'
-  ).slice(0, 80);
+  const release = process.env.NEXT_PUBLIC_APP_RELEASE || process.env.NEXT_PUBLIC_COMMIT_SHA || '';
+  if (process.env.NODE_ENV === 'production' && (!release || release === 'dev')) return '';
+  return /^[A-Za-z0-9._-]{1,80}$/.test(release) ? release : process.env.NODE_ENV === 'production' ? '' : 'dev';
 }
 
 function detectBrowserFamily(ua: string): RuxBrowserFamily {

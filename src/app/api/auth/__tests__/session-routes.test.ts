@@ -74,7 +74,9 @@ describe('auth refresh route', () => {
     const response = await clearSession(request());
 
     expect(response.status).toBe(200);
-    expect(cookieStore.delete).toHaveBeenCalledTimes(3);
+    expect(cookieStore.delete.mock.calls.map(([name]: [string]) => name)).toEqual([
+      'wahb_runtime_id', 'wahb_access_token', 'wahb_refresh_token', 'wahb_token_expires',
+    ]);
   });
 
   it('rejects cross-origin session clearing', async () => {

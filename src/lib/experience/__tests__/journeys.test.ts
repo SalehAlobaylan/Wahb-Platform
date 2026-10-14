@@ -1,112 +1,35 @@
 import { emitEvent } from '../collector';
-import {
-  beginArticle,
-  beginFeedLoad,
-  beginHandoff,
-  beginPagination,
-  beginPlayback,
-} from '../journeys';
+import { beginArticle, beginFeedLoad, beginHandoff, beginPagination, beginPlayback, beginReaderIntent, takeReaderIntent } from '../journeys';
+import { experienceId } from '../id';
 import type { EmitInput } from '../collector';
-
-// Replace the collector's emitEvent with a capture (ESM named binding can't be
-// spied after import, so mock the module).
 jest.mock('../collector', () => ({ emitEvent: jest.fn() }));
-const emitMock = emitEvent as jest.MockedFunction<typeof emitEvent>;
-
-beforeEach(() => emitMock.mockClear());
-
-const emitted = () => emitMock.mock.calls.map((c) => c[0] as EmitInput);
-function types() {
-  return emitted().map((e) => e.event_type);
-}
-
-describe('playback journey — exactly-one startup terminal', () => {
-  it('attempt → progress emits started once, even with extra progress', () => {
-    const j = beginPlayback({ surface: 'pods', contentId: 'c1', playbackType: 'hls' });
-    j.onProgress();
-    j.onProgress(); // no second terminal
-    expect(types()).toEqual(['playback_attempted', 'playback_started']);
-    const started = emitted().find((e) => e.event_type === 'playback_started')!;
-    expect(started.measurements?.visible).toBe(true);
-    expect(typeof started.measurements?.duration_ms).toBe('number');
-  });
-
-  it('classifies autoplay rejection as autoplay_blocked, not a fatal media error', () => {
-    const j = beginPlayback({ surface: 'pods' });
-    j.onPlayReject({ name: 'NotAllowedError' });
-    const failed = emitted().find((e) => e.event_type === 'playback_failed')!;
-    expect(failed.measurements?.failure_class).toBe('autoplay_blocked');
-  });
-
-  it('classifies a non-autoplay rejection as media_error', () => {
-    const j = beginPlayback({ surface: 'pods' });
-    j.onPlayReject({ name: 'AbortError' });
-    const failed = emitted().find((e) => e.event_type === 'playback_failed')!;
-    expect(failed.measurements?.failure_class).toBe('media_error');
-  });
-
-  it('media error carries the element error code', () => {
-    const j = beginPlayback({ surface: 'pods', playbackType: 'mp4' });
-    j.onMediaError(4);
-    const failed = emitted().find((e) => e.event_type === 'playback_failed')!;
-    expect(failed.measurements?.media_error_code).toBe(4);
-    expect(failed.measurements?.failure_class).toBe('media_error');
-  });
-
-  it('does not re-emit a terminal after a media error', () => {
-    const j = beginPlayback({ surface: 'pods' });
-    j.onMediaError(2);
-    j.onProgress(); // must not emit started
-    j.onPlayReject({ name: 'NotAllowedError' }); // must not emit another failed
-    expect(types().filter((t) => t.startsWith('playback_') && t !== 'playback_attempted')).toEqual(['playback_failed']);
-  });
-
-  it('emits stall + resume as post-start diagnostics', () => {
-    const j = beginPlayback({ surface: 'pods' });
-    j.onProgress(); // started
-    j.onWaiting(); // stall
-    j.onProgress(); // resume
-    expect(types()).toEqual(['playback_attempted', 'playback_started', 'playback_waiting', 'playback_resumed']);
-  });
-});
-
-describe('playback journey — hidden-tab whole-journey exclusion', () => {
-  it('emits backgrounded (not started) when hidden during startup', () => {
-    const j = beginPlayback({ surface: 'pods' });
-    j.onHidden();
-    j.onProgress(); // must not turn into a success
-    expect(types()).toEqual(['playback_attempted', 'playback_backgrounded']);
-  });
-});
-
-describe('feed / pagination / handoff / article journeys settle once', () => {
-  it('feed load rendered fires once', () => {
-    const j = beginFeedLoad('pods');
-    j.rendered('11111111-1111-4111-8111-111111111111');
-    j.empty(); // ignored
-    j.failed(); // ignored
-    expect(types()).toEqual(['feed_requested', 'feed_rendered']);
-    expect(emitted()[1]?.content_id).toBe('11111111-1111-4111-8111-111111111111');
-  });
-
-  it('pagination starved fires once', () => {
-    const j = beginPagination('pods');
-    j.starved();
-    j.received();
-    expect(types()).toEqual(['pagination_requested', 'pagination_starved']);
-  });
-
-  it('handoff completed fires once', () => {
-    const j = beginHandoff('pods', 'c1');
-    j.completed();
-    j.failed();
-    expect(types()).toEqual(['handoff_started', 'handoff_completed']);
-  });
-
-  it('article ready fires once', () => {
-    const j = beginArticle('s1', 'c1');
-    j.ready();
-    j.ready();
-    expect(types()).toEqual(['article_opened', 'article_ready']);
-  });
+const mockEmit = emitEvent as jest.Mock;
+const terminals = (phase?: string) => mockEmit.mock.calls.map(call => call[0] as EmitInput).filter(event => event.event_type === 'journey_terminal' && (!phase || event.phase === phase));
+let visibility = 'visible';
+beforeEach(() => { jest.useFakeTimers(); mockEmit.mockClear(); visibility = 'visible'; Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility }); });
+afterEach(() => { visibility = 'hidden'; document.dispatchEvent(new Event('visibilitychange')); jest.clearAllTimers(); jest.useRealTimers(); });
+it('settles one startup and keeps ongoing failure separate', () => { const journey = beginPlayback({ surface: 'pods' }); journey.onProgress(); journey.onProgress(); jest.advanceTimersByTime(2000); journey.onMediaError(3); expect(terminals('startup')).toHaveLength(1); expect(terminals('startup')[0].outcome).toBe('success'); expect(terminals('continuation')[0].outcome).toBe('failed'); });
+it('hanging foreground startup reaches an eligible timeout', () => { beginPlayback({ surface: 'pods' }); jest.advanceTimersByTime(10000); expect(terminals('startup')[0].outcome).toBe('timeout'); });
+it('intentional pre-start cancellation is ineligible', () => { const journey = beginPlayback({ surface: 'pods' }); journey.cancel(); jest.advanceTimersByTime(15000); expect(terminals('startup')).toHaveLength(1); expect(terminals('startup')[0].outcome).toBe('cancelled'); });
+it('excludes policy rejection only for automatic play intent', () => { const auto = beginPlayback({ surface: 'pods' }); auto.onPlayReject({ name: 'NotAllowedError' }); const explicit = beginPlayback({ surface: 'pods', explicitIntent: true }); explicit.onPlayReject({ name: 'NotAllowedError' }); expect(terminals('startup').map(event => event.outcome)).toEqual(['autoplay_blocked', 'failed']); });
+it('deduplicates buffering and includes stalled time in observation interval', () => { const journey = beginPlayback({ surface: 'pods' }); journey.onProgress(); jest.advanceTimersByTime(1000); journey.onWaiting(); journey.onWaiting(); jest.advanceTimersByTime(3000); journey.onProgress(); jest.advanceTimersByTime(1000); journey.finish(); const summary = terminals('continuation')[0].measurements!; expect(summary.stall_count).toBe(1); expect(summary.stall_duration_ms).toBe(3000); expect(summary.observed_playback_ms).toBe(5000); });
+it('long listening emits bounded segments rather than clipping a full episode', () => { const journey = beginPlayback({ surface: 'pods' }); journey.onProgress(); jest.advanceTimersByTime(180000); journey.finish(); expect(terminals('startup')).toHaveLength(1); const segments = terminals('continuation'); expect(segments.filter(event => event.measurements?.observed_playback_ms === 60000)).toHaveLength(3); expect(segments.every(event => Number(event.measurements?.observed_playback_ms) <= 60000)).toBe(true); expect(new Set(segments.map(event => event.journey_id)).size).toBe(segments.length); });
+it('fallback recovery is correlated and counts a single selected-source startup', () => { const journey = beginPlayback({ surface: 'pods', playbackType: 'hls' }); journey.fallback('mp4'); journey.onProgress(); expect(terminals('startup')).toHaveLength(1); expect(terminals('startup')[0].playback_type).toBe('mp4'); expect(terminals('startup')[0].measurements?.fallback_used).toBe(true); expect(terminals('fallback')[0].journey_id).toBe(terminals('startup')[0].journey_id); });
+it('wrong-position handoff remains measured failure evidence', () => { const journey = beginHandoff('pods', undefined, 30); journey.completed(36); journey.failed(); expect(terminals('handoff')).toHaveLength(1); expect(terminals('handoff')[0].outcome).toBe('failed'); expect(terminals('handoff')[0].measurements?.position_drift_ms).toBe(6000); });
+it('every background-interrupted journey is ineligible', () => { beginFeedLoad('pods'); beginPagination('pods'); beginArticle(); beginHandoff('pods'); beginPlayback({ surface: 'pods' }); visibility = 'hidden'; document.dispatchEvent(new Event('visibilitychange')); expect(terminals()).toHaveLength(5); expect(terminals().every(event => event.outcome === 'backgrounded' && event.measurements?.visible === false)).toBe(true); });
+it('pagination retains starvation evidence even when the page eventually arrives', () => { const journey = beginPagination('news'); journey.starved(); journey.starved(); journey.received(); expect(terminals('pagination')).toHaveLength(1); expect(terminals('pagination')[0]).toMatchObject({ outcome: 'success', measurements: { boundary_starved: true } }); });
+it('normal end-of-feed is distinct from a failed prefetch', () => { beginPagination('pods').end(); beginPagination('pods').failed(); expect(terminals('pagination').map(event => event.outcome)).toEqual(['end_of_feed', 'failed']); });
+it('reader ownership includes intent time and deep-link failure', () => { beginReaderIntent('content'); jest.advanceTimersByTime(1200); takeReaderIntent('content').ready(); expect(terminals('reader')).toHaveLength(1); expect(terminals('reader')[0].measurements?.duration_ms).toBe(1200); const failed = beginReaderIntent('shared'); failed.failed('network'); expect(terminals('reader')[1].outcome).toBe('failed'); });
+it('UUID fallback produces valid identities', () => { const previous = crypto.randomUUID; Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined }); expect(experienceId()).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/); Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: previous }); });
+it('separates mid-listening fallback use and repeated recovery from startup', () => {
+  const journey = beginPlayback({ surface: 'pods' });
+  journey.onProgress();
+  journey.fallback('audio'); journey.onProgress();
+  journey.fallback('mp4'); journey.onProgress();
+  jest.advanceTimersByTime(1000); journey.finish();
+  expect(terminals('startup')).toHaveLength(1);
+  expect(terminals('startup')[0].measurements?.fallback_used).toBe(false);
+  expect(terminals('fallback')).toHaveLength(2);
+  expect(terminals('fallback')[0].journey_id).not.toBe(terminals('fallback')[1].journey_id);
+  expect(terminals('continuation')[0].measurements?.fallback_used).toBe(true);
 });

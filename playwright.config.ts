@@ -8,5 +8,7 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
-  webServer: { command: 'npm run dev', url: 'http://localhost:3000', reuseExistingServer: true },
+  webServer: process.env.PLAYWRIGHT_EXTERNAL_STACK === '1'
+    ? undefined
+    : { command: 'npm run dev', url: 'http://localhost:3000', reuseExistingServer: !process.env.CI },
 });

@@ -18,7 +18,6 @@ import { sceneRecipe } from '@/lib/audio-scene/scene-generator';
 import { sceneCanAnimate } from '@/lib/audio-scene/scene-motion-policy';
 import { activeTranscriptCueIndex, normalizeTranscript, type TranscriptCue } from '@/lib/audio-scene/transcript-model';
 import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
-import { reportPlaybackFallback } from '@/lib/experience/journeys';
 import { attachManagedHls } from '@/lib/playback/hls-adapter';
 import { playbackCapabilitiesFor, resolvePlaybackSources, type PlaybackCapabilities } from '@/lib/playback/source-resolver';
 import { useTranslations } from '@/lib/i18n';
@@ -63,6 +62,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     // timeupdate, when the playing video becomes the source of truth.
     const pendingResumeRef = useRef<number | null>(null);
     const audioActivation = useRef<string | null>(null);
+    const sourceEpoch = useRef(0);
     const [readerItemId, setReaderItemId] = useState<string | null>(null);
     const readerOpen = isActive && readerItemId === item.id;
     const openLocalReader = useCallback(() => setReaderItemId(item.id), [item.id]);
@@ -110,13 +110,6 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         latestPlaybackRef.current = null;
         audioActivation.current = null;
     }, [item.id]);
-    // RUX playback telemetry — native media events → bounded journey terminals.
-    const { notifyAttempt, notifyPlayReject } = usePlaybackTelemetry({
-        mediaElement: telemetryMedia,
-        contentId: item.id,
-        playbackType: item.playback_type,
-        surface: 'pods',
-    });
     const setVideoElement = useCallback((node: HTMLVideoElement | null) => {
         videoRef.current = node;
         setTelemetryMedia(node);
@@ -141,6 +134,10 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     const playbackAttempt = sourceAttempt.itemId === item.id ? sourceAttempt.attempt : 0;
     const playbackFailed = sourceAttempt.itemId === item.id && sourceAttempt.failed;
     const playbackSource = playbackSources[playbackAttempt];
+    const { notifyAttempt, notifyPlayReject, notifyFallback } = usePlaybackTelemetry({
+        mediaElement: telemetryMedia, contentId: item.id, playbackType: playbackSource?.type,
+        surface: 'pods', active: isActive, canFallback: playbackAttempt + 1 < playbackSources.length,
+    });
     const podsOwnerId = useNowPlayingStore((s) => s.playbackOwner === 'pods' ? s.currentItem?.id : null);
     useEffect(() => {
         if (isActive && podsOwnerId === item.id && playbackSource) {
@@ -172,18 +169,21 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
 
     const advancePlaybackSource = useCallback(() => {
         const media = videoRef.current ?? audioRef.current;
+        const next = playbackSources[playbackAttempt + 1];
+        // Rejections from the old source must not pause its replacement.
+        sourceEpoch.current++;
+        if (next) notifyFallback(next.type);
         if (media && Number.isFinite(media.currentTime)) {
             pendingResumeRef.current = media.currentTime;
             media.pause();
         }
         if (playbackAttempt + 1 < playbackSources.length) {
-            const next = playbackSources[playbackAttempt + 1];
-            reportPlaybackFallback({ contentId: item.id, playbackType: next.type, surface: 'pods' });
+
             setSourceAttempt({ itemId: item.id, attempt: playbackAttempt + 1, failed: false });
             return;
         }
         setSourceAttempt({ itemId: item.id, attempt: playbackAttempt, failed: true });
-    }, [item.id, playbackAttempt, playbackSources]);
+    }, [item.id, playbackAttempt, playbackSources, notifyFallback]);
 
     // Native HLS uses the media src directly. This adapter is intentionally
     // lazy: it is loaded only for the selected managed-HLS candidate and is
@@ -259,8 +259,10 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                 videoRef.current.pause();
             } else {
                 const wasPaused = videoRef.current.paused;
+                const epoch = sourceEpoch.current;
                 if (wasPaused) notifyAttempt();
                 videoRef.current.play().catch((err) => {
+                    if (epoch !== sourceEpoch.current || err?.name === 'AbortError' || err?.name === 'NotSupportedError' && playbackAttempt + 1 < playbackSources.length) return;
                     if (wasPaused) notifyPlayReject(err);
                     setPlaying(false);
                 });
@@ -279,14 +281,14 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             }
         }
         wasActiveRef.current = isActive;
-    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setPodsPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url]);
+    }, [isActive, globalPaused, isPlaying, setPlaying, setProgress, setPodsPlayback, item.id, resolveResumeTime, applyTime, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url, playbackAttempt, playbackSources.length]);
 
     // Handle playback speed
     useEffect(() => {
         if (videoRef.current) {
             videoRef.current.playbackRate = playbackSpeed;
         }
-    }, [playbackSpeed, visualPlayback, playbackSource?.url]);
+    }, [playbackSpeed, visualPlayback, playbackSource?.url, playbackAttempt, playbackSources.length]);
 
     // Handle play/pause
     useEffect(() => {
@@ -296,13 +298,15 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             videoRef.current.pause();
         } else {
             const wasPaused = videoRef.current.paused;
+            const epoch = sourceEpoch.current;
             if (wasPaused) notifyAttempt();
             videoRef.current.play().catch((err) => {
+                if (epoch !== sourceEpoch.current || err?.name === 'AbortError' || err?.name === 'NotSupportedError' && playbackAttempt + 1 < playbackSources.length) return;
                 if (wasPaused) notifyPlayReject(err);
                 setPlaying(false);
             });
         }
-    }, [isPlaying, globalPaused, isActive, setPlaying, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url]);
+    }, [isPlaying, globalPaused, isActive, setPlaying, notifyAttempt, notifyPlayReject, visualPlayback, playbackSource?.url, playbackAttempt, playbackSources.length]);
 
     // Apply seek after metadata is loaded when duration becomes known. Prefer
     // the pending resume target (it may come from the global <audio>, which is
@@ -323,7 +327,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         return () => {
             el.removeEventListener('loadedmetadata', onLoadedMetadata);
         };
-    }, [isActive, item.id, applyTime, visualPlayback, playbackSource?.url]);
+    }, [isActive, item.id, applyTime, visualPlayback, playbackSource?.url, playbackAttempt, playbackSources.length]);
 
     // Flush the latest position to the store on unmount (e.g. navigating away)
     // so the throttle window below doesn't drop the last few seconds. Guarded by
@@ -421,8 +425,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             setProgress(0);
             if (videoTimeRef) videoTimeRef.current = 0;
         }
+        if (media?.paused) notifyAttempt(true);
         togglePlay();
-    }, [item.id, setPodsPlayback, setProgress, togglePlay, videoTimeRef, visualPlayback]);
+    }, [item.id, setPodsPlayback, setProgress, togglePlay, videoTimeRef, visualPlayback, notifyAttempt]);
 
     useEffect(() => {
         // Completion is per natural playback run. A newly active card that
@@ -450,13 +455,15 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
             return;
         }
         const wasPaused = audio.paused;
+        const epoch = sourceEpoch.current;
         if (wasPaused) notifyAttempt();
         audio.play().catch((err) => {
+            if (epoch !== sourceEpoch.current || err?.name === 'AbortError' || err?.name === 'NotSupportedError' && playbackAttempt + 1 < playbackSources.length) return;
             if (wasPaused) notifyPlayReject(err);
             setPlaying(false);
         });
         return () => audio.pause();
-    }, [isActive, visualPlayback, globalPaused, isPlaying, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying, playbackSource?.url, item.id]);
+    }, [isActive, visualPlayback, globalPaused, isPlaying, resolveResumeTime, notifyAttempt, notifyPlayReject, setPlaying, playbackSource?.url, item.id, playbackAttempt, playbackSources.length]);
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -483,7 +490,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     };
 
     return (
-        <div className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-black">
+        <div data-rux-unit={item.id} className="relative w-full h-full snap-start snap-always shrink-0 overflow-hidden bg-black">
             {isArchived && (
                 <ArchivedOverlay item={item} />
             )}

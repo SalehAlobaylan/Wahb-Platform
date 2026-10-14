@@ -1,93 +1,86 @@
 'use client';
-
 import { useCallback, useEffect, useRef } from 'react';
 import { beginPlayback, type PlaybackJourney } from './journeys';
 import type { RuxPlaybackType, RuxSurface } from './types';
-
-function normalizePlaybackType(raw: string | null | undefined): RuxPlaybackType {
-  if (raw === 'hls' || raw === 'mp4' || raw === 'audio') return raw;
-  return 'unknown';
-}
-
-interface PlaybackTelemetryInput {
-  mediaElement: HTMLMediaElement | null;
-  contentId?: string | null;
-  playbackType?: string | null;
-  surface?: RuxSurface;
-}
-
-/**
- * Derives bounded playback journey events from native media events on the
- * element behind `mediaRef`. Call notifyAttempt() immediately before .play(),
- * and notifyPlayReject(err) in the play() promise .catch(). Native `playing` /
- * `waiting` / `error` are wired here — no continuous `timeupdate` telemetry.
- */
-export function usePlaybackTelemetry({ mediaElement, contentId, playbackType, surface = 'pods' }: PlaybackTelemetryInput) {
+export function normalizePlaybackType(raw: string | null | undefined): RuxPlaybackType { return raw === 'hls' || raw === 'mp4' || raw === 'audio' ? raw : 'unknown'; }
+interface Input { mediaElement: HTMLMediaElement | null; contentId?: string | null; playbackType?: string | null; surface?: RuxSurface; active?: boolean; canFallback?: boolean }
+export function usePlaybackTelemetry({ mediaElement, contentId, playbackType, surface = 'pods', active = true, canFallback = false }: Input) {
   const journeyRef = useRef<PlaybackJourney | null>(null);
-  // openRef dedups repeated attempt calls: the card has two effects that both
-  // call play() on activation, but they represent ONE startup attempt. openRef
-  // stays true from attempt until the startup terminal (started/failed/hidden),
-  // so a later genuine pause→play opens a fresh journey but redundant effect
-  // runs do not.
-  const openRef = useRef(false);
-  const startedRef = useRef(false);
-  const metaRef = useRef({ contentId, playbackType, surface });
-  useEffect(() => {
-    metaRef.current = { contentId, playbackType, surface };
-  }, [contentId, playbackType, surface]);
-
-  const notifyAttempt = useCallback(() => {
-    if (openRef.current) return;
-    openRef.current = true;
-    startedRef.current = false;
-    const { contentId: cid, playbackType: pt, surface: sf } = metaRef.current;
-    journeyRef.current = beginPlayback({
-      surface: sf,
-      contentId: cid,
-      playbackType: normalizePlaybackType(pt),
-    });
+  const baselineRef = useRef(0);
+  const switchingRef = useRef(false);
+  const seekingRef = useRef(false);
+  const ownerRef = useRef<{ contentId?: string | null } | null>(null);
+  const metaRef = useRef({ contentId, playbackType, surface, active, canFallback, mediaElement });
+  useEffect(() => { metaRef.current = { contentId, playbackType, surface, active, canFallback, mediaElement }; }, [contentId, playbackType, surface, active, canFallback, mediaElement]);
+  const notifyAttempt = useCallback((explicitIntent = false) => {
+    const mediaElement = metaRef.current.mediaElement;
+    if (!metaRef.current.active || journeyRef.current?.pending() || mediaElement && !mediaElement.paused && journeyRef.current) return;
+    journeyRef.current?.finish();
+    baselineRef.current = mediaElement?.currentTime ?? 0;
+    journeyRef.current = beginPlayback({ surface: metaRef.current.surface, contentId: metaRef.current.contentId,
+      playbackType: normalizePlaybackType(metaRef.current.playbackType), explicitIntent });
   }, []);
-
-  const notifyPlayReject = useCallback((err: unknown) => {
-    journeyRef.current?.onPlayReject(err);
-    openRef.current = false;
-  }, []);
-
+  const notifyPlayReject = useCallback((error: unknown) => journeyRef.current?.onPlayReject(error), []);
+  const notifyFallback = useCallback((type: string) => {
+    if (!metaRef.current.active) return;
+    // A native source can fail before the element's ref has attached its
+    // telemetry listeners. Preserve the already requested playback intent.
+    if (!journeyRef.current) notifyAttempt();
+    switchingRef.current = true;
+    journeyRef.current?.fallback(normalizePlaybackType(type));
+    baselineRef.current = metaRef.current.mediaElement?.currentTime ?? 0;
+  }, [notifyAttempt]);
   useEffect(() => {
     const el = mediaElement;
     if (!el) return;
-
-    const onPlaying = () => {
+    const progress = () => {
+      if (el.paused || el.seeking || seekingRef.current || el.currentTime - baselineRef.current < 0.05) return;
+      baselineRef.current = el.currentTime;
+      switchingRef.current = false;
       journeyRef.current?.onProgress();
-      if (!startedRef.current) {
-        // First progress = startup terminal reached; allow a future attempt.
-        startedRef.current = true;
-        openRef.current = false;
+    };
+    const waiting = () => journeyRef.current?.onWaiting();
+    const error = () => { if (!metaRef.current.canFallback) journeyRef.current?.onMediaError(el.error?.code ?? null); };
+    const paused = () => { if (el.paused && !switchingRef.current) { journeyRef.current?.cancel(); journeyRef.current = null; } };
+    const ended = () => { journeyRef.current?.finish(); journeyRef.current = null; };
+    const seeking = () => { seekingRef.current = true; };
+    const seeked = () => { baselineRef.current = el.currentTime; seekingRef.current = false; };
+    seekingRef.current = el.seeking;
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') { journeyRef.current?.onHidden(); journeyRef.current = null; }
+      else if (metaRef.current.active && !el.paused && !el.ended) {
+        // Foreground continuation resumes without inventing a fresh startup intent.
+        baselineRef.current = el.currentTime;
+        journeyRef.current = beginPlayback({ surface: metaRef.current.surface, contentId: metaRef.current.contentId, playbackType: normalizePlaybackType(metaRef.current.playbackType), resumeContinuation: true });
       }
     };
-    const onWaiting = () => journeyRef.current?.onWaiting();
-    const onError = () => {
-      journeyRef.current?.onMediaError(el.error?.code ?? null);
-      openRef.current = false;
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        journeyRef.current?.onHidden();
-        openRef.current = false;
-      }
-    };
-
-    el.addEventListener('playing', onPlaying);
-    el.addEventListener('waiting', onWaiting);
-    el.addEventListener('error', onError);
-    document.addEventListener('visibilitychange', onVisibility);
+    el.addEventListener('timeupdate', progress);
+    el.addEventListener('waiting', waiting);
+    el.addEventListener('stalled', waiting);
+    el.addEventListener('error', error);
+    el.addEventListener('pause', paused);
+    el.addEventListener('ended', ended);
+    el.addEventListener('seeking', seeking);
+    el.addEventListener('seeked', seeked);
+    document.addEventListener('visibilitychange', hidden);
     return () => {
-      el.removeEventListener('playing', onPlaying);
-      el.removeEventListener('waiting', onWaiting);
-      el.removeEventListener('error', onError);
-      document.removeEventListener('visibilitychange', onVisibility);
+      el.removeEventListener('timeupdate', progress); el.removeEventListener('waiting', waiting); el.removeEventListener('stalled', waiting);
+      el.removeEventListener('error', error); el.removeEventListener('pause', paused); el.removeEventListener('ended', ended); el.removeEventListener('seeking', seeking); el.removeEventListener('seeked', seeked);
+      document.removeEventListener('visibilitychange', hidden);
+      // Listener attachment is independent of intent lifetime. A ref arriving
+      // or a rendition replacing the element cannot cancel the user attempt.
     };
   }, [mediaElement]);
-
-  return { notifyAttempt, notifyPlayReject };
+  useEffect(() => { if (!active) { journeyRef.current?.cancel(); journeyRef.current = null; } }, [active]);
+  useEffect(() => {
+    if (ownerRef.current && ownerRef.current.contentId !== contentId) {
+      journeyRef.current?.cancel(); journeyRef.current = null;
+    }
+    const owner = { contentId };
+    ownerRef.current = owner;
+    return () => queueMicrotask(() => {
+      if (ownerRef.current === owner) { journeyRef.current?.cancel(); journeyRef.current = null; }
+    });
+  }, [contentId]);
+  return { notifyAttempt, notifyPlayReject, notifyFallback };
 }

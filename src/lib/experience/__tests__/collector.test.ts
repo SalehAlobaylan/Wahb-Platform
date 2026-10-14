@@ -20,6 +20,7 @@ describe('RUX collector', () => {
     __resetCollectorForTest();
     sessionStorage.clear();
     jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   it('assigns a stable page_load_id and monotonic sequence', () => {
@@ -66,5 +67,26 @@ describe('RUX collector', () => {
   it('never throws even if the batch body is odd', () => {
     initCollector();
     expect(() => flush(true)).not.toThrow(); // empty queue beacon path
+  });
+
+  it('bounds pending delivery under sustained failures and timer flushes', () => {
+    jest.useFakeTimers();
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(() => new Promise(() => {}));
+    initCollector();
+    for (let index = 0; index < 250; index++) emitEvent({ event_type: 'playback_failed', surface: 'pods' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(__getCollectorStateForTest().queueLength).toBe(200);
+    jest.advanceTimersByTime(20_000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    __resetCollectorForTest();
+    jest.useRealTimers();
+  });
+
+  it('falls back to keepalive when sendBeacon returns false', () => {
+    Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: jest.fn(() => false) });
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse(200, {}));
+    initCollector(); emitEvent({ event_type: 'feed_rendered', surface: 'pods' }); flush(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.keepalive).toBe(true);
   });
 });

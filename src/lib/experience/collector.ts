@@ -6,6 +6,7 @@
 // permanently quiet for the session if the server reports disabled (server-off
 // backoff). Delivery failure is swallowed — telemetry must never surface to UX.
 
+import { experienceId } from './id';
 import { getClientContext, getRelease } from './context';
 import { getAnonymousSessionId } from '@/lib/identity/session';
 import {
@@ -49,14 +50,16 @@ const state: CollectorState = {
   started: false,
 };
 
-function newId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
+const newId = experienceId;
+let inFlight = 0;
+let inFlightBytes = 0;
+let collectorGeneration = 0;
+let volatileSessionId = experienceId();
+const retryTimers = new Set<ReturnType<typeof setTimeout>>();
 function getLocale(): string {
   try {
-    return (document.documentElement.lang || 'ar').slice(0, 16);
+    const language = document.documentElement.lang.split('-')[0];
+    return language === 'ar' || language === 'en' ? language : 'unknown';
   } catch {
     return 'ar';
   }
@@ -73,11 +76,13 @@ export function initCollector(): void {
     if (document.visibilityState === 'hidden') flush(true);
   };
   document.addEventListener('visibilitychange', flushOnHide);
-  window.addEventListener('pagehide', () => flush(true));
+  window.addEventListener('pagehide', () => queueMicrotask(() => flush(true)));
 }
 
 export interface EmitInput {
   event_type: RuxEventType;
+  phase?: RuxEvent['phase'];
+  outcome?: RuxEvent['outcome'];
   surface: RuxSurface;
   journey_id?: string | null;
   content_id?: string | null;
@@ -88,15 +93,17 @@ export interface EmitInput {
 
 // Fire-and-forget. Safe to call from anywhere; never throws.
 export function emitEvent(input: EmitInput): void {
-  if (state.disabled) return;
+  if (state.disabled || !getRelease()) return;
   if (!state.started) initCollector();
   try {
     const event: RuxEvent = {
       event_id: newId(),
       schema_version: RUX_SCHEMA_VERSION,
       event_type: input.event_type,
+      phase: input.phase,
+      outcome: input.outcome,
       occurred_at: new Date().toISOString(),
-      session_id: getAnonymousSessionId() ?? 'nosession',
+      session_id: getAnonymousSessionId() || volatileSessionId,
       page_load_id: state.pageLoadId,
       sequence: state.sequence++,
       release: getRelease(),
@@ -115,16 +122,17 @@ export function emitEvent(input: EmitInput): void {
   }
 }
 
+function isCritical(event: RuxEvent): boolean { return CRITICAL_EVENTS.has(event.event_type) || event.event_type === 'journey_terminal' && ['failed', 'timeout'].includes(event.outcome || ''); }
 function enqueue(event: RuxEvent): void {
   if (state.queue.length >= MAX_QUEUE) {
     // Drop the oldest NON-critical event to make room; keep failures.
-    const idx = state.queue.findIndex((e) => !CRITICAL_EVENTS.has(e.event_type));
+    const idx = state.queue.findIndex((e) => !isCritical(e));
     if (idx >= 0) state.queue.splice(idx, 1);
     else state.queue.shift(); // all critical: drop oldest to stay bounded
   }
   state.queue.push(event);
 
-  if (CRITICAL_EVENTS.has(event.event_type) || state.queue.length >= MAX_BATCH) {
+  if ((isCritical(event) || state.queue.length >= MAX_BATCH) && inFlight < 2) {
     flush(false);
     return;
   }
@@ -140,33 +148,36 @@ function clearTimer(): void {
   }
 }
 
-// useBeacon=true is for pagehide/hidden — sendBeacon survives unload.
+// Aggregate unload budget stays below the browser's shared 64 KiB keepalive cap.
 export function flush(useBeacon: boolean): void {
-  if (state.disabled || state.queue.length === 0) {
-    clearTimer();
-    return;
-  }
   clearTimer();
-
-  const events = state.queue.splice(0, MAX_BATCH);
-  const payload = JSON.stringify({ schema_version: RUX_SCHEMA_VERSION, events });
-
-  if (useBeacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
-    try {
-      // text/plain avoids a CORS preflight and needs no custom headers — the BFF
-      // reads the raw body. Auth/token are attached server-side in the BFF.
-      const blob = new Blob([payload], { type: 'text/plain' });
-      navigator.sendBeacon(INGEST_URL, blob);
-    } catch {
-      /* swallow */
+  if (state.disabled || !state.queue.length) return;
+  if (!useBeacon && inFlight >= 2) { state.timer = setTimeout(() => flush(false), FLUSH_INTERVAL_MS); return; }
+  let bytes = inFlightBytes;
+  do {
+    const events = state.queue.slice(0, MAX_BATCH);
+    const payload = JSON.stringify({ schema_version: RUX_SCHEMA_VERSION, runtime_id: process.env.NEXT_PUBLIC_WAHB_RUNTIME_ID, events });
+    const size = new Blob([payload]).size;
+    if (useBeacon && bytes + size > 60000) break;
+    state.queue.splice(0, events.length);
+    bytes += size;
+    let sent = false;
+    if (useBeacon && typeof navigator.sendBeacon === 'function') {
+      try { sent = navigator.sendBeacon(INGEST_URL, new Blob([payload], { type: 'text/plain' })); } catch { /* delivery is best effort */ }
     }
-    return;
-  }
-
-  void deliver(payload, events, false);
+    if (!sent && inFlight < 2) void deliver(payload, events, useBeacon);
+  } while (useBeacon && state.queue.length);
+  if (!useBeacon && state.queue.length && !state.timer) state.timer = setTimeout(() => flush(false), FLUSH_INTERVAL_MS);
 }
 
 async function deliver(payload: string, events: RuxEvent[], isRetry: boolean): Promise<void> {
+  const size = new Blob([payload]).size;
+  if (state.disabled || inFlight >= 2 || inFlightBytes + size > 60000) return;
+  inFlight++;
+  inFlightBytes += size;
+  const generation = collectorGeneration;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(INGEST_URL, {
       method: 'POST',
@@ -174,6 +185,7 @@ async function deliver(payload: string, events: RuxEvent[], isRetry: boolean): P
       body: payload,
       keepalive: true,
       cache: 'no-store',
+      signal: controller.signal,
     });
     if (res.ok) {
       const data = (await res.json().catch(() => null)) as { disabled?: boolean } | null;
@@ -186,24 +198,31 @@ async function deliver(payload: string, events: RuxEvent[], isRetry: boolean): P
     }
     // 4xx (bad batch / rate limited) → do not retry-storm.
     if (res.status >= 400 && res.status < 500) {
-      if (res.status === 429) state.disabled = true; // back off hard on rate limit
+      if (res.status === 429 || res.status === 409) state.disabled = true; // back off hard on rate limit
       return;
     }
     // 5xx → one bounded retry with jitter.
     if (!isRetry) scheduleRetry(payload, events);
   } catch {
     if (!isRetry) scheduleRetry(payload, events);
-  }
+  } finally { clearTimeout(timeout); if (generation === collectorGeneration) { inFlight = Math.max(0, inFlight - 1); inFlightBytes = Math.max(0, inFlightBytes - size); } }
 }
 
 function scheduleRetry(payload: string, events: RuxEvent[]): void {
   const jitter = 500 + Math.floor(Math.random() * 1500);
-  setTimeout(() => void deliver(payload, events, true), jitter);
+  if (retryTimers.size >= 2 || state.disabled) return;
+  const timer = setTimeout(() => { retryTimers.delete(timer); void deliver(payload, events, true); }, jitter);
+  retryTimers.add(timer);
 }
 
 // Test/reset helper — clears singleton state between specs.
 export function __resetCollectorForTest(): void {
   clearTimer();
+  retryTimers.forEach(clearTimeout); retryTimers.clear();
+  inFlight = 0;
+  inFlightBytes = 0;
+  collectorGeneration++;
+  volatileSessionId = experienceId();
   state.pageLoadId = '';
   state.sequence = 0;
   state.queue = [];

@@ -2,15 +2,16 @@
 //
 // This is the single source of truth for the browser-emitted experience event
 // envelope. The CMS Go request models (src/models/experience.go) mirror this
-// exactly at the same SCHEMA_VERSION. Both sides validate against the same
-// allowlisted enums; arbitrary keys are rejected server-side.
+// exactly at the same SCHEMA_VERSION. Both sides use the same allowlisted enums; unknown keys are discarded
+// server-side and never persisted. The shared fixture lives at
+// fixtures/real-experience-contract.json in the monorepo root.
 //
 // Privacy doctrine (see plan §6): this contract carries NO article/transcript
 // text, comments, credentials, tokens, exact location, full request URLs, raw
 // error messages/stacks, DOM, or user IDs. Only allowlisted operational
 // dimensions and bounded numeric measurements.
 
-export const RUX_SCHEMA_VERSION = 1 as const;
+export const RUX_SCHEMA_VERSION = 2 as const;
 
 // ── Surfaces ────────────────────────────────────────────────────────────────
 export const RUX_SURFACES = ['pods', 'news'] as const;
@@ -19,6 +20,7 @@ export type RuxSurface = (typeof RUX_SURFACES)[number];
 // ── Event catalog (V1, fixed — no arbitrary custom events) ───────────────────
 export const RUX_EVENT_TYPES = [
   // session / feed reachability
+  'journey_terminal',
   'session_started',
   'feed_requested',
   'feed_rendered',
@@ -120,7 +122,17 @@ export interface RuxClientContext {
 }
 
 // ── Measurements (bounded; server enforces ranges) ───────────────────────────
+export const RUX_PHASES = ['feed', 'pagination', 'startup', 'continuation', 'fallback', 'handoff', 'reader'] as const;
+export type RuxPhase = (typeof RUX_PHASES)[number];
+export const RUX_OUTCOMES = ['success', 'empty', 'failed', 'timeout', 'autoplay_blocked', 'backgrounded', 'cancelled', 'end_of_feed'] as const;
+export type RuxOutcome = (typeof RUX_OUTCOMES)[number];
 export interface RuxMeasurements {
+  // Eligible foreground observation interval INCLUDING stalls, bounded segments.
+  observed_playback_ms?: number;
+  stall_count?: number;
+  position_drift_ms?: number;
+  fallback_used?: boolean;
+  boundary_starved?: boolean;
   // Client-measured monotonic duration (performance.now delta). Latency SLIs use
   // ONLY this — the server never subtracts wall-clock timestamps across events.
   duration_ms?: number | null;
@@ -140,6 +152,8 @@ export interface RuxEvent {
   event_id: string; // uuid — globally unique, makes retries idempotent
   schema_version: typeof RUX_SCHEMA_VERSION;
   event_type: RuxEventType;
+  phase?: RuxPhase;
+  outcome?: RuxOutcome;
   occurred_at: string; // ISO-8601 client clock — ordering evidence, not authority
   session_id: string; // per-tab wahb_session_id (sessionStorage)
   page_load_id: string; // uuid minted at collector init — resets per page load
@@ -156,6 +170,7 @@ export interface RuxEvent {
 }
 
 export interface RuxEventBatch {
+  runtime_id?: string;
   schema_version: typeof RUX_SCHEMA_VERSION;
   events: RuxEvent[];
 }

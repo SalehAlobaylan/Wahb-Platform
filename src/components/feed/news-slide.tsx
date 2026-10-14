@@ -517,7 +517,7 @@ export function NewsSlide({ slide, onOpenArticle }: NewsSlideProps) {
     };
 
     return (
-        <div className="relative w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-background text-foreground">
+        <div data-rux-unit={featured.id} className="relative w-full h-full snap-start shrink-0 overflow-hidden flex flex-col bg-background text-foreground">
             {/* ═══════════════ TOP: Featured Hero ═══════════════ */}
             <div 
                 className={cn(

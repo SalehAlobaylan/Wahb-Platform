@@ -1,302 +1,148 @@
-// RUX journey helpers — translate product moments into bounded terminal-outcome
-// events. Latency is always a client-measured monotonic duration
-// (performance.now delta) carried on the terminal event; the server never
-// subtracts wall-clock timestamps (plan §7/§8).
-
 import { emitEvent } from './collector';
-import type { RuxFailureClass, RuxPlaybackType, RuxSurface } from './types';
+import { experienceId } from './id';
+import type { RuxEventType, RuxFailureClass, RuxMeasurements, RuxOutcome, RuxPhase, RuxPlaybackType, RuxSurface } from './types';
 
-export function nowMs(): number {
-  try {
-    return performance.now();
-  } catch {
-    return Date.now();
-  }
+export const nowMs = () => performance.now();
+export const isHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+export const newJourneyId = experienceId;
+const elapsed = (start: number) => Math.min(600000, Math.max(0, Math.round(nowMs() - start)));
+interface Base { surface: RuxSurface; content_id?: string | null; story_id?: string | null; playback_type?: RuxPlaybackType | null }
+interface Measured { id: string; settle(outcome: RuxOutcome, measurements?: RuxMeasurements): void; cancel(): void; pending(): boolean }
+function measured(phase: RuxPhase, base: Base, diagnostic?: RuxEventType, timeout = 15000, id = newJourneyId(), finalMeasurements?: () => RuxMeasurements): Measured {
+  const start = nowMs();
+  let settled = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const settle = (outcome: RuxOutcome, measurements: RuxMeasurements = {}) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('pagehide', onPageHide);
+    emitEvent({ ...base, journey_id: id, event_type: 'journey_terminal', phase,
+      outcome: isHidden() && outcome !== 'cancelled' ? 'backgrounded' : outcome,
+      measurements: { duration_ms: elapsed(start), visible: !isHidden(), ...finalMeasurements?.(), ...measurements } });
+  };
+  const onVisibility = () => { if (isHidden()) settle('backgrounded', { visible: false }); };
+  const onPageHide = () => settle('backgrounded', { visible: false });
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pagehide', onPageHide);
+  if (diagnostic) emitEvent({ ...base, event_type: diagnostic, journey_id: id, measurements: { visible: !isHidden() } });
+  if (timeout) timer = setTimeout(() => settle('timeout', { failure_class: 'timeout' }), timeout);
+  if (isHidden()) settle('backgrounded', { visible: false });
+  return { id, settle, cancel: () => settle('cancelled'), pending: () => !settled };
 }
-
-export function isHidden(): boolean {
-  try {
-    return document.visibilityState === 'hidden';
-  } catch {
-    return false;
-  }
-}
-
-export function newJourneyId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function durationSince(start: number): number {
-  return Math.max(0, Math.round(nowMs() - start));
-}
-
-// ── Feed load journey (Pods + News) ───────────────────────────────────────
-// feed_requested (diagnostic) → one terminal: feed_rendered | feed_failed |
-// feed_empty. Only the terminal event counts toward SLIs.
-
-export interface FeedLoadJourney {
-  rendered(contentId?: string): void;
-  empty(): void;
-  failed(failureClass?: RuxFailureClass): void;
-}
-
+export interface FeedLoadJourney { rendered(contentId?: string): void; empty(): void; failed(failureClass?: RuxFailureClass): void; cancel(): void }
 export function beginFeedLoad(surface: RuxSurface): FeedLoadJourney {
-  const id = newJourneyId();
-  const start = nowMs();
-  let settled = false;
-  emitEvent({ event_type: 'feed_requested', surface, journey_id: id });
-
-  const settle = (fn: () => void) => {
-    if (settled) return;
-    settled = true;
-    fn();
-  };
-
-  return {
-    rendered(contentId?: string) {
-      settle(() =>
-        emitEvent({
-          event_type: 'feed_rendered',
-          surface,
-          journey_id: id,
-          content_id: contentId ?? null,
-          measurements: { duration_ms: durationSince(start), visible: !isHidden() },
-        })
-      );
-    },
-    empty() {
-      settle(() =>
-        emitEvent({
-          event_type: 'feed_empty',
-          surface,
-          journey_id: id,
-          measurements: { duration_ms: durationSince(start) },
-        })
-      );
-    },
-    failed(failureClass: RuxFailureClass = 'unknown') {
-      settle(() =>
-        emitEvent({
-          event_type: 'feed_failed',
-          surface,
-          journey_id: id,
-          measurements: { duration_ms: durationSince(start), failure_class: failureClass },
-        })
-      );
-    },
-  };
+  const base: Base = { surface };
+  const journey = measured('feed', base, 'feed_requested');
+  return { rendered: id => { base.content_id = id; journey.settle('success'); }, empty: () => journey.settle('empty'),
+    failed: (failure_class = 'unknown') => journey.settle('failed', { failure_class }), cancel: journey.cancel };
 }
-
-// ── Pagination journey ───────────────────────────────────────────────────────
-// pagination_requested (diagnostic) → terminal: pagination_received |
-// pagination_starved (user hit the boundary before a usable next unit arrived).
-
-export interface PaginationJourney {
-  received(): void;
-  starved(): void;
-}
-
+export interface PaginationJourney { received(): void; starved(): void; failed(): void; end(): void; cancel(): void }
 export function beginPagination(surface: RuxSurface): PaginationJourney {
-  const id = newJourneyId();
-  const start = nowMs();
-  let settled = false;
-  emitEvent({ event_type: 'pagination_requested', surface, journey_id: id });
-
-  const settle = (type: 'pagination_received' | 'pagination_starved') => {
-    if (settled) return;
-    settled = true;
-    emitEvent({
-      event_type: type,
-      surface,
-      journey_id: id,
-      measurements: { duration_ms: durationSince(start) },
-    });
-  };
-
-  return {
-    received: () => settle('pagination_received'),
-    starved: () => settle('pagination_starved'),
-  };
+  const journey = measured('pagination', { surface }, 'pagination_requested', 30000);
+  let boundaryStarved = false;
+  return { received: () => journey.settle('success', { boundary_starved: boundaryStarved }), starved: () => { boundaryStarved = true; },
+    failed: () => journey.settle('failed', { boundary_starved: boundaryStarved, failure_class: 'network' }),
+    end: () => journey.settle('end_of_feed'), cancel: journey.cancel };
 }
-
-// ── Playback journey (Pods card + global audio) ───────────────────────────
-// playback_attempted (diagnostic) → exactly one startup terminal:
-//   playback_started         — first progress after the attempt (success)
-//   playback_failed          — media error OR play() promise rejection
-//   playback_backgrounded    — tab went hidden mid-startup (ineligible; excluded
-//                              from numerator AND denominator, plan §12)
-// autoplay_blocked is a failure_class, NOT a fatal failure — the rollup layer
-// tracks it separately and excludes it from the fatal-failure SLI (plan §8).
-// Stalls (playback_waiting / playback_resumed) are post-start diagnostic signals.
-
-export interface PlaybackJourneyOpts {
-  surface: RuxSurface;
-  contentId?: string | null;
-  playbackType?: RuxPlaybackType | null;
-}
-
+export interface PlaybackJourneyOpts { surface: RuxSurface; contentId?: string | null; playbackType?: RuxPlaybackType | null; explicitIntent?: boolean; resumeContinuation?: boolean }
 export interface PlaybackJourney {
-  onProgress(): void;
-  onWaiting(): void;
-  onMediaError(code: number | null): void;
-  onPlayReject(err: unknown): void;
-  onHidden(): void;
+  onProgress(): void; onWaiting(): void; onMediaError(code: number | null): void; onPlayReject(error: unknown): void;
+  onHidden(): void; cancel(): void; finish(): void; fallback(type: RuxPlaybackType): void; pending(): boolean;
 }
-
 export function beginPlayback(opts: PlaybackJourneyOpts): PlaybackJourney {
-  const { surface, contentId, playbackType } = opts;
-  const id = newJourneyId();
-  const attemptAt = nowMs();
-  const hiddenAtStart = isHidden();
-  let startupSettled = false; // the attempt→started/failed terminal fired
-  let startedAt = 0;
-  let waitingAt = 0;
-
-  const base = {
-    surface,
-    journey_id: id,
-    content_id: contentId ?? null,
-    playback_type: playbackType ?? null,
-  } as const;
-
-  emitEvent({ event_type: 'playback_attempted', ...base });
-
-  const failStartup = (failureClass: RuxFailureClass, mediaErrorCode?: number | null) => {
-    if (startupSettled) return;
-    startupSettled = true;
-    emitEvent({
-      event_type: 'playback_failed',
-      ...base,
-      measurements: {
-        duration_ms: Math.max(0, Math.round(nowMs() - attemptAt)),
-        failure_class: failureClass,
-        media_error_code: mediaErrorCode ?? null,
-      },
-    });
+  const base: Base = { surface: opts.surface, content_id: opts.contentId, playback_type: opts.playbackType };
+  let usedFallback = false;
+  const startup = measured('startup', base, opts.resumeContinuation ? undefined : 'playback_attempted', 10000, undefined, () => ({ fallback_used: usedFallback }));
+  if (opts.resumeContinuation) startup.cancel();
+  let started = false;
+  let continuation: Measured | undefined;
+  let segmentStart = 0;
+  let waitingAt: number | null = null;
+  let stalls = 0;
+  let stallMS = 0;
+  let fallback: Measured | undefined;
+  let segmentFallback = false;
+  let segmentTimer: ReturnType<typeof setTimeout> | undefined;
+  const summary = (outcome: RuxOutcome) => {
+    if (!continuation) return;
+    if (waitingAt !== null) { stallMS += elapsed(waitingAt); waitingAt = null; }
+    continuation.settle(outcome, { observed_playback_ms: elapsed(segmentStart), stall_duration_ms: Math.min(elapsed(segmentStart), Math.round(stallMS)), stall_count: stalls, fallback_used: segmentFallback });
+    continuation = undefined;
+    clearTimeout(segmentTimer);
   };
-
-  const background = () => {
-    if (startupSettled) return;
-    startupSettled = true;
-    emitEvent({ event_type: 'playback_backgrounded', ...base, measurements: { visible: false } });
+  const startSegment = () => {
+    segmentStart = nowMs(); stallMS = 0; stalls = 0; segmentFallback = false;
+    continuation = measured('continuation', base, undefined, 0);
+    segmentTimer = setTimeout(() => { const stalled = waitingAt !== null; summary('success'); if (!isHidden()) { startSegment(); if (stalled) { waitingAt = nowMs(); stalls = 1; } } }, 60000);
   };
-
+  if (opts.resumeContinuation) { started = true; startSegment(); }
   return {
+    pending: () => startup.pending(),
     onProgress() {
-      if (startupSettled) {
-        // Post-start resume after a stall.
-        if (waitingAt > 0) {
-          waitingAt = 0;
-          emitEvent({ event_type: 'playback_resumed', ...base });
-        }
-        return;
-      }
-      if (startedAt !== 0) return;
-      startedAt = nowMs();
-      // If the tab was hidden during startup, this journey is measurement-
-      // ineligible — close it as backgrounded, not as a success.
-      if (hiddenAtStart || isHidden()) {
-        background();
-        return;
-      }
-      startupSettled = true;
-      emitEvent({
-        event_type: 'playback_started',
-        ...base,
-        measurements: { duration_ms: Math.max(0, Math.round(startedAt - attemptAt)), visible: true },
-      });
+      if (isHidden()) return;
+      if (!started) { started = true; startup.settle('success', { fallback_used: usedFallback }); startSegment(); }
+      fallback?.settle('success');
+      if (waitingAt !== null) { stallMS += elapsed(waitingAt); waitingAt = null; emitEvent({ ...base, event_type: 'playback_resumed', journey_id: startup.id, measurements: { visible: true } }); }
     },
     onWaiting() {
-      if (startedAt > 0 && startupSettled) {
-        waitingAt = nowMs();
-        emitEvent({ event_type: 'playback_waiting', ...base });
-      }
+      if (!started || isHidden() || waitingAt !== null) return;
+      waitingAt = nowMs(); stalls++;
+      emitEvent({ ...base, event_type: 'playback_waiting', journey_id: startup.id, measurements: { visible: true } });
     },
-    onMediaError(code: number | null) {
-      // Only the startup terminal is tracked in V1; a mid-playback error after a
-      // successful start is not re-counted as a startup failure.
-      failStartup('media_error', code);
+    onMediaError(media_error_code) {
+      startup.settle('failed', { failure_class: 'media_error', media_error_code, fallback_used: usedFallback });
+      fallback?.settle('failed', { failure_class: 'media_error' }); summary('failed');
     },
-    onPlayReject(err: unknown) {
-      const name = (err as { name?: string } | null)?.name;
-      failStartup(name === 'NotAllowedError' ? 'autoplay_blocked' : 'media_error');
+    onPlayReject(error) {
+      const policyBlock = (error as { name?: string } | null)?.name === 'NotAllowedError' && !opts.explicitIntent;
+      startup.settle(policyBlock ? 'autoplay_blocked' : 'failed', { failure_class: policyBlock ? 'autoplay_blocked' : 'media_error', fallback_used: usedFallback });
+      fallback?.settle('failed'); summary('failed');
     },
-    onHidden() {
-      background();
+    onHidden() { startup.settle('backgrounded', { visible: false }); fallback?.settle('backgrounded', { visible: false }); summary('backgrounded'); },
+    cancel() { startup.cancel(); fallback?.cancel(); summary(started ? 'success' : 'cancelled'); },
+    finish() { startup.cancel(); fallback?.cancel(); summary('success'); },
+    fallback(type) {
+      usedFallback = true; base.playback_type = type;
+      if (started) segmentFallback = true;
+      if (!fallback?.pending()) fallback = measured('fallback', base, 'playback_fallback', 10000, started ? newJourneyId() : startup.id);
     },
   };
 }
-
-// ── Playback fallback + handoff (thin emitters) ──────────────────────────────
-
-export function reportPlaybackFallback(opts: PlaybackJourneyOpts): void {
-  emitEvent({
-    event_type: 'playback_fallback',
-    surface: opts.surface,
-    content_id: opts.contentId ?? null,
-    playback_type: opts.playbackType ?? null,
-  });
+// Kept for external diagnostic callers; the playback owner correlates actual fallback.
+export function reportPlaybackFallback(opts: PlaybackJourneyOpts) { emitEvent({ event_type: 'playback_fallback', surface: opts.surface, content_id: opts.contentId, playback_type: opts.playbackType, measurements: { visible: !isHidden() } }); }
+export interface HandoffJourney { completed(actualPosition?: number): void; failed(): void; cancel(): void }
+export function beginHandoff(surface: RuxSurface, contentId?: string | null, expectedPosition = 0): HandoffJourney {
+  const journey = measured('handoff', { surface, content_id: contentId }, 'handoff_started', 4000);
+  return { completed: (actualPosition = expectedPosition) => {
+    const drift = Math.min(600000, Math.round(Math.abs(actualPosition - expectedPosition) * 1000));
+    journey.settle(drift <= 2000 ? 'success' : 'failed', { position_drift_ms: drift });
+  }, failed: () => journey.settle('failed'), cancel: journey.cancel };
 }
-
-export interface HandoffJourney {
-  completed(): void;
-  failed(): void;
-}
-
-export function beginHandoff(surface: RuxSurface, contentId?: string | null): HandoffJourney {
-  const id = newJourneyId();
-  const start = nowMs();
-  let settled = false;
-  emitEvent({ event_type: 'handoff_started', surface, journey_id: id, content_id: contentId ?? null });
-  const settle = (type: 'handoff_completed' | 'handoff_failed') => {
-    if (settled) return;
-    settled = true;
-    emitEvent({
-      event_type: type,
-      surface,
-      journey_id: id,
-      content_id: contentId ?? null,
-      measurements: { duration_ms: durationSince(start) },
-    });
-  };
-  return { completed: () => settle('handoff_completed'), failed: () => settle('handoff_failed') };
-}
-
-// ── Article reader journey (News) ────────────────────────────────────────────
-
-export interface ArticleJourney {
-  ready(): void;
-  failed(failureClass?: RuxFailureClass): void;
-}
-
-// article_opened is diagnostic. Exactly one terminal (ready or failed) owns the
-// article-readiness denominator, so an open/ready pair is never double-counted.
+export interface ArticleJourney { ready(): void; failed(failureClass?: RuxFailureClass): void; cancel(): void }
 export function beginArticle(storyId?: string | null, contentId?: string | null): ArticleJourney {
-  const id = newJourneyId();
-  const start = nowMs();
-  let settled = false;
-  emitEvent({ event_type: 'article_opened', surface: 'news', journey_id: id, story_id: storyId ?? null, content_id: contentId ?? null });
-  return {
-    ready() {
-      if (settled) return;
-      settled = true;
-      emitEvent({ event_type: 'article_ready', surface: 'news', journey_id: id, story_id: storyId ?? null, content_id: contentId ?? null, measurements: { duration_ms: durationSince(start) } });
-    },
-    failed(failureClass: RuxFailureClass = 'unknown') {
-      if (settled) return;
-      settled = true;
-      emitEvent({ event_type: 'article_failed', surface: 'news', journey_id: id, story_id: storyId ?? null, content_id: contentId ?? null, measurements: { duration_ms: durationSince(start), failure_class: failureClass } });
-    },
-  };
+  const journey = measured('reader', { surface: 'news', story_id: storyId, content_id: contentId }, 'article_opened');
+  return { ready: () => journey.settle('success'), failed: (failure_class = 'unknown') => journey.settle('failed', { failure_class }), cancel: journey.cancel };
 }
-
-// ── Client stability ─────────────────────────────────────────────────────────
-// Sanitized error-boundary / global error observation. NO message/stack text.
-
-export function reportClientFailure(surface: RuxSurface, failureClass: RuxFailureClass = 'unknown'): void {
-  emitEvent({ event_type: 'client_failure', surface, measurements: { failure_class: failureClass } });
-}
-
-// Re-exported for Slice 2 playback journeys.
+export function reportClientFailure(surface: RuxSurface, failure_class: RuxFailureClass = 'unknown') { emitEvent({ event_type: 'client_failure', surface, measurements: { failure_class, visible: !isHidden() } }); }
 export type { RuxFailureClass, RuxPlaybackType, RuxSurface };
+
+// Intent exists before a deep-link detail request. The mounted complete reader
+// takes ownership of this same attempt; it never creates a second denominator.
+const readerIntents = new Map<string, ArticleJourney>();
+export function beginReaderIntent(contentId: string): ArticleJourney {
+  for (const previous of readerIntents.values()) previous.cancel();
+  readerIntents.clear();
+  const journey = beginArticle(null, contentId);
+  readerIntents.set(contentId, journey);
+  return journey;
+}
+export function takeReaderIntent(contentId: string): ArticleJourney {
+  const journey = readerIntents.get(contentId);
+  return journey || beginReaderIntent(contentId);
+}
+export function releaseReaderIntent(contentId: string, journey: ArticleJourney): void {
+  journey.cancel();
+  if (readerIntents.get(contentId) === journey) readerIntents.delete(contentId);
+}
