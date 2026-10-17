@@ -206,7 +206,7 @@ export interface NewsResponse {
 export interface Interaction {
   id: string;
   content_item_id: string;
-  interaction_type: 'like' | 'bookmark' | 'share' | 'view' | 'complete' | 'comment';
+  interaction_type: 'like' | 'bookmark' | 'share' | 'view' | 'complete' | 'comment' | 'progress' | 'meaningful' | 'sampled' | 'quick_skip';
   created_at: string;
 }
 

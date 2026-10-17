@@ -1,5 +1,8 @@
 'use client';
 
+import { webConsumption } from '@/lib/playback/consumption-owner';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { useTrackingMutation } from '@/lib/hooks';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { usePlaybackTelemetry } from '@/lib/experience/use-playback-telemetry';
 import { beginHandoff } from '@/lib/experience/journeys';
@@ -28,6 +31,10 @@ function persistAudioPosition(audio: HTMLAudioElement, itemId: string) {
  */
 export function NowPlayingProvider() {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const identity = useAuthStore(s => s.user?.id ?? 'public');
+    const tracking = useTrackingMutation();
+    useEffect(() => { webConsumption.clearIdentity(identity); }, [identity]);
+    useEffect(() => () => webConsumption.release('global'), []);
     const lastPersistRef = useRef(0);
     const { audioSrc, isPlaying, playbackOwner, seekTo, pendingSeek, stop, clearSeek, clearPendingSeek } =
         useNowPlayingStore();
@@ -78,6 +85,7 @@ export function NowPlayingProvider() {
     // refresh or tab close, so without this the last few seconds are lost.
     useEffect(() => {
         const flush = () => {
+            webConsumption.release('global');
             const audio = audioRef.current;
             const { currentItem, playbackOwner } =
                 useNowPlayingStore.getState();
@@ -192,6 +200,8 @@ export function NowPlayingProvider() {
 
     // When track ends, clear the store
     const handleEnded = () => {
+        handleTimeUpdate(true);
+        webConsumption.release('global', true);
         stop();
     };
 
@@ -208,11 +218,13 @@ export function NowPlayingProvider() {
     // resume from it (audioPlaybackTime is read once by the card on return),
     // and persist a resume point at most every 5s — same cadence as the
     // <video> — so a reload mid-listen doesn't lose much.
-    const handleTimeUpdate = () => {
+    const handleTimeUpdate = (ended = false) => {
         const audio = audioRef.current;
         const { currentItem, playbackOwner } = useNowPlayingStore.getState();
         if (!audio || !currentItem || playbackOwner === 'pods') return;
 
+        webConsumption.observe(currentItem.id, identity, 'global', audio.currentTime, audio.duration, !audio.paused && !audio.seeking,
+            (contentId, event, metadata) => tracking.mutate({ contentId, type: event.type, metadata, expectedIdentity: identity }), Date.now(), audio.playbackRate, ended);
         audioPlaybackTime.itemId = currentItem.id;
         audioPlaybackTime.time = audio.currentTime;
         if (Number.isFinite(audio.duration)) {
@@ -229,8 +241,11 @@ export function NowPlayingProvider() {
     return (
         <audio
             ref={setAudio}
+            onPause={() => webConsumption.release('global')}
+            onSeeking={() => webConsumption.boundary('global')}
+            onSeeked={() => webConsumption.boundary('global')}
             onEnded={handleEnded}
-            onTimeUpdate={handleTimeUpdate}
+            onTimeUpdate={() => handleTimeUpdate()}
             onLoadedMetadata={handleLoadedMetadata}
             preload="auto"
             className="hidden"

@@ -343,11 +343,15 @@ export function useTrackingMutation() {
       contentId,
       type,
       metadata,
+      expectedIdentity,
     }: {
       contentId: string;
-      type: Extract<Interaction['interaction_type'], 'view' | 'complete'>;
+      type: Extract<Interaction['interaction_type'], 'view' | 'complete' | 'progress' | 'meaningful' | 'sampled' | 'quick_skip'>;
       metadata?: Record<string, unknown>;
+      expectedIdentity?: string;
     }) => {
+      // A queued callback must not attach the previous account/public session to a new login.
+      if (expectedIdentity !== undefined && expectedIdentity !== (useAuthStore.getState().user?.id ?? 'public')) return;
       await recordInteraction(contentId, type, metadata);
     },
   });

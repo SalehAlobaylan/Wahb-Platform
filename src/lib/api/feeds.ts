@@ -439,6 +439,7 @@ export async function recordInteraction(
 
   const response = await fetch(`${API_BASE}/interactions`, {
     method: 'POST',
+    keepalive: true,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       content_item_id: contentItemId,

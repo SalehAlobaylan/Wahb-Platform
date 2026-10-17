@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/lib/test-utils';
 import { PodsCard } from '@/components/feed/pods-card';
@@ -49,6 +50,7 @@ describe('PodsCard', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: randomUUID });
         useFeedStore.setState({
             isPlaying: true,
             globalPaused: false,
@@ -70,6 +72,34 @@ describe('PodsCard', () => {
         trackingMutate.mockReset();
         mockUseTrackingMutation.mockReturnValue({ mutate: trackingMutate });
 		mockUsePlaybackPreferences.mockReturnValue({ data: undefined });
+    });
+
+    it.each(['VIDEO', 'PODCAST'] as const)('excludes short seeks from %s completion evidence without extra requests', (type) => {
+        let now = 1000;
+        const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+        const { container } = renderWithProviders(<PodsCard item={{ ...mockItem, type, has_video: type === 'VIDEO' }} isActive />);
+        const media = container.querySelector('video, audio') as HTMLMediaElement;
+        Object.defineProperty(media, 'duration', { configurable: true, value: 120 });
+        Object.defineProperty(media, 'paused', { configurable: true, value: false });
+        Object.defineProperty(media, 'currentTime', { configurable: true, writable: true, value: 0 });
+        fireEvent.timeUpdate(media);
+        now += 2000;
+        media.currentTime = 2;
+        fireEvent.timeUpdate(media);
+        fireEvent.seeking(media);
+        media.currentTime = 4;
+        fireEvent.seeked(media);
+        fireEvent.timeUpdate(media);
+        now += 1000;
+        media.currentTime = 5;
+        fireEvent.timeUpdate(media);
+        expect(trackingMutate).not.toHaveBeenCalled();
+        fireEvent.ended(media);
+        expect(trackingMutate).toHaveBeenCalledTimes(1);
+        expect(trackingMutate).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'quick_skip', metadata: expect.objectContaining({ actual_played_seconds: 3, consumption_classification: 'quick_skip' }),
+        }));
+        clock.mockRestore();
     });
 
     it('renders video in fit mode by default', () => {

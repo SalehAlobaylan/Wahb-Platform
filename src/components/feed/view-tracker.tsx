@@ -39,6 +39,8 @@ export function useViewTracking({
                         type: 'view',
                         metadata: {
                             viewedAt: new Date().toISOString(),
+                            economics_version: 1,
+                            economics_observation: "viewport_exposure_v1",
                             intersectionRatio: entry.intersectionRatio,
                         },
                     });

@@ -22,6 +22,7 @@ import { attachManagedHls } from '@/lib/playback/hls-adapter';
 import { playbackCapabilitiesFor, resolvePlaybackSources, type PlaybackCapabilities } from '@/lib/playback/source-resolver';
 import { useTranslations } from '@/lib/i18n';
 import type { ContentItem } from '@/types';
+import { webConsumption } from '@/lib/playback/consumption-owner';
 import type { PodsDisplayMode } from '@/lib/stores/feed-store';
 
 interface PodsCardProps {
@@ -55,6 +56,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     const [sourceAttempt, setSourceAttempt] = useState({ itemId: item.id, attempt: 0, failed: false });
     const shouldReduceMotion = useReducedMotion();
     const wasActiveRef = useRef(false);
+    const economicsIdentity = useAuthStore(s => s.user?.id ?? 'public');
+    useEffect(() => { webConsumption.clearIdentity(economicsIdentity); }, [economicsIdentity]);
+    useEffect(() => { if (isActive) return () => webConsumption.release('pods'); }, [isActive, item.id]);
     const lastPersistRef = useRef(0);
     const latestPlaybackRef = useRef<{ time: number; percent: number } | null>(null);
     // Resume target applied on activation; re-applied on loadedmetadata in case
@@ -347,6 +351,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     useEffect(() => {
         if (!isActive) return;
         const flush = () => {
+            webConsumption.release('pods');
             const latest = latestPlaybackRef.current;
             if (latest) {
                 setPodsPlayback(item.id, latest.time, latest.percent);
@@ -356,10 +361,13 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         return () => window.removeEventListener('pagehide', flush);
     }, [isActive, item.id, setPodsPlayback]);
 
+    const resetConsumptionBaseline = () => webConsumption.boundary('pods');
     const handleTimeUpdate = () => {
         if (!videoRef.current) return;
         pendingResumeRef.current = null;
         const nextTime = videoRef.current.currentTime;
+        if (isActive) webConsumption.observe(item.id, economicsIdentity, 'pods', nextTime, videoRef.current.duration, !videoRef.current.paused && !videoRef.current.seeking,
+            (contentId, event, metadata) => trackingMutation.mutate({ contentId, type: event.type, metadata, expectedIdentity: economicsIdentity }), Date.now(), videoRef.current.playbackRate);
         const percent = (nextTime / videoRef.current.duration) * 100;
         const safePercent = Number.isFinite(percent) ? percent : 0;
         if (isActive) {
@@ -389,6 +397,8 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         if (!audio) return;
         pendingResumeRef.current = null;
         const nextTime = audio.currentTime;
+        if (isActive) webConsumption.observe(item.id, economicsIdentity, 'pods', nextTime, audio.duration, !audio.paused && !audio.seeking,
+            (contentId, event, metadata) => trackingMutation.mutate({ contentId, type: event.type, metadata, expectedIdentity: economicsIdentity }), Date.now(), audio.playbackRate);
         const percent = Number.isFinite(audio.duration) && audio.duration > 0
             ? (nextTime / audio.duration) * 100
             : 0;
@@ -409,8 +419,11 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         if (completedRef.current) return;
         completedRef.current = true;
         setPlaying(false);
-        trackingMutation.mutate({ contentId: item.id, type: 'complete' });
-    }, [item.id, setPlaying, trackingMutation]);
+        const media = visualPlayback ? videoRef.current : audioRef.current;
+        if (media && isActive) webConsumption.observe(item.id, economicsIdentity, 'pods', media.currentTime, media.duration, false,
+            (contentId, event, metadata) => trackingMutation.mutate({ contentId, type: event.type, metadata, expectedIdentity: economicsIdentity }), Date.now(), media.playbackRate, true);
+        webConsumption.release('pods', true);
+    }, [item.id, setPlaying, trackingMutation, visualPlayback, isActive, economicsIdentity]);
 
     // Natural end is terminal for one playback run. A user tap after that is
     // an explicit replay: reset media/progress first, then let the normal
@@ -418,6 +431,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
     const togglePlayback = useCallback(() => {
         const media = visualPlayback ? videoRef.current : audioRef.current;
         if (completedRef.current && media) {
+            webConsumption.replay('pods');
             completedRef.current = false;
             media.currentTime = 0;
             latestPlaybackRef.current = { time: 0, percent: 0 };
@@ -478,6 +492,7 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
         const audio = audioRef.current;
         if (!isActive || !audio || !Number.isFinite(seconds) || !(audioDuration > 0)) return;
         const next = Math.max(0, Math.min(audioDuration, seconds));
+        resetConsumptionBaseline();
         try { audio.currentTime = next; } catch { return; }
         pendingResumeRef.current = next;
         completedRef.current = false;
@@ -525,6 +540,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                             muted={false}
                             playsInline
                             onTimeUpdate={handleTimeUpdate}
+                            onPause={() => webConsumption.release('pods')}
+                            onSeeking={resetConsumptionBaseline}
+                            onSeeked={resetConsumptionBaseline}
                             onEnded={recordCompletion}
                             onError={advancePlaybackSource}
                             onClick={togglePlayback}
@@ -542,6 +560,9 @@ export function PodsCard({ item, isActive, shouldLoadMedia = false, videoTimeRef
                             src={playbackUrl}
                             preload={isActive ? 'auto' : 'metadata'}
                             onTimeUpdate={handleAudioTimeUpdate}
+                            onPause={() => webConsumption.release('pods')}
+                            onSeeking={resetConsumptionBaseline}
+                            onSeeked={resetConsumptionBaseline}
                             onEnded={recordCompletion}
                             onError={advancePlaybackSource}
                         />
